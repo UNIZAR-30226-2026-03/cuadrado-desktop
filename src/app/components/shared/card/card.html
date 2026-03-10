@@ -1,0 +1,16 @@
+<div class="tarjeta-juego" [class.boca-abajo]="!carta.estaVisible">
+    <ng-container *ngIf="carta.estaVisible">
+      <div class="valor top">{{ carta.valor }}</div>
+      <div class="palo center">
+        <span *ngIf="carta.palo === 'hearts'">♥️</span>
+        <span *ngIf="carta.palo === 'diamonds'">♦️</span>
+        <span *ngIf="carta.palo === 'clubs'">♣️</span>
+        <span *ngIf="carta.palo === 'spades'">♠️</span>
+      </div>
+      <div class="valor bottom">{{ carta.valor }}</div>
+    </ng-container>
+  
+    <ng-container *ngIf="!carta.estaVisible">
+      <div class="reverso-patron">Logo Cuadrado</div>
+    </ng-container>
+  </div>

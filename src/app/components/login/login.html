@@ -1,0 +1,20 @@
+<div class="login-container">
+  <h1>Cuadrado</h1>
+  
+  <form [formGroup]="loginForm" (ngSubmit)="onAcceder()">
+    
+    <div>
+      <label>Usuario:</label>
+      <input type="text" formControlName="username" placeholder="Tu nombre de usuario">
+    </div>
+
+    <div>
+      <label>Contraseña:</label>
+      <input type="password" formControlName="password" placeholder="Tu contraseña">
+    </div>
+
+    <p *ngIf="errorMensaje" style="color: red;">{{ errorMensaje }}</p>
+
+    <button type="submit" [disabled]="loginForm.invalid">Acceder al lobby</button>
+  </form>
+</div>

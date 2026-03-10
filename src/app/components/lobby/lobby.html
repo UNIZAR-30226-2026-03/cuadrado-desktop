@@ -1,0 +1,113 @@
+<div class="lobby">
+
+  <!-- ═══ Header bar ═══ -->
+  <header class="lobby-header" @headerSlide>
+    <div class="lobby-top-right">
+      <div class="lobby-stats">
+        <div class="stat-pill">
+          <span class="stat-pill__icon">💎</span>
+          <span>{{ usuario?.monedas ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">⭐</span>
+          <span>{{ usuario?.exp ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">🏆</span>
+          <span>#{{ usuario?.ranking ?? '—' }}</span>
+        </div>
+      </div>
+
+      <div class="profile-menu-wrap">
+        <button class="icon-btn" (click)="toggleProfileMenu()" title="Perfil">👤</button>
+        @if (showProfileMenu) {
+          <div class="profile-menu">
+            <button class="profile-menu__item" (click)="openChangePasswordPopup()">
+              Cambiar contraseña
+            </button>
+            <button class="profile-menu__item profile-menu__item--danger" (click)="onLogout()">
+              Cerrar sesión
+            </button>
+          </div>
+        }
+      </div>
+    </div>
+  </header>
+
+  <!-- ═══ Center logo ═══ -->
+  <main class="lobby-main">
+    <div class="lobby-center-logo">
+      <img class="logo-img logo-img--hero" src="logo.png" alt="Cubo" />
+    </div>
+  </main>
+
+  <!-- ═══ Bottom navigation cards ═══ -->
+  <section class="lobby-nav-bottom" @navStagger>
+
+    <!-- Grupo 1: Crear Partida -->
+    <div class="nav-group nav-group--primary">
+      <button class="nav-card" (click)="navegar('/create-room')">
+        <span class="nav-card__glow" aria-hidden="true"></span>
+        <span class="nav-card__icon">▶</span>
+        <span class="nav-card__label">Crear Partida</span>
+      </button>
+    </div>
+
+    <!-- Grupo 2: Unirse, Tienda, Inventario -->
+    <div class="nav-group nav-group--secondary">
+      <button class="nav-card" (click)="navegar('/rooms')">
+        <span class="nav-card__icon">🔍</span>
+        <span class="nav-card__label">Unirse a Sala</span>
+      </button>
+      <button class="nav-card" (click)="navegar('/shop')">
+        <span class="nav-card__icon">🛒</span>
+        <span class="nav-card__label">Tienda</span>
+      </button>
+      <button class="nav-card" (click)="navegar('/inventory')">
+        <span class="nav-card__icon">🧰</span>
+        <span class="nav-card__label">Inventario</span>
+      </button>
+    </div>
+
+  </section>
+
+  @if (showChangePasswordPopup) {
+    <div class="change-popup-overlay" (click)="closeChangePasswordPopup()">
+      <div class="change-popup glass-card" (click)="$event.stopPropagation()">
+        <h3>Cambiar contraseña</h3>
+
+        @if (changePasswordMessage) {
+          <p class="popup-msg popup-msg--ok">{{ changePasswordMessage }}</p>
+        }
+        @if (changePasswordError) {
+          <p class="popup-msg popup-msg--error">{{ changePasswordError }}</p>
+        }
+
+        <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()">
+          <label>Contraseña actual</label>
+          <input class="input-neon" type="password" formControlName="passwordActual" placeholder="••••••••" />
+
+          <label>Nueva contraseña</label>
+          <input class="input-neon" type="password" formControlName="passwordNueva" placeholder="••••••••" />
+          @if (changePasswordForm.get('passwordNueva')?.touched && changePasswordForm.get('passwordNueva')?.hasError('minlength')) {
+            <span class="popup-error">Mínimo 8 caracteres</span>
+          }
+
+          <label>Confirmar nueva contraseña</label>
+          <input class="input-neon" type="password" formControlName="confirmarPassword" placeholder="••••••••" />
+          @if (changePasswordForm.get('confirmarPassword')?.touched && changePasswordForm.hasError('passwordsMismatch')) {
+            <span class="popup-error">Las contraseñas no coinciden</span>
+          }
+
+          <div class="popup-actions">
+            <button type="button" class="btn-ghost" (click)="closeChangePasswordPopup()">Cancelar</button>
+            <button type="submit" class="btn-neon" [disabled]="changingPassword">
+              {{ changingPassword ? 'Guardando...' : 'Guardar' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+
+</div>

@@ -1,0 +1,325 @@
+// ═════════════════════════════════════════════════════════════════════════════
+//  LOBBY — reescrito desde cero
+//  Estructura: header(auto) | logo(1fr) | botones(auto)
+//  Margen global: 40px en todos los bordes
+// ═════════════════════════════════════════════════════════════════════════════
+
+$margin: 20px;
+
+.lobby {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  padding: $margin $margin 30px;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+}
+
+// ── Header ──────────────────────────────────────────────────────────────────
+.lobby-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.lobby-top-right {
+  display: flex;
+  align-items: center;
+  gap: 44px;
+}
+
+.lobby-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  backdrop-filter: blur(12px);
+  transition: all 250ms;
+
+  &:hover {
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  }
+  &__icon { font-size: 14px; }
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text-80);
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 250ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.15);
+    transform: rotate(45deg);
+  }
+}
+
+// ── Logo (ocupa TODO el espacio restante) ───────────────────────────────────
+.lobby-main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  margin-bottom: -10px;
+}
+
+.lobby-center-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  animation: breathe-glow 4.5s ease-in-out infinite;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+  }
+}
+
+// ── Botones de navegación ───────────────────────────────────────────────────
+.lobby-nav-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 22px;
+  border: 1.5px solid rgba(0, 229, 255, 0.45);
+  box-shadow:
+    0 0 16px rgba(0, 229, 255, 0.18),
+    inset 0 0 24px rgba(0, 229, 255, 0.04);
+  background: rgba(0, 229, 255, 0.03);
+  backdrop-filter: blur(8px);
+  transition: box-shadow 350ms;
+
+  &:hover {
+    box-shadow:
+      0 0 28px rgba(0, 229, 255, 0.30),
+      inset 0 0 32px rgba(0, 229, 255, 0.07);
+  }
+
+  &--primary {
+    border-color: rgba(0, 229, 255, 0.65);
+    box-shadow:
+      0 0 22px rgba(0, 229, 255, 0.30),
+      0 0 6px rgba(0, 229, 255, 0.20) inset;
+
+    &:hover {
+      box-shadow:
+        0 0 38px rgba(0, 229, 255, 0.45),
+        0 0 12px rgba(0, 229, 255, 0.25) inset;
+    }
+  }
+}
+
+.nav-card {
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 120px;
+  height: 110px;
+  background: var(--glass);
+  border: 1.5px solid var(--glass-border);
+  border-radius: 18px;
+  backdrop-filter: blur(16px);
+  color: var(--text-100);
+  cursor: pointer;
+  transition:
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    background 220ms ease;
+
+  &:hover {
+    border-color: #00e5ff;
+    background: rgba(0, 229, 255, 0.07);
+    box-shadow:
+      0 0 20px rgba(0, 229, 255, 0.55),
+      0 0 50px rgba(0, 229, 255, 0.20),
+      inset 0 0 18px rgba(0, 229, 255, 0.10);
+
+    .nav-card__icon {
+      filter: drop-shadow(0 0 14px rgba(0, 229, 255, 0.9));
+    }
+
+    .nav-card__label {
+      color: #00e5ff;
+      text-shadow: 0 0 12px rgba(0, 229, 255, 0.7);
+    }
+  }
+
+  &:active {
+    transform: scale(0.96);
+  }
+
+  &__glow {
+    position: absolute;
+    inset: -30%;
+    background: radial-gradient(circle, rgba(0, 229, 255, 0.08), transparent 65%);
+    animation: breathe 4s ease-in-out infinite;
+    pointer-events: none;
+  }
+
+  &__icon {
+    font-size: 28px;
+    line-height: 1;
+    filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.3));
+    transition: filter 220ms ease;
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    text-align: center;
+    transition: color 220ms ease, text-shadow 220ms ease;
+  }
+}
+
+// ── Profile dropdown ────────────────────────────────────────────────────────
+.profile-menu-wrap {
+  position: relative;
+}
+
+.profile-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 180px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  padding: 6px;
+  z-index: 5;
+
+  &__item {
+    width: 100%;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text-80);
+    padding: 10px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 220ms;
+
+    &:hover {
+      background: rgba(0, 229, 255, 0.1);
+      color: var(--neon-cyan);
+    }
+
+    &--danger {
+      color: #ff4d6d;
+    }
+
+    &--danger:hover {
+      background: rgba(255, 77, 109, 0.14);
+      color: #ff2244;
+    }
+  }
+}
+
+// ── Change password popup ───────────────────────────────────────────────────
+.change-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(1, 6, 18, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.change-popup {
+  width: min(460px, 92vw);
+  padding: 24px;
+
+  h3 {
+    font-size: 22px;
+    margin-bottom: 18px;
+    color: var(--text-100);
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  label {
+    font-size: 12px;
+    color: var(--text-80);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+}
+
+.popup-msg {
+  font-size: 13px;
+  margin-bottom: 8px;
+  &--ok { color: #7dffb0; }
+  &--error { color: #ff9abf; }
+}
+
+.popup-error {
+  font-size: 12px;
+  color: #ff9abf;
+  margin-top: -2px;
+}
+
+.popup-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+
+  .btn-neon,
+  .btn-ghost {
+    padding: 10px 16px;
+    font-size: 13px;
+  }
+}

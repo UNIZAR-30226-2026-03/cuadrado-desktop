@@ -1,0 +1,48 @@
+<div class="auth-page">
+  <a class="auth-back" routerLink="/">Volver</a>
+
+  <div class="auth-card" @cardSpring>
+    <div class="auth-logo" @logoReveal>
+      <img class="logo-img" src="logo.png" alt="Cubo" />
+    </div>
+
+    <form class="auth-form" [formGroup]="form" (ngSubmit)="onSubmit()">
+      @if (errorMsg) {
+        <div class="auth-message auth-message--error">{{ errorMsg }}</div>
+      }
+      <div class="auth-field">
+        <label class="auth-field__label">Usuario</label>
+        <input class="auth-field__input" type="text" formControlName="usuario"
+               placeholder="Tu nombre de usuario" autocomplete="username" />
+        @if (form.get('usuario')?.touched && form.get('usuario')?.hasError('required')) {
+          <span class="auth-field__error">Campo obligatorio</span>
+        }
+        @if (form.get('usuario')?.touched && form.get('usuario')?.hasError('minlength')) {
+          <span class="auth-field__error">Mínimo 3 caracteres</span>
+        }
+      </div>
+
+      <div class="auth-field">
+        <label class="auth-field__label">Contraseña</label>
+        <input class="auth-field__input" type="password" formControlName="contrasena"
+               placeholder="••••••••" autocomplete="current-password" />
+        @if (form.get('contrasena')?.touched && form.get('contrasena')?.hasError('required')) {
+          <span class="auth-field__error">Campo obligatorio</span>
+        }
+        @if (form.get('contrasena')?.touched && form.get('contrasena')?.hasError('minlength')) {
+          <span class="auth-field__error">Mínimo 8 caracteres</span>
+        }
+      </div>
+
+      <button class="auth-submit" type="submit" [disabled]="loading || (form.invalid && form.touched)">
+        {{ loading ? 'Entrando...' : 'Iniciar Sesión' }}
+      </button>
+    </form>
+
+    <div class="auth-links">
+      <a routerLink="/forgot-password">¿Olvidaste tu contraseña?</a>
+    </div>
+  </div>
+
+  <div class="sparkle-deco" style="bottom:22%; right:14%"></div>
+</div>
