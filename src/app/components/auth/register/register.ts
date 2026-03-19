@@ -3,6 +3,7 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractContro
 import { Router,RouterLink } from '@angular/router';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { AuthService } from '../../../services/auth';
+import { finalize, timeout } from 'rxjs';
 
 @Component({
   selector: 'app-register',
@@ -58,17 +59,27 @@ export class RegisterComponent {
     this.loading = true;
 
     // Usamos .subscribe() para "echar la carta al buzón" y esperar la respuesta
-    this.auth.registrar(usuario, email, contrasena).subscribe({
+    this.auth.registrar(usuario, email, contrasena)
+      .pipe(
+        // Evita dejar la UI bloqueada si el backend no responde
+        timeout(10000),
+        finalize(() => {
+          this.loading = false;
+        })
+      )
+      .subscribe({
       next: (respuesta) => {
-        this.loading = false;
         console.log('¡Registro exitoso!', respuesta);
         // Redirigimos al usuario a la pantalla de login para que entre
         this.router.navigate(['/login']);
       },
       error: (err: any) => {
-        this.loading = false;
-        // Si el backend se queja (ej. usuario duplicado), mostramos el error
-        this.errorMsg = err?.error?.message ?? 'No se pudo registrar el usuario';
+        if (err?.name === 'TimeoutError' || err?.status === 0) {
+          this.errorMsg = 'No hay conexión con el servidor. Inténtalo de nuevo en unos segundos.';
+        } else {
+          // Si el backend se queja (ej. usuario duplicado), mostramos el error
+          this.errorMsg = err?.error?.message ?? 'No se pudo registrar el usuario';
+        }
         console.error('Error al registrar:', err);
       }
     });

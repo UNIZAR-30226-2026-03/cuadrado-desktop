@@ -1,0 +1,209 @@
+<div class="shop">
+
+  <!-- ═══ Header ═══ -->
+  <header class="shop-header">
+    <button class="back-btn" (click)="goBack()" title="Volver al lobby">
+      ← Lobby
+    </button>
+
+    <div class="shop-top-right">
+      <div class="shop-stats">
+        <div class="stat-pill">
+          <span class="stat-pill__icon">💎</span>
+          <span>{{ usuario?.monedas ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">⭐</span>
+          <span>{{ usuario?.exp ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">🏆</span>
+          <span>#{{ usuario?.ranking ?? '—' }}</span>
+        </div>
+      </div>
+      <button class="icon-btn" (click)="goToInventory()" title="Inventario">🧰</button>
+    </div>
+  </header>
+
+  <!-- ═══ Título ═══ -->
+  <h1 class="page-title">
+    <span class="page-title__icon">🛒</span>
+    Tienda
+  </h1>
+
+  <!-- ═══ Pestañas ═══ -->
+  <div class="tabs">
+    <button class="tab" [class.tab--active]="activeTab() === 'Carta'" (click)="setTab('Carta')">
+      🃏 Cartas
+    </button>
+    <button class="tab" [class.tab--active]="activeTab() === 'Tapete'" (click)="setTab('Tapete')">
+      🟩 Tapetes
+    </button>
+  </div>
+
+  <!-- ═══ Artículo destacado ═══ -->
+  @if (featuredSkin(); as featured) {
+    <section class="featured glass-card">
+      <div class="featured__preview" [style.background]="getSkinGradient(featured.name)">
+        @if (!imgFailed().has(featured.name)) {
+          <img class="featured__img" [src]="getSkinImageUrl(featured)" [alt]="featured.name" (error)="onImgError(featured.name)">
+        } @else {
+          <span class="featured__icon">{{ getSkinIcon(featured.name) }}</span>
+        }
+        <div class="featured__glow"></div>
+      </div>
+      <div class="featured__info">
+        <span class="rarity-badge" [class]="getRarityClass(featured.price)">
+          {{ getRarityLabel(featured.price) }}
+        </span>
+        <h2 class="featured__name">{{ featured.name }}</h2>
+        <p class="featured__label">✨ Artículo destacado</p>
+        @if (isOwned(featured)) {
+          @if (isEquipped(featured)) {
+            <span class="equipped-badge">✓ EQUIPADO</span>
+          } @else {
+            <button class="btn-neon btn--sm" (click)="equipSkin(featured)">EQUIPAR</button>
+          }
+        } @else {
+          <div class="featured__price">
+            <span class="price-tag">💎 {{ featured.price | number }}</span>
+          </div>
+          <button class="btn-neon btn--sm"
+                  [disabled]="!canAfford(featured)"
+                  (click)="openBuyModal(featured)">
+            COMPRAR
+          </button>
+        }
+      </div>
+    </section>
+  }
+
+  <!-- ═══ Filtros y ordenación ═══ -->
+  <div class="filters">
+    <div class="filter-group">
+      <label class="filter-label">Rareza:</label>
+      <button class="filter-btn" [class.filter-btn--active]="filterRarity() === 'Todas'" (click)="setFilter('Todas')">Todas</button>
+      <button class="filter-btn rarity--comun" [class.filter-btn--active]="filterRarity() === 'Comun'" (click)="setFilter('Comun')">Común</button>
+      <button class="filter-btn rarity--rara" [class.filter-btn--active]="filterRarity() === 'Rara'" (click)="setFilter('Rara')">Rara</button>
+      <button class="filter-btn rarity--epica" [class.filter-btn--active]="filterRarity() === 'Epica'" (click)="setFilter('Epica')">Épica</button>
+      <button class="filter-btn rarity--legendaria" [class.filter-btn--active]="filterRarity() === 'Legendaria'" (click)="setFilter('Legendaria')">Legendaria</button>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label">Ordenar:</label>
+      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-asc'" (click)="setSort('price-asc')">Precio ↑</button>
+      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-desc'" (click)="setSort('price-desc')">Precio ↓</button>
+      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'name'" (click)="setSort('name')">Nombre</button>
+    </div>
+  </div>
+
+  <!-- ═══ Cuadrícula de skins ═══ -->
+  @if (loading()) {
+    <div class="loading-state">
+      <span class="loading-spinner"></span>
+      <p>Cargando tienda...</p>
+    </div>
+  } @else if (filteredSkins().length === 0) {
+    <div class="empty-state">
+      <span class="empty-state__icon">🔍</span>
+      <p>No se encontraron artículos con estos filtros.</p>
+    </div>
+  } @else {
+    <section class="skins-grid" @gridStagger>
+      @for (skin of filteredSkins(); track skin.name) {
+        <div class="skin-card glass-card" [class.skin-card--owned]="isOwned(skin)" [class.skin-card--equipped]="isEquipped(skin)">
+          <!-- Preview -->
+          <div class="skin-card__preview" [style.background]="getSkinGradient(skin.name)">
+            @if (!imgFailed().has(skin.name)) {
+              <img class="skin-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+            } @else {
+              <span class="skin-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+            }
+            @if (isOwned(skin)) {
+              <div class="owned-overlay">✓</div>
+            }
+          </div>
+
+          <!-- Info -->
+          <div class="skin-card__body">
+            <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+              {{ getRarityLabel(skin.price) }}
+            </span>
+            <h3 class="skin-card__name">{{ skin.name }}</h3>
+
+            @if (isOwned(skin)) {
+              @if (isEquipped(skin)) {
+                <span class="equipped-badge">✓ EQUIPADO</span>
+              } @else {
+                <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
+              }
+            } @else {
+              <div class="skin-card__price">
+                <span class="price-tag">💎 {{ skin.price | number }}</span>
+              </div>
+              <button class="btn-neon btn--xs"
+                      [disabled]="!canAfford(skin)"
+                      (click)="openBuyModal(skin)">
+                {{ canAfford(skin) ? 'COMPRAR' : 'SIN FONDOS' }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+  <!-- ═══ Modal de confirmación ═══ -->
+  @if (modalType()) {
+    <div class="modal-overlay" (click)="closeModal()">
+      <div class="modal glass-card" (click)="$event.stopPropagation()">
+
+        @if (modalType() === 'confirm') {
+          <div class="modal__icon">🛒</div>
+          <h3 class="modal__title">Confirmar compra</h3>
+          <p class="modal__text">
+            ¿Quieres comprar <strong>{{ modalSkin()?.name }}</strong> por
+            <span class="price-tag">💎 {{ modalSkin()?.price | number }}</span>?
+          </p>
+          <div class="modal__preview" [style.background]="getSkinGradient(modalSkin()?.name ?? '')">
+            @if (modalSkin(); as ms) {
+              @if (!imgFailed().has(ms.name)) {
+                <img class="modal__img" [src]="getSkinImageUrl(ms)" [alt]="ms.name" (error)="onImgError(ms.name)">
+              } @else {
+                <span class="modal__emoji">{{ getSkinIcon(ms.name) }}</span>
+              }
+            }
+          </div>
+          <div class="modal__actions">
+            <button class="btn-ghost btn--sm" (click)="closeModal()">Cancelar</button>
+            <button class="btn-neon btn--sm" [disabled]="purchasing()" (click)="confirmPurchase()">
+              {{ purchasing() ? 'Comprando...' : 'Confirmar' }}
+            </button>
+          </div>
+        }
+
+        @if (modalType() === 'insufficient') {
+          <div class="modal__icon">😢</div>
+          <h3 class="modal__title">Fondos insuficientes</h3>
+          <p class="modal__text">
+            Necesitas <span class="price-tag">💎 {{ modalSkin()?.price | number }}</span>
+            pero solo tienes <span class="price-tag">💎 {{ usuario?.monedas ?? 0 | number }}</span>.
+          </p>
+          <p class="modal__subtext">¡Sigue jugando para ganar más cubitos!</p>
+          <div class="modal__actions">
+            <button class="btn-neon btn--sm" (click)="closeModal()">Entendido</button>
+          </div>
+        }
+
+        @if (modalType() === 'success') {
+          <div class="modal__icon">🎉</div>
+          <h3 class="modal__title">¡Compra exitosa!</h3>
+          <p class="modal__text">
+            <strong>{{ modalSkin()?.name }}</strong> se ha añadido a tu inventario.
+          </p>
+        }
+
+      </div>
+    </div>
+  }
+
+</div>

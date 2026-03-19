@@ -72,6 +72,7 @@ export class AuthService {
     const refreshToken = localStorage.getItem('refreshToken') || ''; // Si usas refresh tokens
     
     this.http.post(`${environment.apiUrl}/auth/logout`, { refreshToken }, { headers })
+    
       .subscribe({
         next: () => this.limpiarSesion(),
         error: () => this.limpiarSesion() // Limpiamos el front incluso si el back falla

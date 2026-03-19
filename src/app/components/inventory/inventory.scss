@@ -1,0 +1,472 @@
+// ═════════════════════════════════════════════════════════════════════════════
+//  INVENTARIO — Página del inventario de skins
+// ═════════════════════════════════════════════════════════════════════════════
+
+$margin: 20px;
+
+.inventory {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  padding: $margin;
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  gap: 16px;
+}
+
+// ── Header (reutilizado del shop) ───────────────────────────────────────────
+.inv-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  color: var(--text-80);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 250ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.15);
+  }
+}
+
+.inv-top-right {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.inv-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  backdrop-filter: blur(12px);
+  transition: all 250ms;
+
+  &:hover {
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
+  }
+  &__icon { font-size: 14px; }
+}
+
+.icon-btn {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  color: var(--text-80);
+  font-size: 17px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 250ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.15);
+  }
+}
+
+// ── Título ──────────────────────────────────────────────────────────────────
+.page-title {
+  font-family: var(--font-display);
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-100);
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+  flex-shrink: 0;
+
+  &__icon { margin-right: 8px; }
+}
+
+// ── Equipados actualmente ───────────────────────────────────────────────────
+.equipped-section {
+  padding: 20px;
+  flex-shrink: 0;
+}
+
+.section-title {
+  font-family: var(--font-display);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-80);
+  margin-bottom: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.equipped-row {
+  display: flex;
+  gap: 24px;
+  justify-content: center;
+}
+
+.equipped-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+
+  &__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-50);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  &__preview {
+    width: 130px;
+    height: 100px;
+    border-radius: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid rgba(0, 229, 255, 0.3);
+    transition: all 300ms;
+
+    &--empty {
+      background: var(--glass) !important;
+      border-style: dashed;
+      border-color: var(--glass-border);
+    }
+  }
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  &__emoji {
+    font-size: 36px;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-100);
+
+    &.empty-text {
+      color: var(--text-50);
+      font-style: italic;
+    }
+  }
+}
+
+// ── Estadísticas ────────────────────────────────────────────────────────────
+.stats-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+}
+
+.stat-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 12px 20px;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  backdrop-filter: blur(12px);
+  min-width: 100px;
+
+  &__value {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--neon-cyan);
+  }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-50);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: center;
+  }
+}
+
+// ── Pestañas ────────────────────────────────────────────────────────────────
+.tabs {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.tab {
+  padding: 10px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  color: var(--text-50);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 250ms;
+
+  &:hover {
+    color: var(--text-80);
+    border-color: var(--glass-border-lit);
+  }
+
+  &--active {
+    color: var(--neon-cyan);
+    border-color: rgba(0, 229, 255, 0.5);
+    background: rgba(0, 229, 255, 0.08);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.15);
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+  }
+}
+
+// ── Cuadrícula del inventario ───────────────────────────────────────────────
+.inv-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 14px;
+  padding-bottom: 20px;
+}
+
+.inv-card {
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 280ms var(--smooth);
+  animation: none;
+
+  &:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0, 229, 255, 0.4);
+    box-shadow:
+      0 0 24px rgba(0, 229, 255, 0.2),
+      0 12px 30px rgba(0, 0, 0, 0.4);
+  }
+
+  &--equipped {
+    border-color: rgba(0, 229, 255, 0.6);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2);
+  }
+
+  &__preview {
+    position: relative;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+
+  &__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  &__emoji {
+    font-size: 40px;
+    filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.4));
+    transition: transform 300ms var(--spring);
+  }
+
+  &:hover &__emoji {
+    transform: scale(1.15);
+  }
+
+  &__body {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 12px;
+  }
+
+  &__name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-100);
+  }
+}
+
+.equipped-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 24px;
+  height: 24px;
+  background: rgba(0, 229, 255, 0.85);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  font-weight: 700;
+  color: #0b1733;
+}
+
+// ── Rareza ──────────────────────────────────────────────────────────────────
+.rarity-badge {
+  display: inline-block;
+  padding: 3px 10px;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  border-radius: 10px;
+  width: fit-content;
+}
+
+.rarity--comun {
+  color: #94a3b8;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+}
+
+.rarity--rara {
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.12);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.rarity--epica {
+  color: var(--neon-purple);
+  background: rgba(168, 85, 247, 0.12);
+  border: 1px solid rgba(168, 85, 247, 0.25);
+}
+
+.rarity--legendaria {
+  color: var(--neon-gold);
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
+
+.equipped-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  border-radius: 10px;
+  width: fit-content;
+}
+
+// ── Botones tamaño ──────────────────────────────────────────────────────────
+.btn--sm {
+  padding: 8px 20px !important;
+  font-size: 13px !important;
+}
+
+.btn--xs {
+  padding: 6px 14px !important;
+  font-size: 11px !important;
+}
+
+// ── Loading / Empty ─────────────────────────────────────────────────────────
+.loading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-50);
+  font-size: 14px;
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid rgba(0, 229, 255, 0.15);
+  border-top-color: var(--neon-cyan);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  padding: 50px 20px;
+  text-align: center;
+
+  &__icon {
+    font-size: 48px;
+    opacity: 0.5;
+  }
+
+  &__text {
+    font-size: 14px;
+    color: var(--text-50);
+  }
+}
+
+// ── Responsive ──────────────────────────────────────────────────────────────
+@media (max-width: 768px) {
+  .equipped-row {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .stats-bar {
+    justify-content: center;
+  }
+
+  .inv-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
+
+  .inv-stats { display: none; }
+}

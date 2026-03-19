@@ -1,0 +1,273 @@
+import { Component, OnInit, signal, computed } from '@angular/core';
+import { DecimalPipe } from '@angular/common';
+import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
+import {
+  trigger, transition, style, animate, query, stagger
+} from '@angular/animations';
+import { AuthService } from '../../services/auth';
+import { environment } from '../../environment';
+
+interface Skin {
+  name: string;
+  type: string;
+  price: number;
+  url: string;
+}
+
+type Rarity = 'Comun' | 'Rara' | 'Epica' | 'Legendaria';
+
+@Component({
+  selector: 'app-shop',
+  standalone: true,
+  imports: [DecimalPipe],
+  templateUrl: './shop.html',
+  styleUrl: './shop.scss',
+  host: { '[@pageFade]': '' },
+  animations: [
+    trigger('pageFade', [
+      transition(':enter', [style({ opacity: 0 }), animate('400ms ease-out', style({ opacity: 1 }))]),
+      transition(':leave', [animate('250ms ease-in', style({ opacity: 0 }))]),
+    ]),
+    trigger('gridStagger', [
+      transition(':enter', [
+        query('.skin-card', [
+          style({ opacity: 0, transform: 'translateY(24px) scale(0.95)' }),
+          stagger(50, [
+            animate('400ms cubic-bezier(0.34, 1.56, 0.64, 1)',
+              style({ opacity: 1, transform: 'none' })),
+          ]),
+        ], { optional: true }),
+      ]),
+    ]),
+  ],
+})
+export class Shop implements OnInit {
+  // Estado
+  imgFailed = signal<Set<string>>(new Set());
+  allSkins = signal<Skin[]>([]);
+  ownedSkinNames = signal<Set<string>>(new Set());
+  equippedSkinId = signal<string | null>(null);
+  activeTab = signal<'Carta' | 'Tapete'>('Carta');
+  filterRarity = signal<Rarity | 'Todas'>('Todas');
+  sortBy = signal<'price-asc' | 'price-desc' | 'name'>('price-asc');
+  loading = signal(true);
+
+  // Modal
+  modalSkin = signal<Skin | null>(null);
+  modalType = signal<'confirm' | 'insufficient' | 'success' | null>(null);
+  purchasing = signal(false);
+
+  // Computed
+  filteredSkins = computed(() => {
+    let skins = this.allSkins().filter(s => s.type === this.activeTab());
+    if (this.filterRarity() !== 'Todas') {
+      skins = skins.filter(s => this.getRarity(s.price) === this.filterRarity());
+    }
+    const sort = this.sortBy();
+    if (sort === 'price-asc') skins.sort((a, b) => a.price - b.price);
+    else if (sort === 'price-desc') skins.sort((a, b) => b.price - a.price);
+    else skins.sort((a, b) => a.name.localeCompare(b.name));
+    return skins;
+  });
+
+  featuredSkin = computed(() => {
+    const skins = this.allSkins().filter(s => s.type === this.activeTab());
+    if (!skins.length) return null;
+    // La más cara no poseída, o la más cara
+    const notOwned = skins.filter(s => !this.ownedSkinNames().has(s.name));
+    const pool = notOwned.length ? notOwned : skins;
+    return pool.reduce((max, s) => s.price > max.price ? s : max, pool[0]);
+  });
+
+  constructor(
+    protected auth: AuthService,
+    private router: Router,
+    private http: HttpClient,
+  ) {}
+
+  get usuario() { return this.auth.usuario(); }
+
+  ngOnInit() {
+    this.loadData();
+  }
+
+  private loadData() {
+    this.loading.set(true);
+    const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
+
+    // Cargar skins de la tienda
+    this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
+      next: (skins) => {
+        // Filtrar solo Carta y Tapete (no Avatar)
+        this.allSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
+        this.loading.set(false);
+      },
+      error: () => this.loading.set(false),
+    });
+
+    // Cargar inventario del usuario
+    this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
+      next: (owned) => {
+        this.ownedSkinNames.set(new Set(owned.map(s => s.name)));
+        // Obtener skin equipada del usuario
+        if (this.usuario) {
+          this.equippedSkinId.set((this.usuario as any).equippedSkinID || (this.usuario as any).reverso || null);
+        }
+      },
+    });
+  }
+
+  // Navegación
+  goBack() { this.router.navigate(['/lobby']); }
+  goToInventory() { this.router.navigate(['/inventory']); }
+
+  // Pestañas
+  setTab(tab: 'Carta' | 'Tapete') { this.activeTab.set(tab); }
+  setFilter(r: Rarity | 'Todas') { this.filterRarity.set(r); }
+  setSort(s: 'price-asc' | 'price-desc' | 'name') { this.sortBy.set(s); }
+
+  // Rareza basada en precio
+  getRarity(price: number): Rarity {
+    if (price <= 150) return 'Comun';
+    if (price <= 350) return 'Rara';
+    if (price <= 550) return 'Epica';
+    return 'Legendaria';
+  }
+
+  getRarityLabel(price: number): string {
+    const r = this.getRarity(price);
+    if (r === 'Comun') return 'Común';
+    if (r === 'Epica') return 'Épica';
+    return r;
+  }
+
+  getRarityClass(price: number): string {
+    return 'rarity--' + this.getRarity(price).toLowerCase();
+  }
+
+  isOwned(skin: Skin): boolean {
+    return this.ownedSkinNames().has(skin.name);
+  }
+
+  isEquipped(skin: Skin): boolean {
+    return this.equippedSkinId() === skin.name;
+  }
+
+  canAfford(skin: Skin): boolean {
+    return (this.usuario?.monedas ?? 0) >= skin.price;
+  }
+
+  // Compra
+  openBuyModal(skin: Skin) {
+    this.modalSkin.set(skin);
+    if (this.canAfford(skin)) {
+      this.modalType.set('confirm');
+    } else {
+      this.modalType.set('insufficient');
+    }
+  }
+
+  closeModal() {
+    this.modalSkin.set(null);
+    this.modalType.set(null);
+  }
+
+  confirmPurchase() {
+    const skin = this.modalSkin();
+    if (!skin) return;
+    this.purchasing.set(true);
+
+    const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
+    this.http.post<any>(`${environment.apiUrl}/skins/buy/${skin.name}`, {}, { headers }).subscribe({
+      next: () => {
+        this.purchasing.set(false);
+        this.modalType.set('success');
+
+        // Actualizar estado local
+        const owned = new Set(this.ownedSkinNames());
+        owned.add(skin.name);
+        this.ownedSkinNames.set(owned);
+
+        // Actualizar monedas del usuario en localStorage
+        if (this.usuario) {
+          const updated = { ...this.usuario, monedas: this.usuario.monedas - skin.price };
+          localStorage.setItem('usuario', JSON.stringify(updated));
+          // Forzar actualización del signal de auth
+          (this.auth as any)._usuario.set(updated);
+        }
+
+        setTimeout(() => this.closeModal(), 1500);
+      },
+      error: (err) => {
+        this.purchasing.set(false);
+        if (err.status === 400) this.modalType.set('insufficient');
+        else if (err.status === 409) {
+          // Ya la posee
+          const owned = new Set(this.ownedSkinNames());
+          owned.add(skin.name);
+          this.ownedSkinNames.set(owned);
+          this.closeModal();
+        }
+      },
+    });
+  }
+
+  equipSkin(skin: Skin) {
+    const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
+    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.name}`, {}, { headers }).subscribe({
+      next: () => {
+        this.equippedSkinId.set(skin.name);
+      },
+    });
+  }
+
+  // Imágenes: usa url de BD si existe, si no el asset local
+  getSkinImageUrl(skin: Skin): string {
+    return skin.url || `assets/skins/${skin.name}.png`;
+  }
+
+  onImgError(name: string) {
+    this.imgFailed.update(s => new Set(s).add(name));
+  }
+
+  // Generar color de preview basado en el nombre
+  getSkinGradient(name: string): string {
+    const gradients: Record<string, string> = {
+      'Cubo':       'linear-gradient(135deg, #00e5ff 0%, #0052d4 100%)',
+      'Cyberpunk':  'linear-gradient(135deg, #f72585 0%, #7209b7 50%, #3a0ca3 100%)',
+      'Fenix':      'linear-gradient(135deg, #ff6b35 0%, #f7c948 50%, #ff3d00 100%)',
+      'Dragon':     'linear-gradient(135deg, #2d1b69 0%, #b91c1c 50%, #fbbf24 100%)',
+      'Onda':       'linear-gradient(135deg, #06b6d4 0%, #0284c7 100%)',
+      'Geométrico': 'linear-gradient(135deg, #6366f1 0%, #a855f7 50%, #ec4899 100%)',
+      'Hexágono':   'linear-gradient(135deg, #059669 0%, #34d399 100%)',
+      'Círculo':    'linear-gradient(135deg, #f59e0b 0%, #ef4444 100%)',
+      'Brújula':    'linear-gradient(135deg, #1e3a5f 0%, #38bdf8 100%)',
+      'Degradado':  'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      'Cyborg':     'linear-gradient(135deg, #374151 0%, #00e5ff 50%, #374151 100%)',
+      'Cubito':     'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)',
+      'Flor':       'linear-gradient(135deg, #ec4899 0%, #f472b6 50%, #fbbf24 100%)',
+      'Saturno':    'linear-gradient(135deg, #1e1b4b 0%, #a855f7 50%, #fbbf24 100%)',
+      'Cristales':  'linear-gradient(135deg, #06b6d4 0%, #a855f7 50%, #f0abfc 100%)',
+      'Lava':       'linear-gradient(135deg, #dc2626 0%, #f97316 50%, #fbbf24 100%)',
+      'Elementos':  'linear-gradient(135deg, #22c55e 0%, #3b82f6 50%, #ef4444 100%)',
+      'Galaxia':    'linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%)',
+      'Chip':       'linear-gradient(135deg, #064e3b 0%, #00e5ff 100%)',
+      'Benja':      'linear-gradient(135deg, #7c3aed 0%, #f43f5e 100%)',
+      'Azul':       'linear-gradient(135deg, #1e3a8a 0%, #2563eb 50%, #38bdf8 100%)',
+    };
+    return gradients[name] || 'linear-gradient(135deg, #1e293b 0%, #334155 100%)';
+  }
+
+  getSkinIcon(name: string): string {
+    const icons: Record<string, string> = {
+      'Cubo': '🎲', 'Cyberpunk': '🤖', 'Fenix': '🔥', 'Dragon': '🐉',
+      'Onda': '🌊', 'Geométrico': '🔷', 'Hexágono': '⬡', 'Círculo': '⚪',
+      'Brújula': '🧭', 'Degradado': '🎨', 'Cyborg': '⚡', 'Cubito': '💚',
+      'Flor': '🌸', 'Saturno': '🪐', 'Cristales': '💎', 'Lava': '🌋',
+      'Elementos': '🜛', 'Galaxia': '🌌', 'Chip': '🔌', 'Benja': '👾',
+      'Azul': '🟦',
+    };
+    return icons[name] || '🃏';
+  }
+}

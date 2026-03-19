@@ -1,0 +1,161 @@
+<div class="inventory">
+
+  <!-- ═══ Header ═══ -->
+  <header class="inv-header">
+    <button class="back-btn" (click)="goBack()" title="Volver al lobby">
+      ← Lobby
+    </button>
+
+    <div class="inv-top-right">
+      <div class="inv-stats">
+        <div class="stat-pill">
+          <span class="stat-pill__icon">💎</span>
+          <span>{{ usuario?.monedas ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">⭐</span>
+          <span>{{ usuario?.exp ?? 0 | number }}</span>
+        </div>
+        <div class="stat-pill">
+          <span class="stat-pill__icon">🏆</span>
+          <span>#{{ usuario?.ranking ?? '—' }}</span>
+        </div>
+      </div>
+      <button class="icon-btn" (click)="goToShop()" title="Tienda">🛒</button>
+    </div>
+  </header>
+
+  <!-- ═══ Título ═══ -->
+  <h1 class="page-title">
+    <span class="page-title__icon">🧰</span>
+    Inventario
+  </h1>
+
+  <!-- ═══ Equipados actualmente ═══ -->
+  <section class="equipped-section glass-card">
+    <h2 class="section-title">Equipados actualmente</h2>
+    <div class="equipped-row">
+      <!-- Carta equipada -->
+      <div class="equipped-slot">
+        <span class="equipped-slot__label">🃏 Carta</span>
+        @if (equippedCard(); as card) {
+          <div class="equipped-slot__preview" [style.background]="getSkinGradient(card.name)">
+            @if (!imgFailed().has(card.name)) {
+              <img class="equipped-slot__img" [src]="getSkinImageUrl(card)" [alt]="card.name" (error)="onImgError(card.name)">
+            } @else {
+              <span class="equipped-slot__emoji">{{ getSkinIcon(card.name) }}</span>
+            }
+          </div>
+          <span class="equipped-slot__name">{{ card.name }}</span>
+        } @else {
+          <div class="equipped-slot__preview equipped-slot__preview--empty">
+            <span class="equipped-slot__emoji">—</span>
+          </div>
+          <span class="equipped-slot__name empty-text">Ninguna</span>
+        }
+      </div>
+
+      <!-- Tapete equipado -->
+      <div class="equipped-slot">
+        <span class="equipped-slot__label">🟩 Tapete</span>
+        @if (equippedMat(); as mat) {
+          <div class="equipped-slot__preview" [style.background]="getSkinGradient(mat.name)">
+            @if (!imgFailed().has(mat.name)) {
+              <img class="equipped-slot__img" [src]="getSkinImageUrl(mat)" [alt]="mat.name" (error)="onImgError(mat.name)">
+            } @else {
+              <span class="equipped-slot__emoji">{{ getSkinIcon(mat.name) }}</span>
+            }
+          </div>
+          <span class="equipped-slot__name">{{ mat.name }}</span>
+        } @else {
+          <div class="equipped-slot__preview equipped-slot__preview--empty">
+            <span class="equipped-slot__emoji">—</span>
+          </div>
+          <span class="equipped-slot__name empty-text">Ninguno</span>
+        }
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══ Estadísticas ═══ -->
+  <section class="stats-bar">
+    <div class="stat-box">
+      <span class="stat-box__value">{{ totalItems() }}</span>
+      <span class="stat-box__label">Total artículos</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-box__value">{{ totalCards() }}</span>
+      <span class="stat-box__label">Cartas</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-box__value">{{ totalMats() }}</span>
+      <span class="stat-box__label">Tapetes</span>
+    </div>
+    @if (rarestItem(); as rarest) {
+      <div class="stat-box">
+        <span class="stat-box__value rarity-badge" [class]="getRarityClass(rarest.price)">
+          {{ getRarityLabel(rarest.price) }}
+        </span>
+        <span class="stat-box__label">Más raro: {{ rarest.name }}</span>
+      </div>
+    }
+  </section>
+
+  <!-- ═══ Pestañas ═══ -->
+  <div class="tabs">
+    <button class="tab" [class.tab--active]="activeTab() === 'Carta'" (click)="setTab('Carta')">
+      🃏 Cartas ({{ totalCards() }})
+    </button>
+    <button class="tab" [class.tab--active]="activeTab() === 'Tapete'" (click)="setTab('Tapete')">
+      🟩 Tapetes ({{ totalMats() }})
+    </button>
+  </div>
+
+  <!-- ═══ Cuadrícula de inventario ═══ -->
+  @if (loading()) {
+    <div class="loading-state">
+      <span class="loading-spinner"></span>
+      <p>Cargando inventario...</p>
+    </div>
+  } @else if (filteredSkins().length === 0) {
+    <div class="empty-state glass-card">
+      <span class="empty-state__icon">📦</span>
+      <p class="empty-state__text">No tienes {{ activeTab() === 'Carta' ? 'cartas' : 'tapetes' }} todavía.</p>
+      <button class="btn-neon btn--sm" (click)="goToShop()">Ir a la Tienda</button>
+    </div>
+  } @else {
+    <section class="inv-grid" @gridStagger>
+      @for (skin of filteredSkins(); track skin.name) {
+        <div class="inv-card glass-card" [class.inv-card--equipped]="isEquipped(skin)">
+          <!-- Preview -->
+          <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
+            @if (!imgFailed().has(skin.name)) {
+              <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+            } @else {
+              <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+            }
+            @if (isEquipped(skin)) {
+              <div class="equipped-indicator">✓</div>
+            }
+          </div>
+
+          <!-- Info -->
+          <div class="inv-card__body">
+            <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+              {{ getRarityLabel(skin.price) }}
+            </span>
+            <h3 class="inv-card__name">{{ skin.name }}</h3>
+
+            @if (isEquipped(skin)) {
+              <span class="equipped-badge">✓ EQUIPADO</span>
+              <button class="btn-ghost btn--xs" (click)="unequipSkin()">DESEQUIPAR</button>
+            } @else {
+              <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
+            }
+          </div>
+        </div>
+      }
+    </section>
+  }
+
+</div>

@@ -6,6 +6,8 @@ import { ForgotPasswordComponent } from './components/auth/forgot-password/forgo
 import { ChangePasswordComponent } from './components/auth/change-password/change-password';
 import { Lobby } from './components/lobby/lobby';
 import { Tablero } from './components/tablero/tablero';
+import { Shop } from './components/shop/shop';
+import { Inventory } from './components/inventory/inventory';
 
 export const routes: Routes = [
   { path: '',                component: WelcomeComponent },
@@ -14,6 +16,8 @@ export const routes: Routes = [
   { path: 'forgot-password', component: ForgotPasswordComponent },
   { path: 'change-password', component: ChangePasswordComponent },
   { path: 'lobby',          component: Lobby },
+  { path: 'shop',           component: Shop },
+  { path: 'inventory',      component: Inventory },
   { path: 'tablero',        component: Tablero },
   { path: '**',             redirectTo: '' },
 ];

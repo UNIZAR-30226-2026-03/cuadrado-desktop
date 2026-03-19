@@ -53,8 +53,8 @@ export class WebsocketService {
     });
 
     // Escuchamos otros eventos
-    this.socket.on('mensaje_chat', (msg) => this.mensajeChat$.next(msg));
-    this.socket.on('error', (err) => this.error$.next(err));
+    this.socket.on('mensaje_chat', (msg: { jugadorId: string; texto: string; timestamp: number }) => this.mensajeChat$.next(msg));
+    this.socket.on('error', (err: string) => this.error$.next(err));
   }
 
   // Método para que tu Tablero envíe jugadas al servidor
