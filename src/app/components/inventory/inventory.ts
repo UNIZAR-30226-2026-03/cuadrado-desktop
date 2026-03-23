@@ -9,6 +9,7 @@ import { AuthService } from '../../services/auth';
 import { environment } from '../../environment';
 
 interface Skin {
+  id: string;
   name: string;
   type: string;
   price: number;
@@ -141,7 +142,7 @@ export class Inventory implements OnInit {
 
   equipSkin(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.name}`, {}, { headers }).subscribe({
+    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(skin.name);
         if (this.usuario) {
@@ -153,9 +154,9 @@ export class Inventory implements OnInit {
     });
   }
 
-  unequipSkin() {
+  unequipSkin(type: string) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.patch<any>(`${environment.apiUrl}/skins/unequip`, {}, { headers }).subscribe({
+    this.http.patch<any>(`${environment.apiUrl}/skins/unequip/${type}`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(null);
         if (this.usuario) {

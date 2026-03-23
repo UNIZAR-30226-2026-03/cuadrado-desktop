@@ -148,7 +148,7 @@
 
             @if (isEquipped(skin)) {
               <span class="equipped-badge">✓ EQUIPADO</span>
-              <button class="btn-ghost btn--xs" (click)="unequipSkin()">DESEQUIPAR</button>
+              <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
             } @else {
               <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
             }

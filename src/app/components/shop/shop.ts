@@ -9,6 +9,7 @@ import { AuthService } from '../../services/auth';
 import { environment } from '../../environment';
 
 interface Skin {
+  id: string;
   name: string;
   type: string;
   price: number;
@@ -179,7 +180,7 @@ export class Shop implements OnInit {
     this.purchasing.set(true);
 
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.post<any>(`${environment.apiUrl}/skins/buy/${skin.name}`, {}, { headers }).subscribe({
+    this.http.post<any>(`${environment.apiUrl}/skins/buy/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
         this.purchasing.set(false);
         this.modalType.set('success');
@@ -215,7 +216,7 @@ export class Shop implements OnInit {
 
   equipSkin(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.name}`, {}, { headers }).subscribe({
+    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(skin.name);
         if (this.usuario) {
