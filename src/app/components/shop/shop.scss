@@ -157,14 +157,15 @@ $margin: 20px;
 
   &__preview {
     position: relative;
-    width: 180px;
-    height: 140px;
+    min-width: 140px;
+    max-width: 240px;
     border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
     overflow: hidden;
+    padding: 10px;
   }
 
   &__icon {
@@ -174,9 +175,9 @@ $margin: 20px;
   }
 
   &__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    max-width: 100%;
+    max-height: 200px;
+    object-fit: contain;
     border-radius: 14px;
     position: relative;
     z-index: 1;
@@ -336,18 +337,20 @@ $margin: 20px;
 
   &__preview {
     position: relative;
-    height: 120px;
+    min-height: 80px;
     display: flex;
     align-items: center;
     justify-content: center;
     overflow: hidden;
+    padding: 8px;
   }
 
   &__img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
+    max-width: 100%;
+    max-height: 180px;
+    object-fit: contain;
     display: block;
+    border-radius: 8px;
   }
 
   &__emoji {
@@ -509,17 +512,17 @@ $margin: 20px;
   }
 
   &__preview {
-    width: 120px;
-    height: 90px;
+    max-width: 200px;
     border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 8px;
   }
 
   &__img {
-    width: 100%;
-    height: 100%;
+    max-width: 100%;
+    max-height: 180px;
     object-fit: contain;
     border-radius: 12px;
   }

@@ -112,7 +112,7 @@ export class Shop implements OnInit {
         this.ownedSkinNames.set(new Set(owned.map(s => s.name)));
         // Obtener skin equipada del usuario
         if (this.usuario) {
-          this.equippedSkinId.set((this.usuario as any).equippedSkinID || (this.usuario as any).reverso || null);
+          this.equippedSkinId.set(this.usuario.reverso || null);
         }
       },
     });
@@ -218,6 +218,11 @@ export class Shop implements OnInit {
     this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.name}`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(skin.name);
+        if (this.usuario) {
+          const updated = { ...this.usuario, reverso: skin.name };
+          localStorage.setItem('usuario', JSON.stringify(updated));
+          (this.auth as any)._usuario.set(updated);
+        }
       },
     });
   }

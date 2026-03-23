@@ -32,14 +32,25 @@ export class AuthService {
     return this.http.post<any>(`${environment.apiUrl}/auth/login`, { username, password })
       .pipe(
         tap(respuesta => {
-          // Asumiendo que NestJS devuelve algo como { access_token: "...", user: {...} }
-          // Ajusta "respuesta.access_token" según lo que devuelva tu auth.service.ts del backend
-          const token = respuesta.access_token || respuesta.token;
-          const user = respuesta.user || respuesta.usuario || { nombre: username }; // Ajustar según backend
+          const token = respuesta.accessToken;
+          const u = respuesta.user;
+
+          const user: Usuario = {
+            id: 0,
+            nombre: u.username,
+            monedas: u.cubitos,
+            exp: u.eloRating,
+            partidasJugadas: u.gamesPlayed,
+            partidasGanadas: u.gamesWon,
+            ranking: u.rankPlacement,
+            avatar: '',
+            reverso: u.equippedSkinID || '',
+            tapete: '',
+          };
 
           this._token.set(token);
           this._usuario.set(user);
-          
+
           localStorage.setItem('token', token);
           localStorage.setItem('usuario', JSON.stringify(user));
         })

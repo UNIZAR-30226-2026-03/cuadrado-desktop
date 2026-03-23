@@ -101,7 +101,7 @@ export class Inventory implements OnInit {
         // Filtrar solo Carta y Tapete
         this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
         if (this.usuario) {
-          this.equippedSkinId.set((this.usuario as any).equippedSkinID || (this.usuario as any).reverso || null);
+          this.equippedSkinId.set(this.usuario.reverso || null);
         }
         this.loading.set(false);
       },
@@ -144,6 +144,11 @@ export class Inventory implements OnInit {
     this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.name}`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(skin.name);
+        if (this.usuario) {
+          const updated = { ...this.usuario, reverso: skin.name };
+          localStorage.setItem('usuario', JSON.stringify(updated));
+          (this.auth as any)._usuario.set(updated);
+        }
       },
     });
   }
@@ -153,6 +158,11 @@ export class Inventory implements OnInit {
     this.http.patch<any>(`${environment.apiUrl}/skins/unequip`, {}, { headers }).subscribe({
       next: () => {
         this.equippedSkinId.set(null);
+        if (this.usuario) {
+          const updated = { ...this.usuario, reverso: '' };
+          localStorage.setItem('usuario', JSON.stringify(updated));
+          (this.auth as any)._usuario.set(updated);
+        }
       },
     });
   }
