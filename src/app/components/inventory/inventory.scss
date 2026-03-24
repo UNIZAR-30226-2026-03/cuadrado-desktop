@@ -104,7 +104,7 @@ $margin: 20px;
 
 // ── Título ──────────────────────────────────────────────────────────────────
 .page-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 700;
   color: var(--text-100);
@@ -121,7 +121,7 @@ $margin: 20px;
 }
 
 .section-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 16px;
   font-weight: 600;
   color: var(--text-80);
@@ -268,6 +268,12 @@ $margin: 20px;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
   padding-bottom: 20px;
+  animation: grid-fade-in 300ms ease-out;
+}
+
+@keyframes grid-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
 }
 
 .inv-card {

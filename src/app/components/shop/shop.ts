@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, ElementRef, ViewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
@@ -24,12 +24,7 @@ type Rarity = 'Comun' | 'Rara' | 'Epica' | 'Legendaria';
   imports: [DecimalPipe],
   templateUrl: './shop.html',
   styleUrl: './shop.scss',
-  host: { '[@pageFade]': '' },
   animations: [
-    trigger('pageFade', [
-      transition(':enter', [style({ opacity: 0 }), animate('400ms ease-out', style({ opacity: 1 }))]),
-      transition(':leave', [animate('250ms ease-in', style({ opacity: 0 }))]),
-    ]),
     trigger('gridStagger', [
       transition(':enter', [
         query('.skin-card', [
@@ -54,10 +49,15 @@ export class Shop implements OnInit {
   sortBy = signal<'price-asc' | 'price-desc' | 'name'>('price-asc');
   loading = signal(true);
 
+  // Featured override (click del usuario)
+  selectedFeatured = signal<Skin | null>(null);
+
   // Modal
   modalSkin = signal<Skin | null>(null);
   modalType = signal<'confirm' | 'insufficient' | 'success' | null>(null);
   purchasing = signal(false);
+
+  @ViewChild('shopContainer') shopContainer!: ElementRef<HTMLElement>;
 
   // Computed
   filteredSkins = computed(() => {
@@ -73,6 +73,8 @@ export class Shop implements OnInit {
   });
 
   featuredSkin = computed(() => {
+    const selected = this.selectedFeatured();
+    if (selected && selected.type === this.activeTab()) return selected;
     const skins = this.allSkins().filter(s => s.type === this.activeTab());
     if (!skins.length) return null;
     // La más cara no poseída, o la más cara
@@ -124,7 +126,10 @@ export class Shop implements OnInit {
   goToInventory() { this.router.navigate(['/inventory']); }
 
   // Pestañas
-  setTab(tab: 'Carta' | 'Tapete') { this.activeTab.set(tab); }
+  setTab(tab: 'Carta' | 'Tapete') {
+    this.activeTab.set(tab);
+    this.selectedFeatured.set(null);
+  }
   setFilter(r: Rarity | 'Todas') { this.filterRarity.set(r); }
   setSort(s: 'price-asc' | 'price-desc' | 'name') { this.sortBy.set(s); }
 
@@ -214,16 +219,22 @@ export class Shop implements OnInit {
     });
   }
 
-  equipSkin(skin: Skin) {
+  selectFeatured(skin: Skin) {
+    this.selectedFeatured.set(skin);
+    this.shopContainer.nativeElement.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  equipAndGoToInventory(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
     this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
-        this.equippedSkinId.set(skin.name);
         if (this.usuario) {
-          const updated = { ...this.usuario, reverso: skin.name };
+          const field = skin.type === 'Tapete' ? 'tapete' : 'reverso';
+          const updated = { ...this.usuario, [field]: skin.name };
           localStorage.setItem('usuario', JSON.stringify(updated));
           (this.auth as any)._usuario.set(updated);
         }
+        this.router.navigate(['/inventory']);
       },
     });
   }

@@ -13,12 +13,7 @@ import { AuthService } from '../../services/auth';
   imports: [DecimalPipe, ReactiveFormsModule],
   templateUrl: './lobby.html',
   styleUrl: './lobby.scss',
-  host: { '[@pageFade]': '' },
   animations: [
-    trigger('pageFade', [
-      transition(':enter', [style({ opacity: 0 }), animate('400ms ease-out', style({ opacity: 1 }))]),
-      transition(':leave', [animate('250ms ease-in', style({ opacity: 0 }))]),
-    ]),
     trigger('navStagger', [
       transition(':enter', [
         query('.nav-card', [

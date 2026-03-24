@@ -10,14 +10,14 @@ import { Shop } from './components/shop/shop';
 import { Inventory } from './components/inventory/inventory';
 
 export const routes: Routes = [
-  { path: '',                component: WelcomeComponent },
-  { path: 'login',          component: LoginComponent },
-  { path: 'register',       component: RegisterComponent },
-  { path: 'forgot-password', component: ForgotPasswordComponent },
-  { path: 'change-password', component: ChangePasswordComponent },
-  { path: 'lobby',          component: Lobby },
-  { path: 'shop',           component: Shop },
-  { path: 'inventory',      component: Inventory },
-  { path: 'tablero',        component: Tablero },
+  { path: '',                component: WelcomeComponent,        data: { animation: 'welcome' } },
+  { path: 'login',          component: LoginComponent,           data: { animation: 'login' } },
+  { path: 'register',       component: RegisterComponent,        data: { animation: 'register' } },
+  { path: 'forgot-password', component: ForgotPasswordComponent, data: { animation: 'forgot' } },
+  { path: 'change-password', component: ChangePasswordComponent, data: { animation: 'change' } },
+  { path: 'lobby',          component: Lobby,                    data: { animation: 'lobby' } },
+  { path: 'shop',           component: Shop,                     data: { animation: 'shop' } },
+  { path: 'inventory',      component: Inventory,                data: { animation: 'inventory' } },
+  { path: 'tablero',        component: Tablero,                  data: { animation: 'tablero' } },
   { path: '**',             redirectTo: '' },
 ];

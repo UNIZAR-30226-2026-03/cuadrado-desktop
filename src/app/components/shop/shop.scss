@@ -104,7 +104,7 @@ $margin: 20px;
 
 // ── Título ──────────────────────────────────────────────────────────────────
 .page-title {
-  font-family: var(--font-display);
+  font-family: var(--font-body);
   font-size: 28px;
   font-weight: 700;
   color: var(--text-100);
@@ -154,6 +154,7 @@ $margin: 20px;
   padding: 20px;
   flex-shrink: 0;
   overflow: hidden;
+  animation: grid-fade-in 300ms ease-out;
 
   &__preview {
     position: relative;
@@ -199,7 +200,7 @@ $margin: 20px;
   }
 
   &__name {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-size: 24px;
     font-weight: 700;
     color: var(--text-100);
@@ -308,6 +309,12 @@ $margin: 20px;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 14px;
   padding-bottom: 20px;
+  animation: grid-fade-in 300ms ease-out;
+}
+
+@keyframes grid-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
 }
 
 .skin-card {
@@ -317,6 +324,7 @@ $margin: 20px;
   overflow: hidden;
   transition: all 280ms var(--smooth);
   animation: none; // Override glass-card glow-border
+  cursor: pointer;
 
   &:hover {
     transform: translateY(-4px);
@@ -494,7 +502,7 @@ $margin: 20px;
   }
 
   &__title {
-    font-family: var(--font-display);
+    font-family: var(--font-body);
     font-size: 22px;
     font-weight: 700;
     color: var(--text-100);

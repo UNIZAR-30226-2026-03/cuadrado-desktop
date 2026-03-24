@@ -11,12 +11,7 @@ import { finalize, timeout } from 'rxjs';
   imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './register.html',
   styleUrl: './register.scss',
-  host: { '[@pageFade]': '' },
   animations: [
-    trigger('pageFade', [
-      transition(':enter', [style({ opacity: 0 }), animate('350ms ease-out', style({ opacity: 1 }))]),
-      transition(':leave', [animate('200ms ease-in', style({ opacity: 0 }))]),
-    ]),
     trigger('cardSpring', [
       transition(':enter', [
         style({ opacity: 0, transform: 'translateY(50px) scale(0.92)' }),

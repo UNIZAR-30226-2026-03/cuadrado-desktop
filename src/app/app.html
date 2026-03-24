@@ -21,4 +21,6 @@
 </div>
 
 <!-- ═══ Routed pages render here ═══ -->
-<router-outlet></router-outlet>
+<div class="route-wrapper" [@routeAnimations]="getRouteAnimationData(outlet)">
+  <router-outlet #outlet="outlet"></router-outlet>
+</div>

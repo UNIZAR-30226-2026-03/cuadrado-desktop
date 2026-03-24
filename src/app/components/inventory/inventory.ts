@@ -24,12 +24,7 @@ type Rarity = 'Comun' | 'Rara' | 'Epica' | 'Legendaria';
   imports: [DecimalPipe],
   templateUrl: './inventory.html',
   styleUrl: './inventory.scss',
-  host: { '[@pageFade]': '' },
   animations: [
-    trigger('pageFade', [
-      transition(':enter', [style({ opacity: 0 }), animate('400ms ease-out', style({ opacity: 1 }))]),
-      transition(':leave', [animate('250ms ease-in', style({ opacity: 0 }))]),
-    ]),
     trigger('gridStagger', [
       transition(':enter', [
         query('.inv-card', [
@@ -47,7 +42,8 @@ export class Inventory implements OnInit {
   // Estado
   imgFailed = signal<Set<string>>(new Set());
   ownedSkins = signal<Skin[]>([]);
-  equippedSkinId = signal<string | null>(null);
+  equippedCardName = signal<string | null>(null);
+  equippedTapeteName = signal<string | null>(null);
   activeTab = signal<'Carta' | 'Tapete'>('Carta');
   loading = signal(true);
 
@@ -57,17 +53,13 @@ export class Inventory implements OnInit {
   });
 
   equippedCard = computed(() => {
-    const eq = this.equippedSkinId();
+    const eq = this.equippedCardName();
     return this.ownedSkins().find(s => s.type === 'Carta' && s.name === eq) || null;
   });
 
   equippedMat = computed(() => {
-    const eq = this.equippedSkinId();
-    // Si la equipada es un tapete, mostrarla
-    const mat = this.ownedSkins().find(s => s.type === 'Tapete' && s.name === eq);
-    if (mat) return mat;
-    // Si no, mostrar el primer tapete poseído
-    return this.ownedSkins().find(s => s.type === 'Tapete') || null;
+    const eq = this.equippedTapeteName();
+    return this.ownedSkins().find(s => s.type === 'Tapete' && s.name === eq) || null;
   });
 
   totalItems = computed(() => this.ownedSkins().length);
@@ -102,7 +94,8 @@ export class Inventory implements OnInit {
         // Filtrar solo Carta y Tapete
         this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
         if (this.usuario) {
-          this.equippedSkinId.set(this.usuario.reverso || null);
+          this.equippedCardName.set(this.usuario.reverso || null);
+          this.equippedTapeteName.set(this.usuario.tapete || null);
         }
         this.loading.set(false);
       },
@@ -137,18 +130,29 @@ export class Inventory implements OnInit {
   }
 
   isEquipped(skin: Skin): boolean {
-    return this.equippedSkinId() === skin.name;
+    if (skin.type === 'Carta') return this.equippedCardName() === skin.name;
+    if (skin.type === 'Tapete') return this.equippedTapeteName() === skin.name;
+    return false;
   }
 
   equipSkin(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
     this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
-        this.equippedSkinId.set(skin.name);
-        if (this.usuario) {
-          const updated = { ...this.usuario, reverso: skin.name };
-          localStorage.setItem('usuario', JSON.stringify(updated));
-          (this.auth as any)._usuario.set(updated);
+        if (skin.type === 'Carta') {
+          this.equippedCardName.set(skin.name);
+          if (this.usuario) {
+            const updated = { ...this.usuario, reverso: skin.name };
+            localStorage.setItem('usuario', JSON.stringify(updated));
+            (this.auth as any)._usuario.set(updated);
+          }
+        } else if (skin.type === 'Tapete') {
+          this.equippedTapeteName.set(skin.name);
+          if (this.usuario) {
+            const updated = { ...this.usuario, tapete: skin.name };
+            localStorage.setItem('usuario', JSON.stringify(updated));
+            (this.auth as any)._usuario.set(updated);
+          }
         }
       },
     });
@@ -158,11 +162,20 @@ export class Inventory implements OnInit {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
     this.http.patch<any>(`${environment.apiUrl}/skins/unequip/${type}`, {}, { headers }).subscribe({
       next: () => {
-        this.equippedSkinId.set(null);
-        if (this.usuario) {
-          const updated = { ...this.usuario, reverso: '' };
-          localStorage.setItem('usuario', JSON.stringify(updated));
-          (this.auth as any)._usuario.set(updated);
+        if (type === 'Carta') {
+          this.equippedCardName.set(null);
+          if (this.usuario) {
+            const updated = { ...this.usuario, reverso: '' };
+            localStorage.setItem('usuario', JSON.stringify(updated));
+            (this.auth as any)._usuario.set(updated);
+          }
+        } else if (type === 'Tapete') {
+          this.equippedTapeteName.set(null);
+          if (this.usuario) {
+            const updated = { ...this.usuario, tapete: '' };
+            localStorage.setItem('usuario', JSON.stringify(updated));
+            (this.auth as any)._usuario.set(updated);
+          }
         }
       },
     });
