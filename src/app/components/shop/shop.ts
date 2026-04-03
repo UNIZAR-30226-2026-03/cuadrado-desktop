@@ -44,13 +44,10 @@ export class Shop implements OnInit {
   allSkins = signal<Skin[]>([]);
   ownedSkinNames = signal<Set<string>>(new Set());
   equippedSkinId = signal<string | null>(null);
-  activeTab = signal<'Carta' | 'Tapete'>('Carta');
+  equippedTapeteId = signal<string | null>(null);
   filterRarity = signal<Rarity | 'Todas'>('Todas');
   sortBy = signal<'price-asc' | 'price-desc' | 'name'>('price-asc');
   loading = signal(true);
-
-  // Featured override (click del usuario)
-  selectedFeatured = signal<Skin | null>(null);
 
   // Modal
   modalSkin = signal<Skin | null>(null);
@@ -59,29 +56,22 @@ export class Shop implements OnInit {
 
   @ViewChild('shopContainer') shopContainer!: ElementRef<HTMLElement>;
 
-  // Computed
-  filteredSkins = computed(() => {
-    let skins = this.allSkins().filter(s => s.type === this.activeTab());
+  // Computed: skins filtradas y ordenadas por tipo
+  private filteredByRarityAndSort = computed(() => {
+    let skins = this.allSkins();
     if (this.filterRarity() !== 'Todas') {
       skins = skins.filter(s => this.getRarity(s.price) === this.filterRarity());
     }
     const sort = this.sortBy();
-    if (sort === 'price-asc') skins.sort((a, b) => a.price - b.price);
-    else if (sort === 'price-desc') skins.sort((a, b) => b.price - a.price);
-    else skins.sort((a, b) => a.name.localeCompare(b.name));
-    return skins;
+    const sorted = [...skins];
+    if (sort === 'price-asc') sorted.sort((a, b) => a.price - b.price);
+    else if (sort === 'price-desc') sorted.sort((a, b) => b.price - a.price);
+    else sorted.sort((a, b) => a.name.localeCompare(b.name));
+    return sorted;
   });
 
-  featuredSkin = computed(() => {
-    const selected = this.selectedFeatured();
-    if (selected && selected.type === this.activeTab()) return selected;
-    const skins = this.allSkins().filter(s => s.type === this.activeTab());
-    if (!skins.length) return null;
-    // La más cara no poseída, o la más cara
-    const notOwned = skins.filter(s => !this.ownedSkinNames().has(s.name));
-    const pool = notOwned.length ? notOwned : skins;
-    return pool.reduce((max, s) => s.price > max.price ? s : max, pool[0]);
-  });
+  reverseSkins = computed(() => this.filteredByRarityAndSort().filter(s => s.type === 'Carta'));
+  tapeteSkins = computed(() => this.filteredByRarityAndSort().filter(s => s.type === 'Tapete'));
 
   constructor(
     protected auth: AuthService,
@@ -102,7 +92,6 @@ export class Shop implements OnInit {
     // Cargar skins de la tienda
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
       next: (skins) => {
-        // Filtrar solo Carta y Tapete (no Avatar)
         this.allSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
         this.loading.set(false);
       },
@@ -113,23 +102,18 @@ export class Shop implements OnInit {
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
       next: (owned) => {
         this.ownedSkinNames.set(new Set(owned.map(s => s.name)));
-        // Obtener skin equipada del usuario
         if (this.usuario) {
           this.equippedSkinId.set(this.usuario.reverso || null);
+          this.equippedTapeteId.set(this.usuario.tapete || null);
         }
       },
     });
   }
 
-  // Navegación
+  // Navegacion
   goBack() { this.router.navigate(['/lobby']); }
   goToInventory() { this.router.navigate(['/inventory']); }
 
-  // Pestañas
-  setTab(tab: 'Carta' | 'Tapete') {
-    this.activeTab.set(tab);
-    this.selectedFeatured.set(null);
-  }
   setFilter(r: Rarity | 'Todas') { this.filterRarity.set(r); }
   setSort(s: 'price-asc' | 'price-desc' | 'name') { this.sortBy.set(s); }
 
@@ -157,7 +141,9 @@ export class Shop implements OnInit {
   }
 
   isEquipped(skin: Skin): boolean {
-    return this.equippedSkinId() === skin.name;
+    if (skin.type === 'Carta') return this.equippedSkinId() === skin.name;
+    if (skin.type === 'Tapete') return this.equippedTapeteId() === skin.name;
+    return false;
   }
 
   canAfford(skin: Skin): boolean {
@@ -190,16 +176,13 @@ export class Shop implements OnInit {
         this.purchasing.set(false);
         this.modalType.set('success');
 
-        // Actualizar estado local
         const owned = new Set(this.ownedSkinNames());
         owned.add(skin.name);
         this.ownedSkinNames.set(owned);
 
-        // Actualizar monedas del usuario en localStorage
         if (this.usuario) {
           const updated = { ...this.usuario, monedas: this.usuario.monedas - skin.price };
           localStorage.setItem('usuario', JSON.stringify(updated));
-          // Forzar actualización del signal de auth
           (this.auth as any)._usuario.set(updated);
         }
 
@@ -209,7 +192,6 @@ export class Shop implements OnInit {
         this.purchasing.set(false);
         if (err.status === 400) this.modalType.set('insufficient');
         else if (err.status === 409) {
-          // Ya la posee
           const owned = new Set(this.ownedSkinNames());
           owned.add(skin.name);
           this.ownedSkinNames.set(owned);
@@ -220,7 +202,6 @@ export class Shop implements OnInit {
   }
 
   selectFeatured(skin: Skin) {
-    this.selectedFeatured.set(skin);
     this.shopContainer.nativeElement.scrollTo({ top: 0, behavior: 'smooth' });
   }
 
@@ -239,7 +220,7 @@ export class Shop implements OnInit {
     });
   }
 
-  // Imágenes: usa url de BD si existe, si no el asset local
+  // Imagenes
   getSkinImageUrl(skin: Skin): string {
     return skin.url || `assets/skins/${skin.name}.png`;
   }
@@ -248,7 +229,6 @@ export class Shop implements OnInit {
     this.imgFailed.update(s => new Set(s).add(name));
   }
 
-  // Generar color de preview basado en el nombre
   getSkinGradient(name: string): string {
     const gradients: Record<string, string> = {
       'Cubo':       'linear-gradient(135deg, #00e5ff 0%, #0052d4 100%)',

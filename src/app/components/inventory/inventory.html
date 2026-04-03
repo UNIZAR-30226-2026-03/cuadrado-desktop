@@ -1,6 +1,6 @@
 <div class="inventory">
 
-  <!-- ═══ Header ═══ -->
+  <!-- Header -->
   <header class="inv-header">
     <button class="back-btn" (click)="goBack()" title="Volver al lobby">
       ← Lobby
@@ -25,19 +25,18 @@
     </div>
   </header>
 
-  <!-- ═══ Título ═══ -->
+  <!-- Titulo -->
   <h1 class="page-title">
     <span class="page-title__icon">🧰</span>
     Inventario
   </h1>
 
-  <!-- ═══ Equipados actualmente ═══ -->
+  <!-- Equipados actualmente -->
   <section class="equipped-section glass-card">
     <h2 class="section-title">Equipados actualmente</h2>
     <div class="equipped-row">
-      <!-- Carta equipada -->
       <div class="equipped-slot">
-        <span class="equipped-slot__label">🃏 Carta</span>
+        <span class="equipped-slot__label">🃏 Reverso</span>
         @if (equippedCard(); as card) {
           <div class="equipped-slot__preview" [style.background]="getSkinGradient(card.name)">
             @if (!imgFailed().has(card.name)) {
@@ -55,7 +54,6 @@
         }
       </div>
 
-      <!-- Tapete equipado -->
       <div class="equipped-slot">
         <span class="equipped-slot__label">🟩 Tapete</span>
         @if (equippedMat(); as mat) {
@@ -77,7 +75,7 @@
     </div>
   </section>
 
-  <!-- ═══ Estadísticas ═══ -->
+  <!-- Estadisticas -->
   <section class="stats-bar">
     <div class="stat-box">
       <span class="stat-box__value">{{ totalItems() }}</span>
@@ -85,7 +83,7 @@
     </div>
     <div class="stat-box">
       <span class="stat-box__value">{{ totalCards() }}</span>
-      <span class="stat-box__label">Cartas</span>
+      <span class="stat-box__label">Reversos</span>
     </div>
     <div class="stat-box">
       <span class="stat-box__value">{{ totalMats() }}</span>
@@ -101,61 +99,120 @@
     }
   </section>
 
-  <!-- ═══ Pestañas ═══ -->
-  <div class="tabs">
-    <button class="tab" [class.tab--active]="activeTab() === 'Carta'" (click)="setTab('Carta')">
-      🃏 Cartas ({{ totalCards() }})
-    </button>
-    <button class="tab" [class.tab--active]="activeTab() === 'Tapete'" (click)="setTab('Tapete')">
-      🟩 Tapetes ({{ totalMats() }})
-    </button>
-  </div>
-
-  <!-- ═══ Cuadrícula de inventario ═══ -->
+  <!-- Catalogo del inventario -->
   @if (loading()) {
     <div class="loading-state">
       <span class="loading-spinner"></span>
       <p>Cargando inventario...</p>
     </div>
-  } @else if (filteredSkins().length === 0) {
-    <div class="empty-state glass-card">
-      <span class="empty-state__icon">📦</span>
-      <p class="empty-state__text">No tienes {{ activeTab() === 'Carta' ? 'cartas' : 'tapetes' }} todavía.</p>
-      <button class="btn-neon btn--sm" (click)="goToShop()">Ir a la Tienda</button>
-    </div>
   } @else {
-    <section class="inv-grid" @gridStagger>
-      @for (skin of filteredSkins(); track skin.name) {
-        <div class="inv-card glass-card" [class.inv-card--equipped]="isEquipped(skin)">
-          <!-- Preview -->
-          <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
-            @if (!imgFailed().has(skin.name)) {
-              <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
-            } @else {
-              <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
-            }
-            @if (isEquipped(skin)) {
-              <div class="equipped-indicator">✓</div>
-            }
+    <!-- REVERSOS -->
+    <h2 class="catalog-section-title">REVERSOS</h2>
+    @if (cardSkins().length > 0) {
+      <section class="inv-grid">
+        @for (skin of cardSkins(); track skin.name) {
+          <div class="inv-card glass-card" [class.inv-card--equipped]="isEquipped(skin)">
+            <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+              } @else {
+                <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+              }
+              @if (isEquipped(skin)) {
+                <div class="equipped-indicator">✓</div>
+              }
+            </div>
+            <div class="inv-card__body">
+              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+                {{ getRarityLabel(skin.price) }}
+              </span>
+              <h3 class="inv-card__name">{{ skin.name }}</h3>
+              @if (isEquipped(skin)) {
+                <span class="equipped-badge">✓ EQUIPADO</span>
+                <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
+              } @else {
+                <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
+              }
+            </div>
           </div>
-
-          <!-- Info -->
+        }
+        <!-- Boton + para ir a la tienda (reversos) -->
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('reversos')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
           <div class="inv-card__body">
-            <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-              {{ getRarityLabel(skin.price) }}
-            </span>
-            <h3 class="inv-card__name">{{ skin.name }}</h3>
-
-            @if (isEquipped(skin)) {
-              <span class="equipped-badge">✓ EQUIPADO</span>
-              <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
-            } @else {
-              <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
-            }
+            <h3 class="inv-card__name">Conseguir más</h3>
           </div>
         </div>
-      }
-    </section>
+      </section>
+    } @else {
+      <div class="empty-inline">
+        <span>No tienes reversos todavía.</span>
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('reversos')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
+          <div class="inv-card__body">
+            <h3 class="inv-card__name">Ir a la Tienda</h3>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- TAPETES -->
+    <h2 class="catalog-section-title">TAPETES</h2>
+    @if (matSkins().length > 0) {
+      <section class="inv-grid">
+        @for (skin of matSkins(); track skin.name) {
+          <div class="inv-card glass-card" [class.inv-card--equipped]="isEquipped(skin)">
+            <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+              } @else {
+                <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+              }
+              @if (isEquipped(skin)) {
+                <div class="equipped-indicator">✓</div>
+              }
+            </div>
+            <div class="inv-card__body">
+              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+                {{ getRarityLabel(skin.price) }}
+              </span>
+              <h3 class="inv-card__name">{{ skin.name }}</h3>
+              @if (isEquipped(skin)) {
+                <span class="equipped-badge">✓ EQUIPADO</span>
+                <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
+              } @else {
+                <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
+              }
+            </div>
+          </div>
+        }
+        <!-- Boton + para ir a la tienda (tapetes) -->
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('tapetes')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
+          <div class="inv-card__body">
+            <h3 class="inv-card__name">Conseguir más</h3>
+          </div>
+        </div>
+      </section>
+    } @else {
+      <div class="empty-inline">
+        <span>No tienes tapetes todavía.</span>
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('tapetes')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
+          <div class="inv-card__body">
+            <h3 class="inv-card__name">Ir a la Tienda</h3>
+          </div>
+        </div>
+      </div>
+    }
   }
 
 </div>

@@ -8,6 +8,10 @@ import { Lobby } from './components/lobby/lobby';
 import { Tablero } from './components/tablero/tablero';
 import { Shop } from './components/shop/shop';
 import { Inventory } from './components/inventory/inventory';
+import { CreateRoom } from './components/create-room/create-room';
+import { Rooms } from './components/rooms/rooms';
+import { WaitingRoom } from './components/waiting-room/waiting-room';
+import { Tutorial } from './components/tutorial/tutorial';
 
 export const routes: Routes = [
   { path: '',                component: WelcomeComponent,        data: { animation: 'welcome' } },
@@ -19,5 +23,9 @@ export const routes: Routes = [
   { path: 'shop',           component: Shop,                     data: { animation: 'shop' } },
   { path: 'inventory',      component: Inventory,                data: { animation: 'inventory' } },
   { path: 'tablero',        component: Tablero,                  data: { animation: 'tablero' } },
+  { path: 'create-room',    component: CreateRoom,               data: { animation: 'create-room' } },
+  { path: 'rooms',          component: Rooms,                    data: { animation: 'rooms' } },
+  { path: 'waiting-room',   component: WaitingRoom,              data: { animation: 'waiting-room' } },
+  { path: 'tutorial',       component: Tutorial,                 data: { animation: 'tutorial' } },
   { path: '**',             redirectTo: '' },
 ];

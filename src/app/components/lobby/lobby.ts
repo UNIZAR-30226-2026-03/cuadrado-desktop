@@ -36,6 +36,7 @@ import { AuthService } from '../../services/auth';
 export class Lobby {
   showProfileMenu = false;
   showChangePasswordPopup = false;
+  showDeckPopup = false;
   changePasswordForm: FormGroup;
   changingPassword = false;
   changePasswordMessage = '';
@@ -57,6 +58,14 @@ export class Lobby {
 
   navegar(ruta: string): void { this.router.navigate([ruta]); }
   onLogout(): void { this.auth.logout(); }
+
+  openDeckPopup(): void { this.showDeckPopup = true; }
+  closeDeckPopup(): void { this.showDeckPopup = false; }
+
+  selectDecks(num: 1 | 2): void {
+    this.showDeckPopup = false;
+    this.router.navigate(['/create-room'], { queryParams: { barajas: num } });
+  }
 
   toggleProfileMenu(): void {
     this.showProfileMenu = !this.showProfileMenu;

@@ -1,0 +1,89 @@
+<div class="rooms">
+
+  <!-- Header -->
+  <header class="page-header">
+    <button class="back-btn" (click)="volver()" title="Volver al lobby">← Lobby</button>
+    <h1 class="page-title">BUSCAR PARTIDA</h1>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Seccion: SALAS PUBLICAS -->
+  <section class="public-section">
+    <div class="public-header">
+      <h2 class="section-title">SALAS PÚBLICAS</h2>
+      <div class="public-controls">
+        <div class="search-wrap">
+          <span class="search-icon">🔍</span>
+          <input class="input-neon search-input"
+                 type="text"
+                 [value]="busqueda()"
+                 (input)="onBusquedaInput($event)"
+                 placeholder="Buscar por nombre o anfitrión..." />
+        </div>
+        <button class="refresh-btn" [class.spinning]="refrescando()" (click)="refrescar()" title="Refrescar lista">
+          🔄
+        </button>
+      </div>
+    </div>
+
+    @if (salasFiltradas().length > 0) {
+      <div class="rooms-list" @cardStagger>
+        @for (sala of salasFiltradas(); track sala.id) {
+          <div class="room-row glass-card" [class.disabled]="!puedeUnirse(sala)">
+            <span class="room-row__host">{{ sala.anfitrion }}</span>
+            <span class="room-row__players">{{ sala.jugadores.length }}/8</span>
+            <span class="room-row__rules">
+              @if (sala.reglasActivas.length > 0) {
+                Reglas: {{ sala.reglasActivas.join(', ') }}
+              } @else {
+                Sin reglas
+              }
+            </span>
+            <span class="room-row__decks">Nº de barajas: {{ sala.numBarajas }}</span>
+            <button class="btn-neon btn--sm room-row__join"
+                    [disabled]="!puedeUnirse(sala)"
+                    (click)="unirseDesdeCard(sala)">
+              Unirse
+            </button>
+          </div>
+        }
+      </div>
+    } @else {
+      <div class="empty-state" @fadeIn>
+        <span class="empty-state__icon">🏜️</span>
+        <p class="empty-state__text">
+          @if (busqueda()) {
+            No se encontraron salas que coincidan con "{{ busqueda() }}"
+          } @else {
+            No hay salas públicas disponibles en este momento
+          }
+        </p>
+        <p class="empty-state__hint">¿Por qué no creas una partida?</p>
+      </div>
+    }
+  </section>
+
+  <!-- Seccion: SALAS PRIVADAS -->
+  <section class="private-section glass-card" @fadeIn>
+    <h2 class="section-title">SALAS PRIVADAS</h2>
+    <div class="code-input-row">
+      <input class="input-neon code-input"
+             type="text"
+             [value]="codigoInput()"
+             (input)="onCodigoInput($event)"
+             (keydown.enter)="unirsePorCodigo()"
+             placeholder="Ej: AB3X7K"
+             maxlength="6"
+             spellcheck="false"
+             autocomplete="off" />
+      <button class="btn-neon code-join-btn" (click)="unirsePorCodigo()">Unirse</button>
+    </div>
+    @if (errorCodigo()) {
+      <p class="code-error">{{ errorCodigo() }}</p>
+    }
+  </section>
+
+  <!-- Boton COMO JUGAR (esquina inferior izquierda) -->
+  <button class="how-to-play-btn btn-ghost" (click)="irATutorial()">COMO JUGAR</button>
+
+</div>

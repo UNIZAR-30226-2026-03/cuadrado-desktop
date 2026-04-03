@@ -114,110 +114,19 @@ $margin: 20px;
   &__icon { margin-right: 8px; }
 }
 
-// ── Pestañas ────────────────────────────────────────────────────────────────
-.tabs {
-  display: flex;
-  gap: 8px;
+// ── Titulos de seccion del catalogo ──────────────────────────────────────────
+.catalog-section-title {
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.4);
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
   flex-shrink: 0;
-}
-
-.tab {
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
-  color: var(--text-50);
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: all 250ms;
-
-  &:hover {
-    color: var(--text-80);
-    border-color: var(--glass-border-lit);
-  }
-
-  &--active {
-    color: var(--neon-cyan);
-    border-color: rgba(0, 229, 255, 0.5);
-    background: rgba(0, 229, 255, 0.08);
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.15);
-    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
-  }
-}
-
-// ── Artículo destacado ──────────────────────────────────────────────────────
-.featured {
-  display: flex;
-  gap: 24px;
-  padding: 20px;
-  flex-shrink: 0;
-  overflow: hidden;
-  animation: grid-fade-in 300ms ease-out;
-
-  &__preview {
-    position: relative;
-    min-width: 140px;
-    max-width: 240px;
-    border-radius: 14px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-    overflow: hidden;
-    padding: 10px;
-  }
-
-  &__icon {
-    font-size: 56px;
-    filter: drop-shadow(0 4px 12px rgba(0, 0, 0, 0.4));
-    z-index: 1;
-  }
-
-  &__img {
-    max-width: 100%;
-    max-height: 200px;
-    object-fit: contain;
-    border-radius: 14px;
-    position: relative;
-    z-index: 1;
-  }
-
-  &__glow {
-    position: absolute;
-    inset: -20%;
-    background: radial-gradient(circle, rgba(255, 255, 255, 0.15), transparent 60%);
-    animation: breathe 4s ease-in-out infinite;
-    pointer-events: none;
-  }
-
-  &__info {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    justify-content: center;
-  }
-
-  &__name {
-    font-family: var(--font-body);
-    font-size: 24px;
-    font-weight: 700;
-    color: var(--text-100);
-  }
-
-  &__label {
-    font-size: 12px;
-    color: var(--neon-gold);
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-  }
-
-  &__price {
-    display: flex;
-    gap: 12px;
-  }
+  margin-top: 8px;
 }
 
 // ── Filtros ─────────────────────────────────────────────────────────────────
@@ -554,14 +463,6 @@ $margin: 20px;
 
 // ── Responsive ──────────────────────────────────────────────────────────────
 @media (max-width: 768px) {
-  .featured {
-    flex-direction: column;
-    align-items: center;
-    text-align: center;
-  }
-
-  .featured__info { align-items: center; }
-
   .skins-grid {
     grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
   }

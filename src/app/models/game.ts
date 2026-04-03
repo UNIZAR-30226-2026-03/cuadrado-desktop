@@ -38,7 +38,6 @@ export interface Jugador {
 
 export interface SalaConfig {
     nombre: string;
-    maxJugadores: number;     // 2-8
     barajas: 1 | 2;                // 1 o 2 barajas
     reglasEspeciales: boolean[]; // [true, false, false, false...] => solo el as es especial
     esPrivada: boolean;

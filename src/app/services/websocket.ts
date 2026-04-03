@@ -24,7 +24,6 @@ export class WebsocketService {
 
   // Canales de comunicación (Subjects) para que los componentes se suscriban
   estadoPartida$ = new Subject<EstadoPartida>();
-  mensajeChat$ = new Subject<{ jugadorId: string; texto: string; timestamp: number }>();
   error$ = new Subject<string>();
 
   constructor() { }
@@ -53,7 +52,6 @@ export class WebsocketService {
     });
 
     // Escuchamos otros eventos
-    this.socket.on('mensaje_chat', (msg: { jugadorId: string; texto: string; timestamp: number }) => this.mensajeChat$.next(msg));
     this.socket.on('error', (err: string) => this.error$.next(err));
   }
 
@@ -61,13 +59,6 @@ export class WebsocketService {
   enviarAccion(accion: AccionJuego): void {
     if (this.socket?.connected) {
       this.socket.emit('accion_juego', accion);
-    }
-  }
-
-  // Método para enviar mensajes por el chat
-  enviarMensaje(texto: string): void {
-    if (this.socket?.connected) {
-      this.socket.emit('mensaje_chat', { texto });
     }
   }
 

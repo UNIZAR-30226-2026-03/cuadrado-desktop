@@ -1,0 +1,66 @@
+<div class="create-room">
+
+  <!-- Header -->
+  <header class="page-header">
+    <button class="back-btn" (click)="volver()" title="Volver al lobby">← Lobby</button>
+    <h1 class="page-title">CONFIGURACIÓN DE PARTIDA</h1>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Panel de configuracion -->
+  <main class="create-room__main">
+    <div class="config-panel glass-card" @panelEnter>
+
+      <!-- Info barajas (solo lectura) -->
+      <div class="config-field">
+        <label class="config-label">Número de barajas</label>
+        <div class="deck-info">{{ numBarajas() }} {{ numBarajas() === 1 ? 'baraja' : 'barajas' }}</div>
+      </div>
+
+      <!-- Toggle publico / privada -->
+      <div class="config-field">
+        <label class="config-label">Visibilidad</label>
+        <div class="toggle-row">
+          <span class="toggle-option" [class.active]="esPublica()">SALA PÚBLICA</span>
+          <button class="toggle" [class.active]="!esPublica()" (click)="esPublica.set(!esPublica())">
+            <span class="toggle__thumb"></span>
+          </button>
+          <span class="toggle-option" [class.active]="!esPublica()">SALA PRIVADA</span>
+        </div>
+      </div>
+
+      <!-- Lista de poderes de cartas -->
+      <div class="config-field">
+        <label class="config-label">Poderes de cartas</label>
+        <div class="powers-list">
+          @for (power of cardPowers; track power.card; let i = $index) {
+            <div class="power-item" [class.power-item--active]="power.enabled" (click)="togglePower(i)">
+              <div class="power-item__check">
+                @if (power.enabled) {
+                  <span class="power-check--on">✓</span>
+                } @else {
+                  <span class="power-check--off"></span>
+                }
+              </div>
+              <span class="power-item__image">{{ power.image }}</span>
+              <div class="power-item__info">
+                <span class="power-item__card">{{ power.card }}</span>
+                <span class="power-item__desc">{{ power.description }}</span>
+              </div>
+            </div>
+          }
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Boton crear partida centrado -->
+  <div class="create-room__center-action">
+    <button class="btn-neon btn--lg" (click)="crearSala()">Crear Partida</button>
+  </div>
+
+  <!-- Boton COMO JUGAR esquina inferior izquierda -->
+  <button class="btn-ghost how-to-play-btn" (click)="irATutorial()">COMO JUGAR</button>
+
+</div>

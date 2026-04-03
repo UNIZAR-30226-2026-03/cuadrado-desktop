@@ -1,0 +1,176 @@
+@if (sala(); as s) {
+<div class="waiting-room">
+
+  <!-- Cabecera -->
+  <header class="room-header" @fadeIn>
+    <button class="back-btn" (click)="soyAnfitrion() ? cancelarSala() : abandonarSala()">
+      ← {{ soyAnfitrion() ? 'Cancelar Sala' : 'Abandonar Sala' }}
+    </button>
+    <h1 class="room-title">SALA DE ESPERA</h1>
+    <div class="header-spacer"></div>
+  </header>
+
+  <!-- Info de la sala -->
+  <div class="room-info">
+    <span class="visibility-badge" [class.public]="s.publica" [class.private]="!s.publica">
+      {{ s.publica ? 'Pública' : 'Privada' }}
+    </span>
+    <span class="room-info__sep">·</span>
+    <span class="room-info__text">{{ s.numBarajas }} {{ s.numBarajas === 1 ? 'baraja' : 'barajas' }}</span>
+    @if (s.reglasActivas && s.reglasActivas.length > 0) {
+      <span class="room-info__sep">·</span>
+      <span class="room-info__text">Reglas: {{ s.reglasActivas.join(', ') }}</span>
+    }
+  </div>
+
+  <!-- Panel de jugadores -->
+  <div class="players-panel" @slotStagger>
+    <h2 class="panel-title">Jugadores ({{ s.jugadores.length }}/8)</h2>
+
+    <div class="player-slots">
+      @for (jugador of s.jugadores; track jugador.id) {
+        <div class="player-slot"
+             [class.host]="jugador.esAnfitrion"
+             [class.bot]="jugador.esBot"
+             [class.ready]="jugador.listo">
+
+          <div class="player-slot__avatar">
+            <span class="avatar-emoji">{{ jugador.avatar }}</span>
+            @if (jugador.esAnfitrion) {
+              <span class="crown-badge" title="Anfitrión">👑</span>
+            }
+            @if (jugador.esBot) {
+              <span class="bot-badge" title="Bot">🤖</span>
+            }
+          </div>
+
+          <div class="player-slot__info">
+            <span class="player-name">{{ jugador.nombre }}</span>
+            <span class="player-role">
+              @if (jugador.esAnfitrion) { Anfitrión }
+              @else if (jugador.esBot) { Bot · {{ jugador.dificultad }} }
+              @else { Jugador }
+            </span>
+          </div>
+
+          <div class="player-slot__status">
+            @if (jugador.listo) {
+              <span class="status-badge ready">✔ Listo</span>
+            } @else {
+              <span class="status-badge waiting">⏳ Esperando</span>
+            }
+          </div>
+
+          @if (soyAnfitrion() && !jugador.esAnfitrion) {
+            <button class="kick-btn" (click)="expulsarJugador(jugador)" title="Expulsar">✕</button>
+          }
+        </div>
+      }
+
+      @for (i of slotsVacios(); track i) {
+        <div class="player-slot player-slot--empty">
+          <div class="player-slot__avatar">
+            <span class="avatar-emoji empty-avatar">?</span>
+          </div>
+          <div class="player-slot__info">
+            <span class="player-name empty-name">Esperando jugador...</span>
+          </div>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- Controles centrales -->
+  <div class="center-controls">
+    @if (soyAnfitrion()) {
+      <button class="btn-neon btn--lg"
+              [class.loading]="iniciandoPartida()"
+              (click)="abrirPopupInicio()"
+              [disabled]="!puedeIniciar() || iniciandoPartida()">
+        @if (iniciandoPartida()) {
+          <span class="spinner"></span> Iniciando...
+        } @else {
+          Comenzar Partida
+        }
+      </button>
+    } @else {
+      <button class="btn-neon btn--lg" (click)="toggleListo()">
+        {{ estoyListo() ? '✋ No estoy listo' : '✔ Estoy listo' }}
+      </button>
+    }
+    <button class="btn-ghost btn--sm" (click)="abrirPopupPoderes()">Cartas con poderes</button>
+  </div>
+
+  <!-- Codigo de sala (esquina inferior derecha) -->
+  <div class="room-code-corner" (click)="copiarCodigo()" title="Clic para copiar el código">
+    <span class="room-code-corner__label">Código</span>
+    <span class="room-code-corner__value">{{ s.id }}</span>
+    <span class="room-code-corner__copy">{{ codigoCopiado() ? '✅' : '📋' }}</span>
+  </div>
+
+  <!-- Popup: Iniciar partida (elegir modo) -->
+  @if (showStartPopup()) {
+    <div class="modal-overlay" (click)="cerrarPopupInicio()">
+      <div class="modal glass-card" (click)="$event.stopPropagation()">
+        <h3 class="modal__title">¿Cómo quieres empezar?</h3>
+        <div class="modal__options">
+          <button class="btn-neon modal__option-btn" (click)="iniciarConPresentes()">
+            Jugar con presentes
+          </button>
+          <button class="btn-neon modal__option-btn"
+                  [disabled]="s.jugadores.length >= 8"
+                  (click)="iniciarConBots()">
+            Rellenar con bots
+          </button>
+        </div>
+        <button class="btn-ghost btn--sm" (click)="cerrarPopupInicio()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  <!-- Popup: Cartas con poderes -->
+  @if (showPowersPopup()) {
+    <div class="modal-overlay" (click)="cerrarPopupPoderes()">
+      <div class="powers-popup glass-card" [class.powers-popup--detail]="selectedPowerCard()" (click)="$event.stopPropagation()">
+
+        <!-- Abanico de cartas -->
+        <div class="powers-fan">
+          <h3 class="powers-fan__title">Cartas con poderes activos</h3>
+          @if (activePowers().length === 0) {
+            <p class="powers-fan__empty">No hay poderes activos en esta sala.</p>
+          } @else {
+            <div class="fan-cards">
+              @for (power of activePowers(); track power.card; let i = $index) {
+                <div class="fan-card"
+                     [class.fan-card--selected]="selectedPowerCard()?.card === power.card"
+                     [style.--fan-index]="i"
+                     [style.--fan-total]="activePowers().length"
+                     (click)="selectPowerCard(power)">
+                  <span class="fan-card__value">{{ power.card }}</span>
+                </div>
+              }
+            </div>
+          }
+        </div>
+
+        <!-- Detalle de la carta seleccionada -->
+        @if (selectedPowerCard(); as selected) {
+          <div class="power-detail" @fadeIn>
+            <h4 class="power-detail__title">{{ selected.card }}</h4>
+            <div class="power-detail__suits">
+              <span class="suit-card suit-card--hearts">{{ selected.card }}<span class="suit">♥</span></span>
+              <span class="suit-card suit-card--diamonds">{{ selected.card }}<span class="suit">♦</span></span>
+              <span class="suit-card suit-card--clubs">{{ selected.card }}<span class="suit">♣</span></span>
+              <span class="suit-card suit-card--spades">{{ selected.card }}<span class="suit">♠</span></span>
+            </div>
+            <p class="power-detail__desc">{{ selected.description }}</p>
+          </div>
+        }
+
+        <button class="btn-ghost btn--sm powers-popup__close" (click)="cerrarPopupPoderes()">Cerrar</button>
+      </div>
+    </div>
+  }
+
+</div>
+}

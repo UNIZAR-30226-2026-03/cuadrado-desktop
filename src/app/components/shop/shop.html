@@ -1,6 +1,6 @@
 <div class="shop" #shopContainer>
 
-  <!-- ═══ Header ═══ -->
+  <!-- Header -->
   <header class="shop-header">
     <button class="back-btn" (click)="goBack()" title="Volver al lobby">
       ← Lobby
@@ -25,60 +25,13 @@
     </div>
   </header>
 
-  <!-- ═══ Título ═══ -->
+  <!-- Titulo -->
   <h1 class="page-title">
     <span class="page-title__icon">🛒</span>
     Tienda
   </h1>
 
-  <!-- ═══ Pestañas ═══ -->
-  <div class="tabs">
-    <button class="tab" [class.tab--active]="activeTab() === 'Carta'" (click)="setTab('Carta')">
-      🃏 Cartas
-    </button>
-    <button class="tab" [class.tab--active]="activeTab() === 'Tapete'" (click)="setTab('Tapete')">
-      🟩 Tapetes
-    </button>
-  </div>
-
-  <!-- ═══ Artículo destacado ═══ -->
-  @if (featuredSkin(); as featured) {
-    <section class="featured glass-card">
-      <div class="featured__preview" [style.background]="getSkinGradient(featured.name)">
-        @if (!imgFailed().has(featured.name)) {
-          <img class="featured__img" [src]="getSkinImageUrl(featured)" [alt]="featured.name" (error)="onImgError(featured.name)">
-        } @else {
-          <span class="featured__icon">{{ getSkinIcon(featured.name) }}</span>
-        }
-        <div class="featured__glow"></div>
-      </div>
-      <div class="featured__info">
-        <span class="rarity-badge" [class]="getRarityClass(featured.price)">
-          {{ getRarityLabel(featured.price) }}
-        </span>
-        <h2 class="featured__name">{{ featured.name }}</h2>
-        <p class="featured__label">✨ Artículo destacado</p>
-        @if (isOwned(featured)) {
-          @if (isEquipped(featured)) {
-            <span class="equipped-badge">✓ EQUIPADO</span>
-          } @else {
-            <button class="btn-neon btn--sm" (click)="equipAndGoToInventory(featured)">EQUIPAR</button>
-          }
-        } @else {
-          <div class="featured__price">
-            <span class="price-tag">💎 {{ featured.price | number }}</span>
-          </div>
-          <button class="btn-neon btn--sm"
-                  [disabled]="!canAfford(featured)"
-                  (click)="openBuyModal(featured)">
-            COMPRAR
-          </button>
-        }
-      </div>
-    </section>
-  }
-
-  <!-- ═══ Filtros y ordenación ═══ -->
+  <!-- Filtros y ordenacion -->
   <div class="filters">
     <div class="filter-group">
       <label class="filter-label">Rareza:</label>
@@ -96,58 +49,108 @@
     </div>
   </div>
 
-  <!-- ═══ Cuadrícula de skins ═══ -->
+  <!-- Catalogo completo -->
   @if (loading()) {
     <div class="loading-state">
       <span class="loading-spinner"></span>
       <p>Cargando tienda...</p>
     </div>
-  } @else if (filteredSkins().length === 0) {
-    <div class="empty-state">
-      <span class="empty-state__icon">🔍</span>
-      <p>No se encontraron artículos con estos filtros.</p>
-    </div>
   } @else {
-    <section class="skins-grid" @gridStagger>
-      @for (skin of filteredSkins(); track skin.name) {
-        <div class="skin-card glass-card" [class.skin-card--owned]="isOwned(skin)" [class.skin-card--equipped]="isEquipped(skin)" (click)="selectFeatured(skin)">
-          <!-- Preview -->
-          <div class="skin-card__preview" [style.background]="getSkinGradient(skin.name)">
-            @if (!imgFailed().has(skin.name)) {
-              <img class="skin-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
-            } @else {
-              <span class="skin-card__emoji">{{ getSkinIcon(skin.name) }}</span>
-            }
-            @if (isOwned(skin)) {
-              <div class="owned-overlay">✓</div>
-            }
-          </div>
-
-          <!-- Info -->
-          <div class="skin-card__body">
-            <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-              {{ getRarityLabel(skin.price) }}
-            </span>
-            <h3 class="skin-card__name">{{ skin.name }}</h3>
-
-            @if (isOwned(skin)) {
-              @if (isEquipped(skin)) {
-                <span class="equipped-badge">✓ EQUIPADO</span>
+    <!-- REVERSOS -->
+    @if (reverseSkins().length > 0) {
+      <h2 class="catalog-section-title" id="section-reversos">REVERSOS</h2>
+      <section class="skins-grid">
+        @for (skin of reverseSkins(); track skin.name) {
+          <div class="skin-card glass-card" [class.skin-card--owned]="isOwned(skin)" [class.skin-card--equipped]="isEquipped(skin)" (click)="selectFeatured(skin)">
+            <div class="skin-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="skin-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
               } @else {
-                <button class="btn-neon btn--xs" (click)="equipAndGoToInventory(skin); $event.stopPropagation()">EQUIPAR</button>
+                <span class="skin-card__emoji">{{ getSkinIcon(skin.name) }}</span>
               }
-            } @else {
-              <div class="skin-card__price">
-                <span class="price-tag">💎 {{ skin.price | number }}</span>
-              </div>
-            }
+              @if (isOwned(skin)) {
+                <div class="owned-overlay">✓</div>
+              }
+            </div>
+            <div class="skin-card__body">
+              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+                {{ getRarityLabel(skin.price) }}
+              </span>
+              <h3 class="skin-card__name">{{ skin.name }}</h3>
+              @if (isOwned(skin)) {
+                @if (isEquipped(skin)) {
+                  <span class="equipped-badge">✓ EQUIPADO</span>
+                } @else {
+                  <button class="btn-neon btn--xs" (click)="equipAndGoToInventory(skin); $event.stopPropagation()">EQUIPAR</button>
+                }
+              } @else {
+                <div class="skin-card__price">
+                  <span class="price-tag">💎 {{ skin.price | number }}</span>
+                </div>
+                <button class="btn-neon btn--xs"
+                        [disabled]="!canAfford(skin)"
+                        (click)="openBuyModal(skin); $event.stopPropagation()">
+                  COMPRAR
+                </button>
+              }
+            </div>
           </div>
-        </div>
-      }
-    </section>
+        }
+      </section>
+    }
+
+    <!-- TAPETES -->
+    @if (tapeteSkins().length > 0) {
+      <h2 class="catalog-section-title" id="section-tapetes">TAPETES</h2>
+      <section class="skins-grid">
+        @for (skin of tapeteSkins(); track skin.name) {
+          <div class="skin-card glass-card" [class.skin-card--owned]="isOwned(skin)" [class.skin-card--equipped]="isEquipped(skin)" (click)="selectFeatured(skin)">
+            <div class="skin-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="skin-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+              } @else {
+                <span class="skin-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+              }
+              @if (isOwned(skin)) {
+                <div class="owned-overlay">✓</div>
+              }
+            </div>
+            <div class="skin-card__body">
+              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
+                {{ getRarityLabel(skin.price) }}
+              </span>
+              <h3 class="skin-card__name">{{ skin.name }}</h3>
+              @if (isOwned(skin)) {
+                @if (isEquipped(skin)) {
+                  <span class="equipped-badge">✓ EQUIPADO</span>
+                } @else {
+                  <button class="btn-neon btn--xs" (click)="equipAndGoToInventory(skin); $event.stopPropagation()">EQUIPAR</button>
+                }
+              } @else {
+                <div class="skin-card__price">
+                  <span class="price-tag">💎 {{ skin.price | number }}</span>
+                </div>
+                <button class="btn-neon btn--xs"
+                        [disabled]="!canAfford(skin)"
+                        (click)="openBuyModal(skin); $event.stopPropagation()">
+                  COMPRAR
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    @if (reverseSkins().length === 0 && tapeteSkins().length === 0) {
+      <div class="empty-state">
+        <span class="empty-state__icon">🔍</span>
+        <p>No se encontraron artículos con estos filtros.</p>
+      </div>
+    }
   }
 
-  <!-- ═══ Modal de confirmación ═══ -->
+  <!-- Modal de confirmacion -->
   @if (modalType()) {
     <div class="modal-overlay" (click)="closeModal()">
       <div class="modal glass-card" (click)="$event.stopPropagation()">

@@ -1,0 +1,287 @@
+// ═════════════════════════════════════════════════════════════════════════════
+//  BUSCAR PARTIDA — Búsqueda y listado de salas
+// ═════════════════════════════════════════════════════════════════════════════
+
+$margin: 20px;
+
+.rooms {
+  display: flex;
+  flex-direction: column;
+  width: 100vw;
+  height: 100vh;
+  padding: $margin;
+  padding-bottom: 70px; // espacio para el boton COMO JUGAR
+  box-sizing: border-box;
+  position: relative;
+  z-index: 1;
+  gap: 16px;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+// ── Header ──────────────────────────────────────────────────────────────────
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+.back-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  font-size: 13px;
+  font-weight: 600;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 22px;
+  color: var(--text-80);
+  cursor: pointer;
+  backdrop-filter: blur(12px);
+  transition: all 250ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.15);
+  }
+}
+
+.page-title {
+  font-family: var(--font-body);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-100);
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+}
+
+.header-spacer { width: 90px; }
+
+// ── Titulo de seccion ───────────────────────────────────────────────────────
+.section-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: 14px;
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
+}
+
+// ── Seccion salas publicas ──────────────────────────────────────────────────
+.public-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.public-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  margin-bottom: 14px;
+}
+
+.public-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.search-icon {
+  position: absolute;
+  left: 12px;
+  font-size: 14px;
+  pointer-events: none;
+  z-index: 1;
+}
+
+.search-input {
+  padding-left: 36px !important;
+  width: 280px;
+  font-size: 13px;
+}
+
+.refresh-btn {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 250ms;
+  backdrop-filter: blur(8px);
+
+  &:hover {
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.2);
+  }
+
+  &.spinning {
+    animation: spin 0.8s linear infinite;
+  }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// ── Lista de salas (filas) ──────────────────────────────────────────────────
+.rooms-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+  overflow-y: auto;
+  padding-bottom: 8px;
+}
+
+.room-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+  transition: all 300ms;
+  animation: none !important;
+
+  &:hover:not(.disabled) {
+    border-color: var(--glass-border-lit);
+    box-shadow:
+      0 0 20px rgba(0, 229, 255, 0.12),
+      0 4px 16px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+  }
+
+  &.disabled {
+    opacity: 0.55;
+  }
+
+  &__host {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-100);
+    min-width: 120px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__players {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--neon-cyan);
+    min-width: 40px;
+    text-align: center;
+  }
+
+  &__rules {
+    font-size: 12px;
+    color: var(--text-50);
+    flex: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__decks {
+    font-size: 12px;
+    color: var(--text-50);
+    white-space: nowrap;
+    min-width: 110px;
+  }
+
+  &__join {
+    flex-shrink: 0;
+    padding: 8px 20px !important;
+    font-size: 12px !important;
+  }
+}
+
+// ── Seccion salas privadas ──────────────────────────────────────────────────
+.private-section {
+  padding: 20px 24px;
+  flex-shrink: 0;
+}
+
+.code-input-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.code-input {
+  max-width: 220px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-align: center;
+}
+
+.code-join-btn {
+  padding: 12px 28px !important;
+  font-size: 14px !important;
+  white-space: nowrap;
+}
+
+.code-error {
+  margin-top: 10px;
+  font-size: 13px;
+  color: #ff6b8a;
+  text-shadow: 0 0 8px rgba(255, 107, 138, 0.3);
+}
+
+// ── Boton COMO JUGAR ────────────────────────────────────────────────────────
+.how-to-play-btn {
+  position: fixed;
+  bottom: 20px;
+  left: 20px;
+  z-index: 10;
+  padding: 10px 20px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+// ── Estado vacío ────────────────────────────────────────────────────────────
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 40px 20px;
+
+  &__icon {
+    font-size: 52px;
+    filter: drop-shadow(0 0 12px rgba(0, 229, 255, 0.2));
+  }
+
+  &__text {
+    font-size: 16px;
+    color: var(--text-80);
+    text-align: center;
+  }
+
+  &__hint {
+    font-size: 13px;
+    color: var(--text-50);
+  }
+}

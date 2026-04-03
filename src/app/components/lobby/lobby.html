@@ -46,7 +46,7 @@
 
     <!-- Grupo 1: Crear Partida -->
     <div class="nav-group nav-group--primary">
-      <button class="nav-card" (click)="navegar('/create-room')">
+      <button class="nav-card" (click)="openDeckPopup()">
         <span class="nav-card__glow" aria-hidden="true"></span>
         <span class="nav-card__icon">▶</span>
         <span class="nav-card__label">Crear Partida</span>
@@ -70,6 +70,20 @@
     </div>
 
   </section>
+
+  @if (showDeckPopup) {
+    <div class="deck-popup-overlay" (click)="closeDeckPopup()">
+      <div class="deck-popup glass-card" (click)="$event.stopPropagation()">
+        <h3 class="deck-popup__title">Selecciona el número de barajas</h3>
+        <div class="deck-popup__options">
+          <button class="btn-neon deck-popup__btn" (click)="selectDecks(1)">1 BARAJA</button>
+          <button class="btn-neon deck-popup__btn" (click)="selectDecks(2)">2 BARAJAS</button>
+          <button class="btn-ghost deck-popup__btn deck-popup__btn--disabled" disabled>REANUDAR ÚLTIMA PARTIDA</button>
+        </div>
+        <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+      </div>
+    </div>
+  }
 
   @if (showChangePasswordPopup) {
     <div class="change-popup-overlay" (click)="closeChangePasswordPopup()">

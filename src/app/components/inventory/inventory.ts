@@ -44,13 +44,11 @@ export class Inventory implements OnInit {
   ownedSkins = signal<Skin[]>([]);
   equippedCardName = signal<string | null>(null);
   equippedTapeteName = signal<string | null>(null);
-  activeTab = signal<'Carta' | 'Tapete'>('Carta');
   loading = signal(true);
 
-  // Computed
-  filteredSkins = computed(() => {
-    return this.ownedSkins().filter(s => s.type === this.activeTab());
-  });
+  // Computed: skins separadas por tipo
+  cardSkins = computed(() => this.ownedSkins().filter(s => s.type === 'Carta'));
+  matSkins = computed(() => this.ownedSkins().filter(s => s.type === 'Tapete'));
 
   equippedCard = computed(() => {
     const eq = this.equippedCardName();
@@ -63,15 +61,14 @@ export class Inventory implements OnInit {
   });
 
   totalItems = computed(() => this.ownedSkins().length);
+  totalCards = computed(() => this.cardSkins().length);
+  totalMats = computed(() => this.matSkins().length);
 
   rarestItem = computed(() => {
     const skins = this.ownedSkins();
     if (!skins.length) return null;
     return skins.reduce((max, s) => s.price > max.price ? s : max, skins[0]);
   });
-
-  totalCards = computed(() => this.ownedSkins().filter(s => s.type === 'Carta').length);
-  totalMats = computed(() => this.ownedSkins().filter(s => s.type === 'Tapete').length);
 
   constructor(
     protected auth: AuthService,
@@ -91,7 +88,6 @@ export class Inventory implements OnInit {
 
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
       next: (skins) => {
-        // Filtrar solo Carta y Tapete
         this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
         if (this.usuario) {
           this.equippedCardName.set(this.usuario.reverso || null);
@@ -103,12 +99,13 @@ export class Inventory implements OnInit {
     });
   }
 
-  // Navegación
+  // Navegacion
   goBack() { this.router.navigate(['/lobby']); }
   goToShop() { this.router.navigate(['/shop']); }
 
-  // Pestañas
-  setTab(tab: 'Carta' | 'Tapete') { this.activeTab.set(tab); }
+  goToShopSection(section: string) {
+    this.router.navigate(['/shop'], { fragment: `section-${section}` });
+  }
 
   // Rareza
   getRarity(price: number): Rarity {
@@ -181,7 +178,7 @@ export class Inventory implements OnInit {
     });
   }
 
-  // Imágenes: usa url de BD si existe, si no el asset local
+  // Imagenes
   getSkinImageUrl(skin: Skin): string {
     return skin.url || `assets/skins/${skin.name}.png`;
   }
@@ -190,7 +187,6 @@ export class Inventory implements OnInit {
     this.imgFailed.update(s => new Set(s).add(name));
   }
 
-  // Gradientes y iconos (mismos que la tienda)
   getSkinGradient(name: string): string {
     const gradients: Record<string, string> = {
       'Cubo':       'linear-gradient(135deg, #00e5ff 0%, #0052d4 100%)',

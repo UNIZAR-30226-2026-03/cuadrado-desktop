@@ -229,37 +229,29 @@ $margin: 20px;
   }
 }
 
-// ── Pestañas ────────────────────────────────────────────────────────────────
-.tabs {
-  display: flex;
-  gap: 8px;
+// ── Titulos de seccion del catalogo ──────────────────────────────────────────
+.catalog-section-title {
+  font-family: var(--font-body);
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 18px rgba(0, 229, 255, 0.4);
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(0, 229, 255, 0.2);
   flex-shrink: 0;
+  margin-top: 8px;
 }
 
-.tab {
-  padding: 10px 24px;
-  font-size: 14px;
-  font-weight: 600;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 14px;
+// ── Estado vacio inline ─────────────────────────────────────────────────────
+.empty-inline {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 0;
   color: var(--text-50);
-  cursor: pointer;
-  backdrop-filter: blur(12px);
-  transition: all 250ms;
-
-  &:hover {
-    color: var(--text-80);
-    border-color: var(--glass-border-lit);
-  }
-
-  &--active {
-    color: var(--neon-cyan);
-    border-color: rgba(0, 229, 255, 0.5);
-    background: rgba(0, 229, 255, 0.08);
-    box-shadow: 0 0 20px rgba(0, 229, 255, 0.15);
-    text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
-  }
+  font-size: 14px;
 }
 
 // ── Cuadrícula del inventario ───────────────────────────────────────────────
@@ -336,6 +328,38 @@ $margin: 20px;
     font-size: 14px;
     font-weight: 700;
     color: var(--text-100);
+  }
+}
+
+// ── Tarjeta "+" para ir a la tienda ──────────────────────────────────────────
+.inv-card--add {
+  cursor: pointer;
+  border-style: dashed;
+  border-color: rgba(0, 229, 255, 0.3);
+
+  &:hover {
+    border-color: var(--neon-cyan);
+    background: rgba(0, 229, 255, 0.05);
+  }
+}
+
+.inv-card__preview--add {
+  background: rgba(0, 229, 255, 0.04) !important;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.inv-card__add-icon {
+  font-size: 48px;
+  font-weight: 300;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 20px rgba(0, 229, 255, 0.4);
+  transition: transform 300ms var(--spring);
+
+  .inv-card--add:hover & {
+    transform: scale(1.2);
   }
 }
 
