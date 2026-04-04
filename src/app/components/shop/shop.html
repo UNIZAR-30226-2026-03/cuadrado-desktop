@@ -34,14 +34,6 @@
   <!-- Filtros y ordenacion -->
   <div class="filters">
     <div class="filter-group">
-      <label class="filter-label">Rareza:</label>
-      <button class="filter-btn" [class.filter-btn--active]="filterRarity() === 'Todas'" (click)="setFilter('Todas')">Todas</button>
-      <button class="filter-btn rarity--comun" [class.filter-btn--active]="filterRarity() === 'Comun'" (click)="setFilter('Comun')">Común</button>
-      <button class="filter-btn rarity--rara" [class.filter-btn--active]="filterRarity() === 'Rara'" (click)="setFilter('Rara')">Rara</button>
-      <button class="filter-btn rarity--epica" [class.filter-btn--active]="filterRarity() === 'Epica'" (click)="setFilter('Epica')">Épica</button>
-      <button class="filter-btn rarity--legendaria" [class.filter-btn--active]="filterRarity() === 'Legendaria'" (click)="setFilter('Legendaria')">Legendaria</button>
-    </div>
-    <div class="filter-group">
       <label class="filter-label">Ordenar:</label>
       <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-asc'" (click)="setSort('price-asc')">Precio ↑</button>
       <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-desc'" (click)="setSort('price-desc')">Precio ↓</button>
@@ -73,9 +65,6 @@
               }
             </div>
             <div class="skin-card__body">
-              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-                {{ getRarityLabel(skin.price) }}
-              </span>
               <h3 class="skin-card__name">{{ skin.name }}</h3>
               @if (isOwned(skin)) {
                 @if (isEquipped(skin)) {
@@ -116,9 +105,6 @@
               }
             </div>
             <div class="skin-card__body">
-              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-                {{ getRarityLabel(skin.price) }}
-              </span>
               <h3 class="skin-card__name">{{ skin.name }}</h3>
               @if (isOwned(skin)) {
                 @if (isEquipped(skin)) {

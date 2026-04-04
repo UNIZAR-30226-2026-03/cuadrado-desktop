@@ -82,6 +82,9 @@
 
   <!-- Controles centrales -->
   <div class="center-controls">
+    <button class="btn-neon btn--lg btn--ready" (click)="toggleListo()">
+      {{ estoyListo() ? '✋ No estoy listo' : '✔ Estoy listo' }}
+    </button>
     @if (soyAnfitrion()) {
       <button class="btn-neon btn--lg"
               [class.loading]="iniciandoPartida()"
@@ -92,10 +95,6 @@
         } @else {
           Comenzar Partida
         }
-      </button>
-    } @else {
-      <button class="btn-neon btn--lg" (click)="toggleListo()">
-        {{ estoyListo() ? '✋ No estoy listo' : '✔ Estoy listo' }}
       </button>
     }
     <button class="btn-ghost btn--sm" (click)="abrirPopupPoderes()">Cartas con poderes</button>
@@ -114,7 +113,9 @@
       <div class="modal glass-card" (click)="$event.stopPropagation()">
         <h3 class="modal__title">¿Cómo quieres empezar?</h3>
         <div class="modal__options">
-          <button class="btn-neon modal__option-btn" (click)="iniciarConPresentes()">
+          <button class="btn-neon modal__option-btn"
+                  [disabled]="!puedeJugarConPresentes()"
+                  (click)="iniciarConPresentes()">
             Jugar con presentes
           </button>
           <button class="btn-neon modal__option-btn"

@@ -1,0 +1,437 @@
+// ═════════════════════════════════════════════════════════════════════════════
+//  GAME TABLE — Mesa de juego animada (portada de cuadrado-web)
+// ═════════════════════════════════════════════════════════════════════════════
+
+.game-table {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter:
+    drop-shadow(0 0 1px rgba(0, 229, 255, 0.5))
+    drop-shadow(0 0 40px rgba(0, 229, 255, 0.08))
+    drop-shadow(0 0 80px rgba(0, 229, 255, 0.04));
+}
+
+// ── Superficie oval ────────────────────────────────────────────────────────
+.game-table__surface {
+  --table-scale: 1;
+  position: relative;
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 50% 40% at 50% 45%, rgba(40, 100, 170, 0.3) 0%, transparent 60%),
+    radial-gradient(ellipse 100% 80% at 50% 30%, rgba(30, 80, 150, 0.35) 0%, transparent 50%),
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(18, 55, 108, 0.95) 0%, rgba(10, 32, 68, 0.98) 100%);
+  border: 2px solid rgba(0, 229, 255, 0.25);
+  animation: glow-border 6s ease-in-out infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    box-shadow: inset 0 0 60px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(0, 229, 255, 0.04);
+    z-index: 0;
+    pointer-events: none;
+  }
+}
+
+// ── Anillo decorativo ──────────────────────────────────────────────────────
+.game-table__ring {
+  position: absolute;
+  top: 10%;
+  left: 8%;
+  right: 8%;
+  bottom: 10%;
+  border-radius: 50%;
+  border: 1.5px solid rgba(0, 229, 255, 0.16);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.08), inset 0 0 10px rgba(0, 229, 255, 0.04);
+  pointer-events: none;
+  z-index: 1;
+}
+
+// ── Manos de cartas ────────────────────────────────────────────────────────
+.game-table__hand {
+  position: absolute;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: calc(4px * var(--table-scale));
+  z-index: 2;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -8px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 229, 255, 0.1);
+    box-shadow: 0 0 0 rgba(0, 229, 255, 0);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 240ms, border-color 240ms, box-shadow 240ms;
+  }
+
+  &--active::before {
+    opacity: 1;
+    border-color: rgba(0, 229, 255, 0.55);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.22), inset 0 0 10px rgba(0, 229, 255, 0.08);
+  }
+
+  &--north { top: 6%; left: 50%; transform: translateX(-50%); }
+  &--south { bottom: 3%; left: 50%; transform: translateX(-50%); }
+  &--east  { right: 8%; top: 50%; transform: translateY(-50%); }
+  &--west  { left: 8%; top: 50%; transform: translateY(-50%); }
+}
+
+// ── Carta base ─────────────────────────────────────────────────────────────
+.game-table__card {
+  width: calc(42px * var(--table-scale));
+  height: calc(60px * var(--table-scale));
+  border-radius: calc(6px * var(--table-scale));
+  background: linear-gradient(145deg, #0c1a38 0%, #081230 50%, #060e28 100%);
+  border: 1.5px solid rgba(0, 229, 255, 0.55);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(0, 229, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  transition: transform 400ms var(--spring), box-shadow 400ms;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: calc(3px * var(--table-scale));
+    border-radius: calc(4px * var(--table-scale));
+    border: 1px solid rgba(0, 229, 255, 0.35);
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.1) 0%, transparent 65%),
+      repeating-linear-gradient(45deg, transparent, transparent 3.5px, rgba(0, 229, 255, 0.14) 3.5px, rgba(0, 229, 255, 0.14) 5px),
+      repeating-linear-gradient(-45deg, transparent, transparent 3.5px, rgba(0, 229, 255, 0.12) 3.5px, rgba(0, 229, 255, 0.12) 5px);
+  }
+}
+
+.game-table__hand--active .game-table__card {
+  border-color: rgba(0, 229, 255, 0.82);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.8),
+    0 0 24px rgba(0, 229, 255, 0.35),
+    inset 0 0 14px rgba(0, 229, 255, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+// Cartas del jugador local mas grandes
+.game-table__hand--south .game-table__card {
+  width: calc(47px * var(--table-scale));
+  height: calc(68px * var(--table-scale));
+  border-color: rgba(0, 229, 255, 0.7);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.8),
+    0 0 18px rgba(0, 229, 255, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+// ── Carta boca arriba ──────────────────────────────────────────────────────
+.game-table__card--face-up {
+  background: linear-gradient(145deg, #1a2d5a, #0f1f42);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  &::after { display: none; }
+}
+
+.game-table__card-value {
+  font-family: var(--font-display);
+  font-size: calc(20px * var(--table-scale));
+  font-weight: 700;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 10px rgba(0, 229, 255, 0.5);
+}
+
+.game-table__card-suit {
+  position: absolute;
+  top: calc(3px * var(--table-scale));
+  left: calc(4px * var(--table-scale));
+  font-size: calc(11px * var(--table-scale));
+  color: var(--neon-cyan);
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+  opacity: 0.8;
+}
+
+.game-table__card-suit--red  { color: #ff7aa8; text-shadow: 0 0 6px rgba(255, 122, 168, 0.45); }
+.game-table__card-value--red { color: #ff7aa8; text-shadow: 0 0 10px rgba(255, 122, 168, 0.5); }
+.game-table__card-suit--black  { color: var(--neon-cyan); text-shadow: 0 0 6px rgba(0, 229, 255, 0.45); }
+.game-table__card-value--black { color: var(--neon-cyan); text-shadow: 0 0 10px rgba(0, 229, 255, 0.45); }
+
+// ── Pilas centrales ────────────────────────────────────────────────────────
+.game-table__center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(20px * var(--table-scale));
+  z-index: 5;
+}
+
+.game-table__pile {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-table__pile--draw {
+  width: calc(42px * var(--table-scale));
+  height: calc(60px * var(--table-scale));
+  transition: transform 200ms var(--spring);
+}
+
+.game-table__pile--active {
+  animation: pile-draw 0.5s var(--spring);
+}
+
+// Capas de profundidad del mazo
+.game-table__pile-depth {
+  position: absolute;
+  width: calc(42px * var(--table-scale));
+  height: calc(60px * var(--table-scale));
+  border-radius: calc(6px * var(--table-scale));
+  background: linear-gradient(145deg, #0a1530, #060e24);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+
+  &:nth-child(1) { top: calc(10px * var(--table-scale)); left: calc(6px * var(--table-scale)); opacity: 0.2; }
+  &:nth-child(2) { top: calc(8px * var(--table-scale)); left: calc(4.5px * var(--table-scale)); opacity: 0.35; }
+  &:nth-child(3) { top: calc(6px * var(--table-scale)); left: calc(3px * var(--table-scale)); opacity: 0.5; }
+  &:nth-child(4) { top: calc(4px * var(--table-scale)); left: calc(2px * var(--table-scale)); opacity: 0.65; }
+  &:nth-child(5) { top: calc(2px * var(--table-scale)); left: calc(1px * var(--table-scale)); opacity: 0.8; }
+}
+
+.game-table__pile .game-table__card--pile {
+  position: relative;
+  z-index: 2;
+}
+
+// Pila de descartes
+.game-table__pile--discard {
+  position: relative;
+
+  .game-table__card {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6), 0 0 20px rgba(0, 229, 255, 0.1);
+  }
+}
+
+// Fan de descartes
+.game-table__card--fan {
+  position: absolute;
+  top: 0;
+  left: 0;
+  background: linear-gradient(145deg, #1a2d5a, #0f1f42);
+  &::after { display: none; }
+
+  &:nth-child(1) { transform: rotate(-8deg) translate(-4px, 3px); opacity: 0.5; z-index: 1; }
+  &:nth-child(2) { transform: rotate(-4deg) translate(-2px, 1px); opacity: 0.65; z-index: 2; }
+  &:nth-child(3) { transform: rotate(2deg) translate(1px, -1px); opacity: 0.8; z-index: 3; }
+}
+
+.game-table__pile--discard .game-table__card--face-up {
+  position: relative;
+  z-index: 4;
+}
+
+// ── Arte geometrico ────────────────────────────────────────────────────────
+.game-table__geo {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 65%;
+  height: 65%;
+  pointer-events: none;
+  opacity: 0.12;
+  z-index: 1;
+}
+
+.game-table__geo-svg { width: 100%; height: 100%; }
+
+.game-table__geo-hex {
+  fill: none;
+  stroke: var(--neon-cyan);
+  stroke-width: 0.8;
+  transform-origin: center;
+  animation: geo-rotate 30s linear infinite;
+
+  &--inner {
+    stroke: var(--neon-purple);
+    stroke-width: 0.6;
+    animation: geo-rotate-reverse 25s linear infinite;
+  }
+}
+
+.game-table__geo-line {
+  stroke: var(--neon-cyan);
+  stroke-width: 0.5;
+  opacity: 0.6;
+  stroke-dasharray: 4 4;
+  animation: geo-dash 8s linear infinite;
+}
+
+.game-table__geo-diamond {
+  fill: none;
+  stroke: var(--neon-cyan);
+  stroke-width: 1;
+  animation: geo-diamond-pulse 4s ease-in-out infinite;
+}
+
+// ── Carta robada flotante ──────────────────────────────────────────────────
+.game-table__drawn {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  perspective: 400px;
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.3);
+  transition: opacity 350ms, transform 500ms cubic-bezier(0.16, 1, 0.3, 1);
+  z-index: 10;
+
+  &--visible {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(0.9);
+  }
+
+  &--visible.game-table__drawn--at-player {
+    transform: translate(
+      calc(-50% + var(--drawn-offset-x, 0px)),
+      calc(-50% + var(--drawn-offset-y, 0px))
+    ) scale(1);
+    transition: opacity 350ms, transform 700ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  &--to-north { --drawn-offset-x: var(--drawn-offset-north-x); --drawn-offset-y: var(--drawn-offset-north-y); }
+  &--to-south { --drawn-offset-x: var(--drawn-offset-south-x); --drawn-offset-y: var(--drawn-offset-south-y); }
+  &--to-east  { --drawn-offset-x: var(--drawn-offset-east-x);  --drawn-offset-y: 0px; }
+  &--to-west  { --drawn-offset-x: var(--drawn-offset-west-x);  --drawn-offset-y: 0px; }
+
+  &--peek .game-table__card--drawn {
+    transform: rotateY(0deg) scale(1.2);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 35px rgba(0, 229, 255, 0.35);
+  }
+
+  &--peek-private .game-table__card--drawn {
+    transform: rotateY(180deg) scale(1.12);
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6), 0 0 18px rgba(0, 229, 255, 0.2);
+  }
+
+  &.game-table__drawn--discard {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.5);
+    transition: all 700ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  &--discard .game-table__card--drawn {
+    transform: rotateY(0deg) scale(0.85);
+    transition: all 600ms;
+  }
+
+  &--peek:not(.game-table__drawn--peek-private) .game-table__card-face--back,
+  &--discard .game-table__card-face--back {
+    opacity: 0;
+    transition: opacity 300ms;
+  }
+}
+
+.game-table__card--drawn {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  transform-style: preserve-3d;
+  transition: transform 650ms var(--spring), box-shadow 500ms;
+  transform: rotateY(180deg) scale(0.85);
+
+  &::after { display: none; }
+}
+
+.game-table__card-face {
+  position: absolute;
+  inset: 0;
+  border-radius: 6px;
+  backface-visibility: hidden;
+}
+
+.game-table__card-face--front {
+  background: linear-gradient(145deg, #1a2d5a, #0f1f42);
+  border: 1.5px solid rgba(0, 229, 255, 0.75);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.game-table__card-face--back {
+  transform: rotateY(180deg);
+  background: linear-gradient(145deg, #0c1a38 0%, #081230 50%, #060e28 100%);
+  border: 1.5px solid rgba(0, 229, 255, 0.55);
+  box-shadow:
+    0 4px 20px rgba(0, 0, 0, 0.8),
+    0 0 12px rgba(0, 229, 255, 0.15),
+    inset 0 1px 0 rgba(255, 255, 255, 0.08);
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 3px;
+    border-radius: 4px;
+    border: 1px solid rgba(0, 229, 255, 0.35);
+    background:
+      radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.1) 0%, transparent 65%),
+      repeating-linear-gradient(45deg, transparent, transparent 3.5px, rgba(0, 229, 255, 0.14) 3.5px, rgba(0, 229, 255, 0.14) 5px),
+      repeating-linear-gradient(-45deg, transparent, transparent 3.5px, rgba(0, 229, 255, 0.12) 3.5px, rgba(0, 229, 255, 0.12) 5px);
+  }
+}
+
+// Intercambio
+.game-table__card--swapping {
+  animation: card-swap-out 0.9s var(--spring);
+}
+
+// ── Keyframes ──────────────────────────────────────────────────────────────
+@keyframes glow-border {
+  0%, 100% { border-color: rgba(0, 229, 255, 0.15); box-shadow: 0 0 20px rgba(0, 229, 255, 0.05), 0 16px 50px rgba(0, 0, 0, 0.5); }
+  50%      { border-color: rgba(0, 229, 255, 0.40); box-shadow: 0 0 40px rgba(0, 229, 255, 0.12), 0 16px 50px rgba(0, 0, 0, 0.5); }
+}
+
+@keyframes pile-draw {
+  0%   { transform: scale(1); }
+  30%  { transform: scale(0.92); }
+  60%  { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+@keyframes card-swap-out {
+  0%   { transform: scale(1); opacity: 1; box-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+  40%  { transform: scale(1.12); opacity: 0.7; box-shadow: 0 8px 30px rgba(0,229,255,0.3); }
+  100% { transform: scale(1); opacity: 1; box-shadow: 0 4px 20px rgba(0,0,0,0.8); }
+}
+
+@keyframes geo-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+@keyframes geo-rotate-reverse {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(-360deg); }
+}
+
+@keyframes geo-dash {
+  from { stroke-dashoffset: 0; }
+  to   { stroke-dashoffset: 16; }
+}
+
+@keyframes geo-diamond-pulse {
+  0%, 100% { opacity: 0.4; stroke-width: 1; }
+  50%      { opacity: 0.8; stroke-width: 1.5; }
+}

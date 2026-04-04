@@ -34,42 +34,50 @@
     </div>
   </header>
 
-  <!-- ═══ Center logo ═══ -->
-  <main class="lobby-main">
-    <div class="lobby-center-logo">
-      <img class="logo-img logo-img--hero" src="logo.png" alt="Cubo" />
+  <!-- ═══ Cubos 3D efímeros ═══ -->
+  @for (cube of cubes(); track cube.id) {
+    <div class="spawning-cube"
+         [style.left.%]="cube.x"
+         [style.top.%]="cube.y"
+         [style.--cube-duration]="cube.duration + 'ms'">
+      <div class="spawning-cube__body" [style.width.px]="cube.size" [style.height.px]="cube.size">
+        @for (face of cube.faces; track $index) {
+          <div class="spawning-cube__face"
+               [style.width.px]="cube.size"
+               [style.height.px]="cube.size"
+               [style.transform]="face"></div>
+        }
+      </div>
     </div>
+  }
+
+  <!-- ═══ Game table animation ═══ -->
+  <main class="lobby-main">
+    <app-game-table></app-game-table>
   </main>
 
-  <!-- ═══ Bottom navigation cards ═══ -->
-  <section class="lobby-nav-bottom" @navStagger>
-
-    <!-- Grupo 1: Crear Partida -->
-    <div class="nav-group nav-group--primary">
-      <button class="nav-card" (click)="openDeckPopup()">
-        <span class="nav-card__glow" aria-hidden="true"></span>
-        <span class="nav-card__icon">▶</span>
-        <span class="nav-card__label">Crear Partida</span>
+  <!-- ═══ Bottom navigation ═══ -->
+  <nav class="lobby-nav-bottom" @navStagger>
+    <div class="nav-track">
+      <button class="nav-btn" (click)="openDeckPopup()">
+        <span class="nav-btn__icon">▶</span>
+        <span class="nav-btn__label">Crear
+Partida</span>
+      </button>
+      <button class="nav-btn" (click)="navegar('/shop')">
+        <span class="nav-btn__icon">🛒</span>
+        <span class="nav-btn__label">Tienda</span>
+      </button>
+      <button class="nav-btn" (click)="navegar('/inventory')">
+        <span class="nav-btn__icon">🧰</span>
+        <span class="nav-btn__label">Inventario</span>
+      </button>
+      <button class="nav-btn" (click)="navegar('/rooms')">
+        <span class="nav-btn__icon">🔍</span>
+        <span class="nav-btn__label">Unirse a sala</span>
       </button>
     </div>
-
-    <!-- Grupo 2: Unirse, Tienda, Inventario -->
-    <div class="nav-group nav-group--secondary">
-      <button class="nav-card" (click)="navegar('/rooms')">
-        <span class="nav-card__icon">🔍</span>
-        <span class="nav-card__label">Unirse a Sala</span>
-      </button>
-      <button class="nav-card" (click)="navegar('/shop')">
-        <span class="nav-card__icon">🛒</span>
-        <span class="nav-card__label">Tienda</span>
-      </button>
-      <button class="nav-card" (click)="navegar('/inventory')">
-        <span class="nav-card__icon">🧰</span>
-        <span class="nav-card__label">Inventario</span>
-      </button>
-    </div>
-
-  </section>
+  </nav>
 
   @if (showDeckPopup) {
     <div class="deck-popup-overlay" (click)="closeDeckPopup()">

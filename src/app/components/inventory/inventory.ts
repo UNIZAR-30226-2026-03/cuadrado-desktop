@@ -16,8 +16,6 @@ interface Skin {
   url: string;
 }
 
-type Rarity = 'Comun' | 'Rara' | 'Epica' | 'Legendaria';
-
 @Component({
   selector: 'app-inventory',
   standalone: true,
@@ -64,11 +62,6 @@ export class Inventory implements OnInit {
   totalCards = computed(() => this.cardSkins().length);
   totalMats = computed(() => this.matSkins().length);
 
-  rarestItem = computed(() => {
-    const skins = this.ownedSkins();
-    if (!skins.length) return null;
-    return skins.reduce((max, s) => s.price > max.price ? s : max, skins[0]);
-  });
 
   constructor(
     protected auth: AuthService,
@@ -105,25 +98,6 @@ export class Inventory implements OnInit {
 
   goToShopSection(section: string) {
     this.router.navigate(['/shop'], { fragment: `section-${section}` });
-  }
-
-  // Rareza
-  getRarity(price: number): Rarity {
-    if (price <= 150) return 'Comun';
-    if (price <= 350) return 'Rara';
-    if (price <= 550) return 'Epica';
-    return 'Legendaria';
-  }
-
-  getRarityLabel(price: number): string {
-    const r = this.getRarity(price);
-    if (r === 'Comun') return 'Común';
-    if (r === 'Epica') return 'Épica';
-    return r;
-  }
-
-  getRarityClass(price: number): string {
-    return 'rarity--' + this.getRarity(price).toLowerCase();
   }
 
   isEquipped(skin: Skin): boolean {

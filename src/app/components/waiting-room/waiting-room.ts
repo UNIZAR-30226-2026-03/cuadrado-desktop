@@ -1,4 +1,4 @@
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, signal, computed, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   trigger, transition, style, animate, query, stagger
@@ -74,7 +74,21 @@ export class WaitingRoom implements OnInit {
 
   puedeIniciar = computed(() => {
     const s = this.sala();
+    if (!s || s.jugadores.length < 1) return false;
+    // El host debe estar listo para poder iniciar
+    const host = s.jugadores.find(j => j.esAnfitrion);
+    return host?.listo || false;
+  });
+
+  puedeJugarConPresentes = computed(() => {
+    const s = this.sala();
     return s ? s.jugadores.length >= 2 : false;
+  });
+
+  todosListos = computed(() => {
+    const s = this.sala();
+    if (!s || s.jugadores.length < 1) return false;
+    return s.jugadores.filter(j => !j.esBot).every(j => j.listo);
   });
 
   estoyListo = computed(() => {
@@ -97,7 +111,14 @@ export class WaitingRoom implements OnInit {
     private router: Router,
     private auth: AuthService,
     private roomService: RoomService
-  ) {}
+  ) {
+    // Auto-abrir popup de inicio cuando todos los humanos esten listos
+    effect(() => {
+      if (this.todosListos() && this.soyAnfitrion() && !this.iniciandoPartida()) {
+        this.showStartPopup.set(true);
+      }
+    });
+  }
 
   ngOnInit(): void {
     const sala = this.roomService.obtenerSala();

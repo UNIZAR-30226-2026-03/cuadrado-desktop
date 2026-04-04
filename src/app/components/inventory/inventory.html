@@ -89,14 +89,6 @@
       <span class="stat-box__value">{{ totalMats() }}</span>
       <span class="stat-box__label">Tapetes</span>
     </div>
-    @if (rarestItem(); as rarest) {
-      <div class="stat-box">
-        <span class="stat-box__value rarity-badge" [class]="getRarityClass(rarest.price)">
-          {{ getRarityLabel(rarest.price) }}
-        </span>
-        <span class="stat-box__label">Más raro: {{ rarest.name }}</span>
-      </div>
-    }
   </section>
 
   <!-- Catalogo del inventario -->
@@ -123,9 +115,6 @@
               }
             </div>
             <div class="inv-card__body">
-              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-                {{ getRarityLabel(skin.price) }}
-              </span>
               <h3 class="inv-card__name">{{ skin.name }}</h3>
               @if (isEquipped(skin)) {
                 <span class="equipped-badge">✓ EQUIPADO</span>
@@ -177,9 +166,6 @@
               }
             </div>
             <div class="inv-card__body">
-              <span class="rarity-badge" [class]="getRarityClass(skin.price)">
-                {{ getRarityLabel(skin.price) }}
-              </span>
               <h3 class="inv-card__name">{{ skin.name }}</h3>
               @if (isEquipped(skin)) {
                 <span class="equipped-badge">✓ EQUIPADO</span>

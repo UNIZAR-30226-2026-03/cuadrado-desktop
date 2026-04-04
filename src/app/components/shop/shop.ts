@@ -16,8 +16,6 @@ interface Skin {
   url: string;
 }
 
-type Rarity = 'Comun' | 'Rara' | 'Epica' | 'Legendaria';
-
 @Component({
   selector: 'app-shop',
   standalone: true,
@@ -45,7 +43,6 @@ export class Shop implements OnInit {
   ownedSkinNames = signal<Set<string>>(new Set());
   equippedSkinId = signal<string | null>(null);
   equippedTapeteId = signal<string | null>(null);
-  filterRarity = signal<Rarity | 'Todas'>('Todas');
   sortBy = signal<'price-asc' | 'price-desc' | 'name'>('price-asc');
   loading = signal(true);
 
@@ -56,22 +53,18 @@ export class Shop implements OnInit {
 
   @ViewChild('shopContainer') shopContainer!: ElementRef<HTMLElement>;
 
-  // Computed: skins filtradas y ordenadas por tipo
-  private filteredByRarityAndSort = computed(() => {
-    let skins = this.allSkins();
-    if (this.filterRarity() !== 'Todas') {
-      skins = skins.filter(s => this.getRarity(s.price) === this.filterRarity());
-    }
+  // Computed: skins ordenadas por tipo
+  private filteredAndSorted = computed(() => {
     const sort = this.sortBy();
-    const sorted = [...skins];
+    const sorted = [...this.allSkins()];
     if (sort === 'price-asc') sorted.sort((a, b) => a.price - b.price);
     else if (sort === 'price-desc') sorted.sort((a, b) => b.price - a.price);
     else sorted.sort((a, b) => a.name.localeCompare(b.name));
     return sorted;
   });
 
-  reverseSkins = computed(() => this.filteredByRarityAndSort().filter(s => s.type === 'Carta'));
-  tapeteSkins = computed(() => this.filteredByRarityAndSort().filter(s => s.type === 'Tapete'));
+  reverseSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Carta'));
+  tapeteSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Tapete'));
 
   constructor(
     protected auth: AuthService,
@@ -114,27 +107,7 @@ export class Shop implements OnInit {
   goBack() { this.router.navigate(['/lobby']); }
   goToInventory() { this.router.navigate(['/inventory']); }
 
-  setFilter(r: Rarity | 'Todas') { this.filterRarity.set(r); }
   setSort(s: 'price-asc' | 'price-desc' | 'name') { this.sortBy.set(s); }
-
-  // Rareza basada en precio
-  getRarity(price: number): Rarity {
-    if (price <= 150) return 'Comun';
-    if (price <= 350) return 'Rara';
-    if (price <= 550) return 'Epica';
-    return 'Legendaria';
-  }
-
-  getRarityLabel(price: number): string {
-    const r = this.getRarity(price);
-    if (r === 'Comun') return 'Común';
-    if (r === 'Epica') return 'Épica';
-    return r;
-  }
-
-  getRarityClass(price: number): string {
-    return 'rarity--' + this.getRarity(price).toLowerCase();
-  }
 
   isOwned(skin: Skin): boolean {
     return this.ownedSkinNames().has(skin.name);
