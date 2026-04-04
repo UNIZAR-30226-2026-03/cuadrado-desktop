@@ -201,6 +201,13 @@ app-game-table {
   }
 }
 
+// ── Agrupación de iconos de cabecera ─────────────────────────────────────────
+.header-icons {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 // ── Profile dropdown ────────────────────────────────────────────────────────
 .profile-menu-wrap {
   position: relative;
@@ -360,6 +367,125 @@ app-game-table {
   margin-top: -2px;
 }
 
+// ── Config popup ────────────────────────────────────────────────────────────
+.config-popup-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  background: rgba(1, 6, 18, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: overlay-fade 200ms ease-out;
+}
+
+.config-popup {
+  width: min(480px, 92vw);
+  padding: 24px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  animation: popup-slide 300ms var(--spring);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  &__back {
+    padding: 6px 14px;
+    font-size: 12px;
+    flex-shrink: 0;
+  }
+
+  &__title {
+    font-family: var(--font-body);
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--text-100);
+    flex: 1;
+    text-align: center;
+    margin-right: 70px; // compensa el botón Volver para centrar visualmente
+  }
+}
+
+.config-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+
+  &__title {
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--neon-cyan);
+    padding-bottom: 6px;
+    border-bottom: 1px solid rgba(0, 229, 255, 0.18);
+  }
+}
+
+.config-slider-row,
+.config-device-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.config-slider-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-80);
+  width: 64px;
+  flex-shrink: 0;
+}
+
+.config-slider {
+  flex: 1;
+  height: 4px;
+  accent-color: var(--neon-cyan);
+  cursor: pointer;
+  border-radius: 4px;
+  background: rgba(0, 229, 255, 0.15);
+  outline: none;
+}
+
+.config-slider-pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-50);
+  width: 36px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.config-select {
+  flex: 1;
+  padding: 7px 12px;
+  font-size: 13px;
+  font-family: var(--font-body);
+  color: var(--text-80);
+  background: rgba(14, 35, 75, 0.8);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 10px;
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  outline: none;
+  transition: border-color 200ms;
+
+  &:hover,
+  &:focus {
+    border-color: rgba(0, 229, 255, 0.5);
+  }
+
+  option {
+    background: #0b1733;
+    color: var(--text-80);
+  }
+}
+
+// ── Popup actions ───────────────────────────────────────────────────────────
 .popup-actions {
   display: flex;
   justify-content: flex-end;

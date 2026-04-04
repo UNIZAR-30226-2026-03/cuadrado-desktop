@@ -1,7 +1,7 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
@@ -22,7 +22,7 @@ const MAX_CUBES = 16;
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [DecimalPipe, ReactiveFormsModule, GameTable],
+  imports: [DecimalPipe, ReactiveFormsModule, FormsModule, GameTable],
   templateUrl: './lobby.html',
   styleUrl: './lobby.scss',
   animations: [
@@ -49,6 +49,14 @@ export class Lobby implements OnInit, OnDestroy {
   showProfileMenu = false;
   showChangePasswordPopup = false;
   showDeckPopup = false;
+  showConfigPopup = false;
+
+  // Configuración
+  configMusic = 80;
+  configSfx = 80;
+  configVoice = 80;
+  configInputDevice = '';
+  audioInputDevices: MediaDeviceInfo[] = [];
   changePasswordForm: FormGroup;
   changingPassword = false;
   changePasswordMessage = '';
@@ -137,6 +145,20 @@ export class Lobby implements OnInit, OnDestroy {
 
   toggleProfileMenu(): void {
     this.showProfileMenu = !this.showProfileMenu;
+  }
+
+  openConfigPopup(): void {
+    this.showConfigPopup = true;
+    navigator.mediaDevices?.enumerateDevices().then(devices => {
+      this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
+      if (this.audioInputDevices.length && !this.configInputDevice) {
+        this.configInputDevice = this.audioInputDevices[0].deviceId;
+      }
+    }).catch(() => {});
+  }
+
+  closeConfigPopup(): void {
+    this.showConfigPopup = false;
   }
 
   openChangePasswordPopup(): void {

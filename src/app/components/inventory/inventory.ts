@@ -47,6 +47,7 @@ export class Inventory implements OnInit {
   // Computed: skins separadas por tipo
   cardSkins = computed(() => this.ownedSkins().filter(s => s.type === 'Carta'));
   matSkins = computed(() => this.ownedSkins().filter(s => s.type === 'Tapete'));
+  avatarSkins = computed(() => this.ownedSkins().filter(s => s.type === 'Avatar'));
 
   equippedCard = computed(() => {
     const eq = this.equippedCardName();
@@ -81,7 +82,7 @@ export class Inventory implements OnInit {
 
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
       next: (skins) => {
-        this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
+        this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete' || s.type === 'Avatar'));
         if (this.usuario) {
           this.equippedCardName.set(this.usuario.reverso || null);
           this.equippedTapeteName.set(this.usuario.tapete || null);

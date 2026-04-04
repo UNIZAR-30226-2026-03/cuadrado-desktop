@@ -225,6 +225,13 @@ export class GameTable implements OnInit, OnDestroy, AfterViewInit {
     const baseW = 900;
     const scale = Math.max(0.72, Math.min(rw / baseW, 1.4));
 
+    // La pila de robo está a la izquierda del centro de la superficie:
+    // su centro está a (gap/2 + pile_width/2) = (10 + 21)*scale = 31*scale píxeles
+    // a la izquierda del centro de la superficie.
+    // Para que la carta llegue simétricamente a cada mano lateral, compensamos ese offset.
+    const pileCenterOffset = Math.round(31 * scale);
+    const latBase = Math.round(rw * 0.26);
+
     this.surfaceWidth.set(rw);
     this.surfaceHeight.set(rh);
     this.tableScale.set(scale);
@@ -233,8 +240,8 @@ export class GameTable implements OnInit, OnDestroy, AfterViewInit {
       northY: Math.round(-rh * 0.24),
       southX: Math.round(rw * 0.14),
       southY: Math.round(rh * 0.24),
-      eastX: Math.round(rw * 0.26),
-      westX: Math.round(-rw * 0.26),
+      eastX: latBase + pileCenterOffset,
+      westX: -(latBase - pileCenterOffset),
     });
   }
 }

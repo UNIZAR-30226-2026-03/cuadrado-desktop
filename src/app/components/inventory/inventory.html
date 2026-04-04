@@ -199,6 +199,36 @@
         </div>
       </div>
     }
+
+    <!-- AVATARES -->
+    @if (avatarSkins().length > 0) {
+      <h2 class="catalog-section-title">AVATARES</h2>
+      <section class="inv-grid">
+        @for (skin of avatarSkins(); track skin.name) {
+          <div class="inv-card glass-card">
+            <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+              } @else {
+                <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+              }
+            </div>
+            <div class="inv-card__body">
+              <h3 class="inv-card__name">{{ skin.name }}</h3>
+              <span class="equipped-badge">✓ OBTENIDO</span>
+            </div>
+          </div>
+        }
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('avatares')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
+          <div class="inv-card__body">
+            <h3 class="inv-card__name">Conseguir más</h3>
+          </div>
+        </div>
+      </section>
+    }
   }
 
 </div>

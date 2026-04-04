@@ -18,18 +18,21 @@
         </div>
       </div>
 
-      <div class="profile-menu-wrap">
-        <button class="icon-btn" (click)="toggleProfileMenu()" title="Perfil">👤</button>
-        @if (showProfileMenu) {
-          <div class="profile-menu">
-            <button class="profile-menu__item" (click)="openChangePasswordPopup()">
-              Cambiar contraseña
-            </button>
-            <button class="profile-menu__item profile-menu__item--danger" (click)="onLogout()">
-              Cerrar sesión
-            </button>
-          </div>
-        }
+      <div class="header-icons">
+        <button class="icon-btn" (click)="openConfigPopup()" title="Configuración">⚙️</button>
+        <div class="profile-menu-wrap">
+          <button class="icon-btn" (click)="toggleProfileMenu()" title="Perfil">👤</button>
+          @if (showProfileMenu) {
+            <div class="profile-menu">
+              <button class="profile-menu__item" (click)="openChangePasswordPopup()">
+                Cambiar contraseña
+              </button>
+              <button class="profile-menu__item profile-menu__item--danger" (click)="onLogout()">
+                Cerrar sesión
+              </button>
+            </div>
+          }
+        </div>
       </div>
     </div>
   </header>
@@ -89,6 +92,59 @@ Partida</span>
           <button class="btn-ghost deck-popup__btn deck-popup__btn--disabled" disabled>REANUDAR ÚLTIMA PARTIDA</button>
         </div>
         <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (showConfigPopup) {
+    <div class="config-popup-overlay" (click)="closeConfigPopup()">
+      <div class="config-popup glass-card" (click)="$event.stopPropagation()">
+        <div class="config-popup__header">
+          <button class="btn-ghost config-popup__back" (click)="closeConfigPopup()">← Volver</button>
+          <h3 class="config-popup__title">Configuración</h3>
+        </div>
+
+        <!-- Sonido -->
+        <section class="config-section">
+          <h4 class="config-section__title">Sonido</h4>
+          <div class="config-slider-row">
+            <span class="config-slider-label">Música</span>
+            <input class="config-slider" type="range" min="0" max="100"
+                   [value]="configMusic"
+                   (input)="configMusic = +$any($event.target).value" />
+            <span class="config-slider-pct">{{ configMusic }}%</span>
+          </div>
+          <div class="config-slider-row">
+            <span class="config-slider-label">Efectos</span>
+            <input class="config-slider" type="range" min="0" max="100"
+                   [value]="configSfx"
+                   (input)="configSfx = +$any($event.target).value" />
+            <span class="config-slider-pct">{{ configSfx }}%</span>
+          </div>
+        </section>
+
+        <!-- Chat de voz -->
+        <section class="config-section">
+          <h4 class="config-section__title">Chat de voz</h4>
+          <div class="config-slider-row">
+            <span class="config-slider-label">Volumen</span>
+            <input class="config-slider" type="range" min="0" max="100"
+                   [value]="configVoice"
+                   (input)="configVoice = +$any($event.target).value" />
+            <span class="config-slider-pct">{{ configVoice }}%</span>
+          </div>
+          <div class="config-device-row">
+            <span class="config-slider-label">Entrada</span>
+            <select class="config-select" [(ngModel)]="configInputDevice">
+              @for (device of audioInputDevices; track device.deviceId) {
+                <option [value]="device.deviceId">{{ device.label || 'Micrófono ' + $index }}</option>
+              }
+              @if (audioInputDevices.length === 0) {
+                <option value="">Sin dispositivos detectados</option>
+              }
+            </select>
+          </div>
+        </section>
       </div>
     </div>
   }

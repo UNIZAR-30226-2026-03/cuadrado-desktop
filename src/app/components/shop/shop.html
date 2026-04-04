@@ -128,7 +128,43 @@
       </section>
     }
 
-    @if (reverseSkins().length === 0 && tapeteSkins().length === 0) {
+    <!-- AVATARES -->
+    @if (avatarSkins().length > 0) {
+      <h2 class="catalog-section-title" id="section-avatares">AVATARES</h2>
+      <section class="skins-grid">
+        @for (skin of avatarSkins(); track skin.name) {
+          <div class="skin-card glass-card" [class.skin-card--owned]="isOwned(skin)" (click)="selectFeatured(skin)">
+            <div class="skin-card__preview" [style.background]="getSkinGradient(skin.name)">
+              @if (!imgFailed().has(skin.name)) {
+                <img class="skin-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
+              } @else {
+                <span class="skin-card__emoji">{{ getSkinIcon(skin.name) }}</span>
+              }
+              @if (isOwned(skin)) {
+                <div class="owned-overlay">✓</div>
+              }
+            </div>
+            <div class="skin-card__body">
+              <h3 class="skin-card__name">{{ skin.name }}</h3>
+              @if (isOwned(skin)) {
+                <span class="equipped-badge">✓ OBTENIDO</span>
+              } @else {
+                <div class="skin-card__price">
+                  <span class="price-tag">💎 {{ skin.price | number }}</span>
+                </div>
+                <button class="btn-neon btn--xs"
+                        [disabled]="!canAfford(skin)"
+                        (click)="openBuyModal(skin); $event.stopPropagation()">
+                  COMPRAR
+                </button>
+              }
+            </div>
+          </div>
+        }
+      </section>
+    }
+
+    @if (reverseSkins().length === 0 && tapeteSkins().length === 0 && avatarSkins().length === 0) {
       <div class="empty-state">
         <span class="empty-state__icon">🔍</span>
         <p>No se encontraron artículos con estos filtros.</p>

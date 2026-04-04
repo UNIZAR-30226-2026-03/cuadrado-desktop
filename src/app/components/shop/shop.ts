@@ -65,6 +65,7 @@ export class Shop implements OnInit {
 
   reverseSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Carta'));
   tapeteSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Tapete'));
+  avatarSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Avatar'));
 
   constructor(
     protected auth: AuthService,
@@ -85,7 +86,7 @@ export class Shop implements OnInit {
     // Cargar skins de la tienda
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
       next: (skins) => {
-        this.allSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete'));
+        this.allSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete' || s.type === 'Avatar'));
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
