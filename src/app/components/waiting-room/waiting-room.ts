@@ -12,19 +12,19 @@ interface PowerCard {
 }
 
 const POWER_DESCRIPTIONS: Record<string, string> = {
-  'A':  'Permite espiar una de tus propias cartas.',
-  '2':  'Permite espiar una carta de otro jugador.',
-  '3':  'Permite intercambiar una carta tuya con la de otro jugador sin verlas.',
-  '4':  'Poder por definir.',
-  '5':  'Poder por definir.',
-  '6':  'Poder por definir.',
-  '7':  'Permite ver una carta de otro jugador y decidir si intercambiarla con una tuya.',
-  '8':  'Poder por definir.',
-  '9':  'Poder por definir.',
-  '10': 'Permite ver una carta de otro jugador y decidir si intercambiarla con una tuya.',
-  'J':  'Poder por definir.',
-  'Q':  'Poder por definir.',
-  'K':  'Vale 0 puntos al final de la partida.',
+  'A':  'Intercambia todas tus cartas por todas las cartas de otro jugador.',
+  '2':  'Elige a un jugador para que robe una carta extra y la añada a sus cartas.',
+  '3':  'Protege una de tus cartas: no puede ser intercambiada por otro jugador.',
+  '4':  'Salta el siguiente turno de un jugador a tu elección.',
+  '5':  'Mira una carta de cada jugador.',
+  '6':  'Roba otra carta del mazo.',
+  '7':  'Revela qué jugador tiene menos puntos en ese momento. (Poder almacenable)',
+  '8':  'La siguiente habilidad que se active no tendrá efecto. (Poder almacenable)',
+  '9':  'Ofrece un intercambio a otro jugador: ambos elegís una carta a ciegas.',
+  '10': 'Ve una de tus propias cartas.',
+  'J':  'Ve una de tus cartas y una de otro jugador; decide si las intercambias (con ese mismo jugador).',
+  'Q':  'Sin poder especial. (12 puntos)',
+  'K':  'K roja = 0 puntos · K negra = 20 puntos.',
 };
 
 @Component({

@@ -426,11 +426,17 @@ app-game-table {
   }
 }
 
-.config-slider-row,
+.config-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .config-device-row {
   display: flex;
   align-items: center;
   gap: 12px;
+  padding-right: 48px; // 36px (pct) + 12px (gap) para igualar el ancho del slider
 }
 
 .config-slider-label {
@@ -462,17 +468,23 @@ app-game-table {
 
 .config-select {
   flex: 1;
-  padding: 7px 12px;
+  min-width: 0;
+  height: 20px;
+  padding: 2px 12px;
   font-size: 13px;
   font-family: var(--font-body);
   color: var(--text-80);
   background: rgba(14, 35, 75, 0.8);
   border: 1px solid rgba(0, 229, 255, 0.22);
-  border-radius: 10px;
+  border-radius: 6px;
   backdrop-filter: blur(12px);
   cursor: pointer;
   outline: none;
   transition: border-color 200ms;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  box-sizing: border-box;
 
   &:hover,
   &:focus {

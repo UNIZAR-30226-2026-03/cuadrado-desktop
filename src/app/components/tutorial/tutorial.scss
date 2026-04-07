@@ -62,7 +62,7 @@ $margin: 20px;
   display: flex;
   flex-direction: column;
   gap: 28px;
-  max-width: 700px;
+  max-width: 760px;
   margin: 0 auto;
   width: 100%;
 }
@@ -86,4 +86,138 @@ $margin: 20px;
   font-size: 14px;
   color: var(--text-80);
   line-height: 1.6;
+}
+
+.section-note {
+  font-size: 13px;
+  color: var(--text-80);
+  line-height: 1.55;
+  padding: 8px 12px;
+  border-left: 3px solid var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.05);
+  border-radius: 0 6px 6px 0;
+}
+
+/* Card values block */
+.card-values {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-values__title {
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-60);
+  padding: 8px 14px;
+  background: rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.card-values__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+  li {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 7px 14px;
+    font-size: 13px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+
+    &:last-child { border-bottom: none; }
+  }
+}
+
+.cv-label {
+  color: var(--text-80);
+  font-weight: 500;
+}
+
+.cv-value {
+  color: var(--text-60);
+  font-size: 13px;
+}
+
+.cv-value--good { color: #4ade80; }
+.cv-value--bad  { color: #f87171; }
+
+/* Bullet rules list */
+.rules-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  li {
+    font-size: 14px;
+    color: var(--text-80);
+    line-height: 1.5;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+  }
+}
+
+.rules-tag {
+  flex-shrink: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--neon-cyan);
+  background: rgba(0, 229, 255, 0.1);
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 4px;
+  padding: 1px 7px;
+  margin-top: 2px;
+}
+
+/* Abilities table */
+.abilities-table {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ab-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  transition: background 150ms;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.05);
+  }
+}
+
+.ab-row--storable {
+  background: rgba(0, 229, 255, 0.04);
+  border-left: 2px solid rgba(0, 229, 255, 0.35);
+}
+
+.ab-card {
+  flex-shrink: 0;
+  width: 28px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  padding-top: 1px;
+}
+
+.ab-desc {
+  font-size: 13px;
+  color: var(--text-80);
+  line-height: 1.55;
 }

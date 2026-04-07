@@ -7,39 +7,135 @@
     <div class="header-spacer"></div>
   </header>
 
-  <!-- Contenido placeholder -->
+  <!-- Contenido -->
   <main class="tutorial-content glass-card">
+
+    <!-- Objetivo -->
     <section class="tutorial-section">
       <h2 class="section-title">Objetivo del juego</h2>
       <p class="section-text">
-        El objetivo del juego Cubo es ser el jugador con menos puntos al final de la partida.
-        Cada jugador tiene 4 cartas boca abajo y debe intentar minimizar el valor total de sus cartas.
+        El objetivo de <strong>Cubo</strong> es tener la menor cantidad de puntos cuando acaba la partida.
+        Cada jugador recibe 4 cartas boca abajo al inicio y no puede mirarlas.
       </p>
+      <div class="card-values">
+        <div class="card-values__title">Valor de las cartas</div>
+        <ul class="card-values__list">
+          <li><span class="cv-label">Joker</span><span class="cv-value cv-value--good">−1 punto</span></li>
+          <li><span class="cv-label">J</span><span class="cv-value">11 puntos</span></li>
+          <li><span class="cv-label">Q</span><span class="cv-value">12 puntos</span></li>
+          <li><span class="cv-label">K roja</span><span class="cv-value cv-value--good">0 puntos</span></li>
+          <li><span class="cv-label">K negra</span><span class="cv-value cv-value--bad">20 puntos</span></li>
+          <li><span class="cv-label">Resto</span><span class="cv-value">Su número (A=1, 2=2 … 10=10)</span></li>
+        </ul>
+      </div>
     </section>
 
+    <!-- Puntuación final -->
+    <section class="tutorial-section">
+      <h2 class="section-title">Puntuación al final de la partida</h2>
+      <p class="section-text">
+        Si al revelar las cartas tienes grupos de cartas con el mismo número, tu puntuación se reduce:
+      </p>
+      <ul class="rules-list">
+        <li><span class="rules-tag">Pareja</span> Te quedas con una de las dos cartas (como si descartaras la otra).</li>
+        <li><span class="rules-tag">Trío</span> La suma de las tres cartas vale 0.</li>
+        <li><span class="rules-tag">4 o más iguales</span> La suma de todas esas cartas vale −2.</li>
+      </ul>
+      <p class="section-note">Esta norma <strong>no afecta a los Jokers</strong>.</p>
+    </section>
+
+    <!-- Turno -->
     <section class="tutorial-section">
       <h2 class="section-title">Desarrollo de un turno</h2>
       <p class="section-text">
-        En tu turno puedes robar una carta del mazo o de la pila de descarte,
-        y luego intercambiarla por una de tus cartas o descartarla.
+        En tu turno robas una carta del mazo central y la miras. Después tienes dos opciones:
       </p>
+      <ul class="rules-list">
+        <li><span class="rules-tag">Descartar</span> La pones boca arriba en el centro y activas su habilidad (si la tiene).</li>
+        <li><span class="rules-tag">Intercambiar</span> La cambias por una de tus cartas boca abajo; la carta que sustituyes pasa al descarte.</li>
+      </ul>
+      <p class="section-note">Tienes <strong>20 segundos</strong> para completar tu turno. Si el tiempo expira, la carta se descarta automáticamente sin activar ninguna habilidad.</p>
     </section>
 
+    <!-- Cubo -->
     <section class="tutorial-section">
       <h2 class="section-title">Cantar "Cubo"</h2>
       <p class="section-text">
-        Cuando creas que tienes la menor puntuacion, puedes cantar "Cubo".
-        Los demas jugadores tendran un turno mas antes de que se revelen todas las cartas.
+        Cuando creas que tienes la menor puntuación puedes cantar <strong>"Cubo"</strong> en cualquier momento.
+        En cuanto alguien lo cante, todos juegan una ronda más y después se revelan todas las cartas para contar los puntos.
       </p>
     </section>
 
+    <!-- Regla de descarte por iguales -->
     <section class="tutorial-section">
-      <h2 class="section-title">Reglas especiales de cartas</h2>
+      <h2 class="section-title">Regla de descarte por iguales</h2>
       <p class="section-text">
-        Algunas cartas pueden tener poderes especiales si se activan en la configuracion de partida.
-        Consulta la pantalla de creacion de sala para ver las descripciones de cada poder.
+        Si un jugador descarta una carta y tú (o el propio jugador) sabes que tienes una carta con el mismo número,
+        puedes echarla encima del descarte — pero solo el primero en reaccionar puede hacerlo.
+        Si lo consigues, puedes echar tantas cartas de ese número como tengas.
       </p>
+      <p class="section-text">
+        Si conoces la carta de otro jugador, también puedes aplicar esta regla y luego darle una de tus cartas.
+      </p>
+      <p class="section-note"><strong>Penalización:</strong> si tiras una carta encima del descarte y no coincide el número, vuelves a coger esa carta y robas una adicional del mazo sin poder mirarla.</p>
     </section>
+
+    <!-- Habilidades -->
+    <section class="tutorial-section">
+      <h2 class="section-title">Habilidades de cartas</h2>
+      <p class="section-text">
+        Las habilidades solo se activan cuando la carta se descarta directamente tras robarla del mazo,
+        <strong>no</strong> cuando se intercambia por una carta boca abajo.
+        Las cartas 7 y 8 tienen poderes <em>almacenables</em>: puedes guardarlos y activarlos en cualquier momento posterior.
+      </p>
+      <div class="abilities-table">
+        <div class="ab-row">
+          <span class="ab-card">A</span>
+          <span class="ab-desc">Intercambia <strong>todas</strong> tus cartas por todas las cartas de otro jugador.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">2</span>
+          <span class="ab-desc">Elige a un jugador para que robe una carta extra y la añada a sus cartas.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">3</span>
+          <span class="ab-desc">Protege una de tus cartas: ese turno no puede ser intercambiada por otro jugador.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">4</span>
+          <span class="ab-desc">Salta el siguiente turno de un jugador a tu elección.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">5</span>
+          <span class="ab-desc">Mira una carta de cada jugador.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">6</span>
+          <span class="ab-desc">Roba otra carta del mazo.</span>
+        </div>
+        <div class="ab-row ab-row--storable">
+          <span class="ab-card">7</span>
+          <span class="ab-desc">Revela qué jugador tiene menos puntos en ese momento. <em>(Almacenable)</em></span>
+        </div>
+        <div class="ab-row ab-row--storable">
+          <span class="ab-card">8</span>
+          <span class="ab-desc">La siguiente habilidad que se active no tendrá efecto. <em>(Almacenable)</em></span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">9</span>
+          <span class="ab-desc">Ofrece un intercambio a otro jugador: ambos elegís una carta a ciegas.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">10</span>
+          <span class="ab-desc">Ve una de tus propias cartas.</span>
+        </div>
+        <div class="ab-row">
+          <span class="ab-card">J</span>
+          <span class="ab-desc">Ve una de tus cartas y una carta de otro jugador; decide si las intercambias (con ese mismo jugador).</span>
+        </div>
+      </div>
+    </section>
+
   </main>
 
 </div>

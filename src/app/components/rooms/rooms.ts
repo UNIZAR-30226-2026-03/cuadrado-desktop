@@ -195,6 +195,6 @@ export class Rooms implements OnInit {
   }
 
   irATutorial(): void {
-    this.router.navigate(['/tutorial']);
+    this.router.navigate(['/tutorial'], { queryParams: { from: 'rooms' } });
   }
 }

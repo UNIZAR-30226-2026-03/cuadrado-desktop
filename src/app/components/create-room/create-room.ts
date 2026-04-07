@@ -34,19 +34,19 @@ export class CreateRoom implements OnInit {
   numBarajas = signal<1 | 2>(1);
 
   cardPowers: CardPower[] = [
-    { card: 'A',  image: '🂡', description: 'Permite espiar una de tus propias cartas.', enabled: false },
-    { card: '2',  image: '🂢', description: 'Permite espiar una carta de otro jugador.', enabled: false },
-    { card: '3',  image: '🂣', description: 'Permite intercambiar una carta tuya con la de otro jugador sin verlas.', enabled: false },
-    { card: '4',  image: '🂤', description: 'Sin poder especial.', enabled: false },
-    { card: '5',  image: '🂥', description: 'Sin poder especial.', enabled: false },
-    { card: '6',  image: '🂦', description: 'Sin poder especial.', enabled: false },
-    { card: '7',  image: '🂧', description: 'Permite ver una carta de otro jugador y decidir si intercambiarla con una tuya.', enabled: false },
-    { card: '8',  image: '🂨', description: 'Sin poder especial.', enabled: false },
-    { card: '9',  image: '🂩', description: 'Sin poder especial.', enabled: false },
-    { card: '10', image: '🂪', description: 'Permite ver una carta de otro jugador y decidir si intercambiarla con una tuya.', enabled: false },
-    { card: 'J',  image: '🂫', description: 'Sin poder especial.', enabled: false },
-    { card: 'Q',  image: '🂭', description: 'Sin poder especial.', enabled: false },
-    { card: 'K',  image: '🂮', description: 'Vale 0 puntos al final de la partida.', enabled: false },
+    { card: 'A',  image: '🂡', description: 'Intercambia todas tus cartas por todas las cartas de otro jugador.', enabled: false },
+    { card: '2',  image: '🂢', description: 'Elige a un jugador para que robe una carta extra y la añada a sus cartas.', enabled: false },
+    { card: '3',  image: '🂣', description: 'Protege una de tus cartas: no puede ser intercambiada por otro jugador.', enabled: false },
+    { card: '4',  image: '🂤', description: 'Salta el siguiente turno de un jugador a tu elección.', enabled: false },
+    { card: '5',  image: '🂥', description: 'Mira una carta de cada jugador.', enabled: false },
+    { card: '6',  image: '🂦', description: 'Roba otra carta del mazo.', enabled: false },
+    { card: '7',  image: '🂧', description: 'Revela qué jugador tiene menos puntos en ese momento. (Poder almacenable)', enabled: false },
+    { card: '8',  image: '🂨', description: 'La siguiente habilidad que se active no tendrá efecto. (Poder almacenable)', enabled: false },
+    { card: '9',  image: '🂩', description: 'Ofrece un intercambio a otro jugador: ambos elegís una carta a ciegas.', enabled: false },
+    { card: '10', image: '🂪', description: 'Ve una de tus propias cartas.', enabled: false },
+    { card: 'J',  image: '🂫', description: 'Ve una de tus cartas y una de otro jugador; decide si las intercambias (con ese mismo jugador).', enabled: false },
+    { card: 'Q',  image: '🂭', description: 'Sin poder especial. (12 puntos)', enabled: false },
+    { card: 'K',  image: '🂮', description: 'K roja = 0 puntos · K negra = 20 puntos.', enabled: false },
   ];
 
   constructor(
@@ -110,6 +110,6 @@ export class CreateRoom implements OnInit {
   }
 
   irATutorial(): void {
-    this.router.navigate(['/tutorial']);
+    this.router.navigate(['/tutorial'], { queryParams: { from: 'create-room', barajas: this.numBarajas() } });
   }
 }

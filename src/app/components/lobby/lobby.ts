@@ -149,12 +149,26 @@ export class Lobby implements OnInit, OnDestroy {
 
   openConfigPopup(): void {
     this.showConfigPopup = true;
-    navigator.mediaDevices?.enumerateDevices().then(devices => {
-      this.audioInputDevices = devices.filter(d => d.kind === 'audioinput');
-      if (this.audioInputDevices.length && !this.configInputDevice) {
-        this.configInputDevice = this.audioInputDevices[0].deviceId;
-      }
-    }).catch(() => {});
+    if (!this.configInputDevice) {
+      this.configInputDevice = 'default';
+    }
+    // Solicitar permiso de micrófono primero para obtener etiquetas de dispositivos
+    navigator.mediaDevices?.getUserMedia({ audio: true })
+      .then(stream => {
+        stream.getTracks().forEach(t => t.stop());
+        return navigator.mediaDevices.enumerateDevices();
+      })
+      .then(devices => {
+        this.audioInputDevices = devices
+          .filter(d => d.kind === 'audioinput' && d.deviceId !== 'default');
+      })
+      .catch(() => {
+        // Si se deniegan los permisos, enumerar sin etiquetas
+        navigator.mediaDevices?.enumerateDevices().then(devices => {
+          this.audioInputDevices = devices
+            .filter(d => d.kind === 'audioinput' && d.deviceId !== 'default');
+        }).catch(() => {});
+      });
   }
 
   closeConfigPopup(): void {

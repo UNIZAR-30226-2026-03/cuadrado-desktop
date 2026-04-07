@@ -54,7 +54,7 @@
     </div>
   }
 
-  <!-- ═══ Game table animation ═══ -->
+  <!--Animación de entrada del lobby -->
   <main class="lobby-main">
     <app-game-table></app-game-table>
   </main>
@@ -136,11 +136,9 @@ Partida</span>
           <div class="config-device-row">
             <span class="config-slider-label">Entrada</span>
             <select class="config-select" [(ngModel)]="configInputDevice">
+              <option value="default">Por defecto (micrófono del sistema)</option>
               @for (device of audioInputDevices; track device.deviceId) {
-                <option [value]="device.deviceId">{{ device.label || 'Micrófono ' + $index }}</option>
-              }
-              @if (audioInputDevices.length === 0) {
-                <option value="">Sin dispositivos detectados</option>
+                <option [value]="device.deviceId">{{ device.label || 'Micrófono ' + ($index + 1) }}</option>
               }
             </select>
           </div>
