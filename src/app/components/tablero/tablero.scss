@@ -1,0 +1,636 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  TABLERO — Mesa de juego interactiva (partida real)
+//  Tema: Neon Casino — reutiliza variables de styles.scss
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── Dimensiones de cartas ──────────────────────────────────────────────────
+$carta-w:       52px;
+$carta-h:       76px;
+$carta-r:       6px;
+$carta-yo-w:    62px;
+$carta-yo-h:    90px;
+$carta-pend-w:  68px;
+$carta-pend-h:  98px;
+$carta-gap:     5px;
+
+// ── Contenedor raíz ───────────────────────────────────────────────────────
+.tablero {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--bg-void);
+  font-family: var(--font-body);
+  color: var(--text-100);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HEADER — Timer + botón salir
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 16px;
+  background: rgba(11, 23, 51, 0.85);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.12);
+  z-index: 20;
+  flex-shrink: 0;
+}
+
+.tablero__timer-wrap {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.tablero__timer-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--neon-cyan);
+  min-width: 30px;
+  text-align: right;
+  transition: color 300ms;
+
+  &--urgente {
+    color: #ff4d6d;
+    animation: pulsar-urgente 0.6s ease-in-out infinite alternate;
+  }
+}
+
+.tablero__timer-track {
+  flex: 1;
+  height: 6px;
+  background: rgba(0, 229, 255, 0.12);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.tablero__timer-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--neon-cyan), #38bdf8);
+  border-radius: 3px;
+  transition: width 1s linear, background 300ms;
+
+  &--urgente {
+    background: linear-gradient(90deg, #ff4d6d, #f97316);
+  }
+}
+
+.tablero__exit-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  color: var(--text-80);
+  font-family: var(--font-body);
+  font-size: 12px;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: border-color 200ms, color 200ms;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: rgba(0, 229, 255, 0.55);
+    color: var(--neon-cyan);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BANNER de turno
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__banner {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  pointer-events: none;
+  animation: banner-fade-in 300ms ease-out;
+}
+
+.tablero__banner-box {
+  background: rgba(11, 23, 51, 0.9);
+  border: 1px solid rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 40px rgba(0, 229, 255, 0.18), 0 8px 32px rgba(0, 0, 0, 0.7);
+  border-radius: 12px;
+  padding: 18px 44px;
+  font-size: 22px;
+  font-family: var(--font-display);
+  color: var(--text-100);
+  letter-spacing: 0.04em;
+
+  strong {
+    color: var(--neon-cyan);
+    text-shadow: 0 0 12px rgba(0, 229, 255, 0.5);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  OVERLAY fin de partida
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__fin-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 60;
+  animation: banner-fade-in 400ms ease-out;
+}
+
+.tablero__fin-box {
+  text-align: center;
+  padding: 48px 64px;
+  max-width: 420px;
+}
+
+.tablero__fin-titulo {
+  font-family: var(--font-display);
+  font-size: 26px;
+  color: var(--neon-cyan);
+  margin: 0 0 12px;
+  text-shadow: 0 0 16px rgba(0, 229, 255, 0.4);
+}
+
+.tablero__fin-msg {
+  color: var(--text-80);
+  font-size: 15px;
+  margin: 0 0 28px;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  ÁREA de juego principal
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__area {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+}
+
+// ── Mesa oval (decorativa) ─────────────────────────────────────────────────
+.tablero__mesa {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: clamp(280px, 44vmin, 520px);
+  height: clamp(200px, 32vmin, 380px);
+  border-radius: 50%;
+  background:
+    radial-gradient(ellipse 55% 45% at 50% 45%, rgba(40, 100, 170, 0.28) 0%, transparent 60%),
+    radial-gradient(ellipse 90% 75% at 50% 30%, rgba(30, 80, 150, 0.32) 0%, transparent 55%),
+    radial-gradient(ellipse 80% 80% at 50% 50%, rgba(18, 55, 108, 0.96) 0%, rgba(10, 32, 68, 0.99) 100%);
+  border: 2px solid rgba(0, 229, 255, 0.22);
+  box-shadow:
+    0 0 40px rgba(0, 229, 255, 0.06),
+    0 16px 60px rgba(0, 0, 0, 0.55);
+  animation: glow-mesa 7s ease-in-out infinite;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.tablero__mesa-ring {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 229, 255, 0.12);
+  pointer-events: none;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CENTRO — Mazo y pila de descartes
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__centro {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  z-index: 5;
+}
+
+.tablero__pila {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &--vacia { opacity: 0.35; }
+}
+
+// Capas de profundidad del mazo
+.tablero__pila-sombra {
+  position: absolute;
+  width: $carta-w;
+  height: $carta-h;
+  border-radius: $carta-r;
+  background: linear-gradient(145deg, #0a1530, #060e24);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+
+  &--3 { top: 6px;   left: 5px;   opacity: 0.2;  }
+  &--2 { top: 4px;   left: 3px;   opacity: 0.4;  }
+  &--1 { top: 2px;   left: 1.5px; opacity: 0.65; }
+}
+
+.tablero__pila-num {
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 11px;
+  color: var(--text-50);
+  white-space: nowrap;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  CARTA — Base y variantes
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__carta {
+  width: $carta-w;
+  height: $carta-h;
+  border-radius: $carta-r;
+  position: relative;
+  flex-shrink: 0;
+  transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 200ms,
+              border-color 200ms;
+
+  // ── Dorso ──────────────────────────────────────────────────────────────
+  &--dorso {
+    background: linear-gradient(145deg, #0c1a38 0%, #081230 50%, #060e28 100%);
+    border: 1.5px solid rgba(0, 229, 255, 0.5);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.75),
+      0 0 10px rgba(0, 229, 255, 0.12),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+
+    &::after {
+      content: '';
+      position: absolute;
+      inset: 3px;
+      border-radius: 4px;
+      border: 1px solid rgba(0, 229, 255, 0.28);
+      background:
+        radial-gradient(ellipse at 50% 50%, rgba(0, 229, 255, 0.07) 0%, transparent 65%),
+        repeating-linear-gradient( 45deg, transparent, transparent 3.5px,
+          rgba(0, 229, 255, 0.11) 3.5px, rgba(0, 229, 255, 0.11) 5px),
+        repeating-linear-gradient(-45deg, transparent, transparent 3.5px,
+          rgba(0, 229, 255, 0.09) 3.5px, rgba(0, 229, 255, 0.09) 5px);
+      pointer-events: none;
+    }
+  }
+
+  // ── Cara ──────────────────────────────────────────────────────────────
+  &--cara {
+    background: linear-gradient(145deg, #1a2d5a, #0f1f42);
+    border: 1.5px solid rgba(0, 229, 255, 0.6);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.75),
+      0 0 14px rgba(0, 229, 255, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  // ── Cara roja ─────────────────────────────────────────────────────────
+  &--cara.tablero__carta--roja {
+    border-color: rgba(236, 72, 153, 0.65);
+    box-shadow:
+      0 4px 16px rgba(0, 0, 0, 0.75),
+      0 0 14px rgba(236, 72, 153, 0.2),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+
+  // ── Tamaño del jugador local ───────────────────────────────────────────
+  &--yo {
+    width: $carta-yo-w;
+    height: $carta-yo-h;
+    border-radius: 7px;
+  }
+
+  // ── Carta pendiente (robada del mazo) ──────────────────────────────────
+  &--pendiente {
+    width: $carta-pend-w;
+    height: $carta-pend-h;
+    border-radius: 8px;
+    animation: carta-entra 400ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+    &.tablero__carta--dorso {
+      border-color: rgba(0, 229, 255, 0.65);
+      box-shadow:
+        0 0 22px rgba(0, 229, 255, 0.3),
+        0 6px 20px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08);
+    }
+
+    &.tablero__carta--cara {
+      box-shadow:
+        0 0 26px rgba(0, 229, 255, 0.38),
+        0 6px 24px rgba(0, 0, 0, 0.8),
+        inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  // ── Slot vacío ─────────────────────────────────────────────────────────
+  &--vacia,
+  &--placeholder {
+    background: transparent;
+    border: 1.5px dashed rgba(0, 229, 255, 0.14);
+    box-shadow: none;
+  }
+
+  &--placeholder {
+    width: $carta-pend-w;
+    height: $carta-pend-h;
+    border-radius: 8px;
+  }
+
+  // ── Animación al llegar al descarte ───────────────────────────────────
+  &--descarte-top {
+    animation: carta-descarte 350ms cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  // ── Seleccionable (modo intercambio) ──────────────────────────────────
+  &--seleccionable {
+    cursor: pointer;
+
+    &:hover {
+      transform: translateY(-6px) scale(1.04);
+    }
+  }
+}
+
+.tablero__carta-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: rgba(0, 229, 255, 0.28);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+// ── Texto de cartas ────────────────────────────────────────────────────────
+.tablero__cv {
+  position: absolute;
+  font-family: var(--font-display);
+  font-weight: 700;
+  line-height: 1;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 8px rgba(0, 229, 255, 0.45);
+
+  &--tl { top: 5px;    left: 5px;  font-size: 13px; }
+  &--br { bottom: 5px; right: 5px; font-size: 13px; transform: rotate(180deg); }
+
+  .tablero__carta--pendiente & {
+    &.tablero__cv--tl { font-size: 15px; top: 7px; left: 7px; }
+    &.tablero__cv--br { font-size: 15px; bottom: 7px; right: 7px; }
+  }
+}
+
+.tablero__cp {
+  position: absolute;
+  font-size: 11px;
+  line-height: 1;
+  color: var(--neon-cyan);
+  text-shadow: 0 0 6px rgba(0, 229, 255, 0.4);
+
+  &--tl     { top: 18px; left: 5px; }
+  &--center {
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 20px;
+    opacity: 0.6;
+  }
+
+  .tablero__carta--pendiente & {
+    &.tablero__cp--center { font-size: 26px; }
+  }
+}
+
+// Colores para palos rojos
+.tablero__carta--roja {
+  .tablero__cv { color: #ff7aa8; text-shadow: 0 0 8px rgba(255, 122, 168, 0.45); }
+  .tablero__cp { color: #ff7aa8; text-shadow: 0 0 6px rgba(255, 122, 168, 0.4);  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  JUGADORES — posicionamiento
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__jugador {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  z-index: 10;
+
+  // Glow en zona activa
+  &--activo .tablero__mano-area::before {
+    opacity: 1;
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 20px rgba(0, 229, 255, 0.2), inset 0 0 10px rgba(0, 229, 255, 0.06);
+  }
+
+  // ── Posiciones ────────────────────────────────────────────────────────
+  &--south { bottom: 2%;  left: 50%;  transform: translateX(-50%); }
+  &--north { top: 2%;     left: 50%;  transform: translateX(-50%); }
+  &--east  { top: 50%;    right: 1%;  transform: translateY(-50%); }
+  &--west  { top: 50%;    left: 1%;   transform: translateY(-50%); }
+  &--ne    { top: 7%;     right: 4%;  }
+  &--nw    { top: 7%;     left:  4%;  }
+  &--se    { bottom: 7%;  right: 4%;  }
+  &--sw    { bottom: 7%;  left:  4%;  }
+}
+
+// ── Etiqueta ───────────────────────────────────────────────────────────────
+.tablero__etiqueta {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(10, 20, 48, 0.78);
+  border: 1px solid rgba(0, 229, 255, 0.14);
+  border-radius: 20px;
+  padding: 3px 10px 3px 5px;
+  font-size: 11px;
+  color: var(--text-80);
+  white-space: nowrap;
+  backdrop-filter: blur(4px);
+}
+
+.tablero__avatar { font-size: 16px; line-height: 1; }
+
+.tablero__nombre {
+  font-size: 11px;
+  max-width: 90px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tablero__pensando {
+  font-size: 14px;
+  color: var(--neon-cyan);
+  animation: parpadeo 0.7s ease-in-out infinite alternate;
+  margin-left: 2px;
+}
+
+// ── Zona de mano ──────────────────────────────────────────────────────────
+.tablero__mano-area {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border-radius: 10px;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -4px;
+    border-radius: 13px;
+    border: 1px solid transparent;
+    box-shadow: none;
+    opacity: 0;
+    transition: opacity 300ms, border-color 300ms, box-shadow 300ms;
+    pointer-events: none;
+  }
+}
+
+// ── Rejilla 2×2 ───────────────────────────────────────────────────────────
+.tablero__mano {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(2, 1fr);
+  gap: $carta-gap;
+
+  &--seleccionable .tablero__carta {
+    border-color: rgba(0, 229, 255, 0.8);
+    box-shadow:
+      0 0 18px rgba(0, 229, 255, 0.32),
+      0 4px 16px rgba(0, 0, 0, 0.75),
+      inset 0 0 8px rgba(0, 229, 255, 0.1);
+    animation: glow-pulso 1.2s ease-in-out infinite alternate;
+  }
+}
+
+// ── Slot pendiente ────────────────────────────────────────────────────────
+.tablero__pendiente-slot {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: $carta-pend-w;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  BOTONES DE ACCIÓN
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__acciones {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 300px;
+}
+
+.tablero__btn {
+  font-family: var(--font-body);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  border: none;
+  border-radius: 6px;
+  padding: 9px 22px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  transition: transform 150ms, box-shadow 150ms, filter 150ms;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, transparent 100%);
+    pointer-events: none;
+  }
+
+  &:hover  { transform: translateY(-2px); }
+  &:active { transform: translateY(0); filter: brightness(0.88); }
+
+  &--intercambiar {
+    background: linear-gradient(135deg, #0ea5e9, #0284c7);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(14, 165, 233, 0.45);
+    &:hover { box-shadow: 0 6px 22px rgba(14, 165, 233, 0.6); }
+  }
+
+  &--descartar {
+    background: linear-gradient(135deg, #f43f5e, #be123c);
+    color: #fff;
+    box-shadow: 0 4px 16px rgba(244, 63, 94, 0.45);
+    &:hover { box-shadow: 0 6px 22px rgba(244, 63, 94, 0.6); }
+  }
+}
+
+.tablero__hint {
+  font-size: 12px;
+  color: var(--neon-cyan);
+  text-align: center;
+  margin: 0;
+  max-width: 240px;
+  line-height: 1.5;
+  animation: banner-fade-in 250ms ease-out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  KEYFRAMES
+// ═══════════════════════════════════════════════════════════════════════════
+@keyframes glow-mesa {
+  0%,  100% {
+    border-color: rgba(0, 229, 255, 0.18);
+    box-shadow: 0 0 30px rgba(0, 229, 255, 0.04), 0 16px 50px rgba(0,0,0,0.5);
+  }
+  50% {
+    border-color: rgba(0, 229, 255, 0.38);
+    box-shadow: 0 0 50px rgba(0, 229, 255, 0.10), 0 16px 50px rgba(0,0,0,0.5);
+  }
+}
+
+@keyframes banner-fade-in {
+  from { opacity: 0; transform: translateY(-10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes carta-entra {
+  from { opacity: 0; transform: scale(0.55) translateY(-14px); }
+  to   { opacity: 1; transform: scale(1)    translateY(0); }
+}
+
+@keyframes carta-descarte {
+  from { opacity: 0.4; transform: scale(0.82); }
+  to   { opacity: 1;   transform: scale(1); }
+}
+
+@keyframes glow-pulso {
+  from { box-shadow: 0 0 12px rgba(0, 229, 255, 0.22), 0 4px 16px rgba(0,0,0,0.75); }
+  to   { box-shadow: 0 0 26px rgba(0, 229, 255, 0.55), 0 4px 16px rgba(0,0,0,0.75); }
+}
+
+@keyframes pulsar-urgente {
+  from { opacity: 1;   }
+  to   { opacity: 0.45; }
+}
+
+@keyframes parpadeo {
+  from { opacity: 0.35; }
+  to   { opacity: 1;    }
+}
