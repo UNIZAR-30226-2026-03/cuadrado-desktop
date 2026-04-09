@@ -76,6 +76,7 @@ export class Shop implements OnInit {
   get usuario() { return this.auth.usuario(); }
 
   ngOnInit() {
+    this.auth.refreshProfile().subscribe();
     this.loadData();
   }
 
@@ -155,10 +156,10 @@ export class Shop implements OnInit {
         this.ownedSkinNames.set(owned);
 
         if (this.usuario) {
-          const updated = { ...this.usuario, monedas: this.usuario.monedas - skin.price };
-          localStorage.setItem('usuario', JSON.stringify(updated));
-          (this.auth as any)._usuario.set(updated);
+          this.auth.updateUser({ monedas: Math.max(0, this.usuario.monedas - skin.price) });
         }
+
+        this.auth.refreshProfile().subscribe();
 
         setTimeout(() => this.closeModal(), 1500);
       },
@@ -184,10 +185,11 @@ export class Shop implements OnInit {
     this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
       next: () => {
         if (this.usuario) {
-          const field = skin.type === 'Tapete' ? 'tapete' : 'reverso';
-          const updated = { ...this.usuario, [field]: skin.name };
-          localStorage.setItem('usuario', JSON.stringify(updated));
-          (this.auth as any)._usuario.set(updated);
+          if (skin.type === 'Tapete') {
+            this.auth.updateUser({ tapete: skin.name });
+          } else {
+            this.auth.updateUser({ reverso: skin.name });
+          }
         }
         this.router.navigate(['/inventory']);
       },

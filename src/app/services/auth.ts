@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { tap, delay } from 'rxjs/operators';
+import { tap, delay, catchError, map } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { environment } from '../environment';
 import { Usuario } from '../models/game';
@@ -12,6 +12,8 @@ import { Usuario } from '../models/game';
 export class AuthService {
   private _usuario = signal<Usuario | null>(null);
   private _token = signal<string | null>(null);
+  private profileSyncTimer: ReturnType<typeof setInterval> | null = null;
+  private readonly PROFILE_SYNC_MS = 15000;
 
   usuario = this._usuario.asReadonly();
   estaAutenticado = computed(() => !!this._token());
@@ -23,6 +25,8 @@ export class AuthService {
     if (usuarioGuardado && tokenGuardado) {
       this._usuario.set(JSON.parse(usuarioGuardado));
       this._token.set(tokenGuardado);
+      this.startProfileSync();
+      this.refreshProfile().subscribe();
     }
   }
 
@@ -40,21 +44,54 @@ export class AuthService {
             nombre: u.username,
             monedas: u.cubitos,
             exp: u.eloRating,
-            partidasJugadas: u.gamesPlayed,
-            partidasGanadas: u.gamesWon,
-            ranking: u.rankPlacement,
+            partidasJugadas: u.gamesPlayed ?? 0,
+            partidasGanadas: u.gamesWon ?? 0,
+            ranking: u.rankPlacement ?? 0,
             avatar: '',
             reverso: u.equippedSkinID || '',
             tapete: '',
           };
 
           this._token.set(token);
-          this._usuario.set(user);
-
           localStorage.setItem('token', token);
-          localStorage.setItem('usuario', JSON.stringify(user));
+          this.setUser(user);
+          this.startProfileSync();
+          this.refreshProfile().subscribe();
         })
       );
+  }
+
+  updateUser(patch: Partial<Usuario>) {
+    const current = this._usuario();
+    if (!current) return;
+    this.setUser({ ...current, ...patch });
+  }
+
+  refreshProfile() {
+    const token = this._token();
+    const current = this._usuario();
+
+    if (!token || !current) {
+      return of(null);
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    return this.http.get<any>(`${environment.apiUrl}/users/me`, { headers }).pipe(
+      map(profile => {
+        const refreshed: Usuario = {
+          ...current,
+          nombre: profile.username ?? current.nombre,
+          monedas: profile.cubitos ?? current.monedas,
+          exp: profile.eloRating ?? current.exp,
+          partidasJugadas: profile.gamesPlayed ?? current.partidasJugadas,
+          partidasGanadas: profile.gamesWon ?? current.partidasGanadas,
+        };
+
+        return refreshed;
+      }),
+      tap(refreshed => this.setUser(refreshed)),
+      catchError(() => of(null)),
+    );
   }
 
   // 2. REGISTRO
@@ -91,12 +128,32 @@ export class AuthService {
   }
 
   private limpiarSesion() {
+    this.stopProfileSync();
     this._usuario.set(null);
     this._token.set(null);
     localStorage.removeItem('usuario');
     localStorage.removeItem('token');
     localStorage.removeItem('refreshToken');
     this.router.navigate(['/login']);
+  }
+
+  private setUser(user: Usuario) {
+    this._usuario.set(user);
+    localStorage.setItem('usuario', JSON.stringify(user));
+  }
+
+  private startProfileSync() {
+    if (this.profileSyncTimer) return;
+
+    this.profileSyncTimer = setInterval(() => {
+      this.refreshProfile().subscribe();
+    }, this.PROFILE_SYNC_MS);
+  }
+
+  private stopProfileSync() {
+    if (!this.profileSyncTimer) return;
+    clearInterval(this.profileSyncTimer);
+    this.profileSyncTimer = null;
   }
 
   getToken(): string | null {

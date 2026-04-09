@@ -73,6 +73,7 @@ export class Inventory implements OnInit {
   get usuario() { return this.auth.usuario(); }
 
   ngOnInit() {
+    this.auth.refreshProfile().subscribe();
     this.loadInventory();
   }
 
@@ -114,16 +115,12 @@ export class Inventory implements OnInit {
         if (skin.type === 'Carta') {
           this.equippedCardName.set(skin.name);
           if (this.usuario) {
-            const updated = { ...this.usuario, reverso: skin.name };
-            localStorage.setItem('usuario', JSON.stringify(updated));
-            (this.auth as any)._usuario.set(updated);
+            this.auth.updateUser({ reverso: skin.name });
           }
         } else if (skin.type === 'Tapete') {
           this.equippedTapeteName.set(skin.name);
           if (this.usuario) {
-            const updated = { ...this.usuario, tapete: skin.name };
-            localStorage.setItem('usuario', JSON.stringify(updated));
-            (this.auth as any)._usuario.set(updated);
+            this.auth.updateUser({ tapete: skin.name });
           }
         }
       },
@@ -137,16 +134,12 @@ export class Inventory implements OnInit {
         if (type === 'Carta') {
           this.equippedCardName.set(null);
           if (this.usuario) {
-            const updated = { ...this.usuario, reverso: '' };
-            localStorage.setItem('usuario', JSON.stringify(updated));
-            (this.auth as any)._usuario.set(updated);
+            this.auth.updateUser({ reverso: '' });
           }
         } else if (type === 'Tapete') {
           this.equippedTapeteName.set(null);
           if (this.usuario) {
-            const updated = { ...this.usuario, tapete: '' };
-            localStorage.setItem('usuario', JSON.stringify(updated));
-            (this.auth as any)._usuario.set(updated);
+            this.auth.updateUser({ tapete: '' });
           }
         }
       },
