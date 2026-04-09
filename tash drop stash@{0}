@@ -1,0 +1,438 @@
+[1mdiff --git a/src/app/components/lobby/lobby.html b/src/app/components/lobby/lobby.html[m
+[1mindex 9db6f70..ed4ce55 100644[m
+[1m--- a/src/app/components/lobby/lobby.html[m
+[1m+++ b/src/app/components/lobby/lobby.html[m
+[36m@@ -19,16 +19,17 @@[m
+       </div>[m
+ [m
+       <div class="header-icons">[m
+[31m-        <button class="icon-btn" (click)="openConfigPopup()" title="Configuración">⚙️</button>[m
+[31m-        <div class="profile-menu-wrap">[m
+[31m-          <button class="icon-btn" (click)="toggleProfileMenu()" title="Perfil">👤</button>[m
+[31m-          @if (showProfileMenu) {[m
+[31m-            <div class="profile-menu">[m
+[31m-              <button class="profile-menu__item" (click)="openChangePasswordPopup()">[m
+[31m-                Cambiar contraseña[m
+[32m+[m[32m        <div class="header-menu-wrap">[m
+[32m+[m[32m          <button class="icon-btn hamburger-btn" (click)="toggleHeaderMenu()" title="Menú" aria-label="Menú">[m
+[32m+[m[32m            <span></span><span></span><span></span>[m
+[32m+[m[32m          </button>[m
+[32m+[m[32m          @if (showHeaderMenu) {[m
+[32m+[m[32m            <div class="header-menu">[m
+[32m+[m[32m              <button class="header-menu__item" (click)="openProfilePopup()">[m
+[32m+[m[32m                <span class="header-menu__icon">👤</span> Perfil[m
+               </button>[m
+[31m-              <button class="profile-menu__item profile-menu__item--danger" (click)="onLogout()">[m
+[31m-                Cerrar sesión[m
+[32m+[m[32m              <button class="header-menu__item" (click)="openConfigPopup()">[m
+[32m+[m[32m                <span class="header-menu__icon">⚙️</span> Ajustes[m
+               </button>[m
+             </div>[m
+           }[m
+[36m@@ -147,10 +148,101 @@[m [mPartida</span>[m
+     </div>[m
+   }[m
+ [m
+[32m+[m[32m  @if (showProfilePopup) {[m
+[32m+[m[32m    <div class="profile-popup-overlay" (click)="closeProfilePopup()">[m
+[32m+[m[32m      <div class="profile-popup glass-card" (click)="$event.stopPropagation()">[m
+[32m+[m
+[32m+[m[32m        <!-- Header: Volver | Perfil -->[m
+[32m+[m[32m        <div class="profile-popup__header">[m
+[32m+[m[32m          <button class="btn-ghost profile-popup__back" (click)="closeProfilePopup()">← Volver</button>[m
+[32m+[m[32m          <h3 class="profile-popup__title">Perfil</h3>[m
+[32m+[m[32m          <div class="profile-popup__header-spacer"></div>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        <!-- Avatar + Nombre + Stats -->[m
+[32m+[m[32m        <div class="profile-hero">[m
+[32m+[m[32m          <div class="profile-avatar profile-avatar--clickable" (click)="openAvatarPopup()">[m
+[32m+[m[32m            @if (isAvatarUrl(usuario?.avatar)) {[m
+[32m+[m[32m              <img class="profile-avatar__img" [src]="usuario?.avatar" alt="avatar" />[m
+[32m+[m[32m            } @else {[m
+[32m+[m[32m              <span>{{ usuario?.avatar || '👤' }}</span>[m
+[32m+[m[32m            }[m
+[32m+[m[32m            <div class="profile-avatar__overlay">✏️</div>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div class="profile-hero__info">[m
+[32m+[m[32m            <div class="profile-hero__name-row">[m
+[32m+[m[32m              <span class="profile-hero__name">{{ usuario?.nombre ?? '—' }}</span>[m
+[32m+[m[32m              <button class="profile-hero__pencil" (click)="openAvatarPopup()" title="Cambiar avatar">✏️</button>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m            <div class="profile-hero__stats">[m
+[32m+[m[32m              <span class="stat-pill stat-pill--sm">💎 {{ usuario?.monedas ?? 0 | number }}</span>[m
+[32m+[m[32m              <span class="stat-pill stat-pill--sm">⭐ {{ usuario?.exp ?? 0 | number }}</span>[m
+[32m+[m[32m              <span class="stat-pill stat-pill--sm">🏆 #{{ usuario?.ranking ?? '—' }}</span>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m        <!-- Estadísticas -->[m
+[32m+[m[32m        <section class="config-section">[m
+[32m+[m[32m          <h4 class="config-section__title">Estadísticas</h4>[m
+[32m+[m[32m          <div class="profile-info-row">[m
+[32m+[m[32m            <span class="profile-info-row__label">Partidas jugadas</span>[m
+[32m+[m[32m            <span class="profile-info-row__value">{{ usuario?.partidasJugadas ?? 0 }}</span>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m          <div class="profile-info-row">[m
+[32m+[m[32m            <span class="profile-info-row__label">Partidas ganadas</span>[m
+[32m+[m[32m            <span class="profile-info-row__value">{{ usuario?.partidasGanadas ?? 0 }}</span>[m
+[32m+[m[32m          </div>[m
+[32m+[m[32m        </section>[m
+[32m+[m
+[32m+[m[32m        <!-- Acciones siempre visibles -->[m
+[32m+[m[32m        <div class="profile-edit-actions">[m
+[32m+[m[32m          <button type="button" class="btn-ghost profile-edit-actions__pw" (click)="openChangePasswordFromProfile()">[m
+[32m+[m[32m            🔑 Cambiar contraseña[m
+[32m+[m[32m          </button>[m
+[32m+[m[32m          <button type="button" class="btn-neon profile-popup__logout" (click)="logoutFromProfile()">[m
+[32m+[m[32m            Cerrar sesión[m
+[32m+[m[32m          </button>[m
+[32m+[m[32m        </div>[m
+[32m+[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  @if (showAvatarPopup) {[m
+[32m+[m[32m    <div class="avatar-popup-overlay" (click)="closeAvatarPopup()">[m
+[32m+[m[32m      <div class="avatar-popup glass-card" (click)="$event.stopPropagation()">[m
+[32m+[m[32m        <h3 class="avatar-popup__title">Selecciona tu avatar</h3>[m
+[32m+[m[32m        @if (avatarSkinsLoading && allAvatarSkins().length === 0) {[m
+[32m+[m[32m          <p class="avatar-popup__loading">Cargando avatares...</p>[m
+[32m+[m[32m        }[m
+[32m+[m[32m        <div class="avatar-grid">[m
+[32m+[m[32m          @for (skin of allAvatarSkins(); track skin.id) {[m
+[32m+[m[32m            @if (isAvatarOwned(skin.id)) {[m
+[32m+[m[32m              <button class="avatar-option"[m
+[32m+[m[32m                      [class.avatar-option--selected]="isAvatarEquipped(skin)"[m
+[32m+[m[32m                      (click)="selectAvatar(skin)">[m
+[32m+[m[32m                <img [src]="skin.url" [alt]="skin.name" />[m
+[32m+[m[32m              </button>[m
+[32m+[m[32m            } @else {[m
+[32m+[m[32m              <div class="avatar-option avatar-option--locked">[m
+[32m+[m[32m                <img [src]="skin.url" [alt]="skin.name" />[m
+[32m+[m[32m                <div class="avatar-option__lock-overlay">[m
+[32m+[m[32m                  <span class="avatar-option__lock-icon">🔒</span>[m
+[32m+[m[32m                </div>[m
+[32m+[m[32m              </div>[m
+[32m+[m[32m            }[m
+[32m+[m[32m          }[m
+[32m+[m[32m        </div>[m
+[32m+[m[32m        <button class="btn-ghost avatar-popup__cancel" (click)="closeAvatarPopup()">Cancelar</button>[m
+[32m+[m[32m      </div>[m
+[32m+[m[32m    </div>[m
+[32m+[m[32m  }[m
+[32m+[m
+   @if (showChangePasswordPopup) {[m
+     <div class="change-popup-overlay" (click)="closeChangePasswordPopup()">[m
+       <div class="change-popup glass-card" (click)="$event.stopPropagation()">[m
+[31m-        <h3>Cambiar contraseña</h3>[m
+[32m+[m[32m        <h3 class="change-popup__title">Modificar contraseña</h3>[m
+ [m
+         @if (changePasswordMessage) {[m
+           <p class="popup-msg popup-msg--ok">{{ changePasswordMessage }}</p>[m
+[36m@@ -160,25 +252,47 @@[m [mPartida</span>[m
+         }[m
+ [m
+         <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()">[m
+[31m-          <label>Contraseña actual</label>[m
+[31m-          <input class="input-neon" type="password" formControlName="passwordActual" placeholder="••••••••" />[m
+ [m
+[31m-          <label>Nueva contraseña</label>[m
+[31m-          <input class="input-neon" type="password" formControlName="passwordNueva" placeholder="••••••••" />[m
+[31m-          @if (changePasswordForm.get('passwordNueva')?.touched && changePasswordForm.get('passwordNueva')?.hasError('minlength')) {[m
+[31m-            <span class="popup-error">Mínimo 8 caracteres</span>[m
+[31m-          }[m
+[32m+[m[32m          <div class="pw-field">[m
+[32m+[m[32m            <label class="pw-field__label">Contraseña actual</label>[m
+[32m+[m[32m            <div class="pw-input-wrap">[m
+[32m+[m[32m              <input class="input-neon pw-input-wrap__input" [type]="showPwActual ? 'text' : 'password'" formControlName="passwordActual" />[m
+[32m+[m[32m              <button type="button" class="pw-eye" (click)="showPwActual = !showPwActual" title="Mostrar/ocultar">[m
+[32m+[m[32m                {{ showPwActual ? '🙈' : '👁️' }}[m
+[32m+[m[32m              </button>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m          </div>[m
+ [m
+[31m-          <label>Confirmar nueva contraseña</label>[m
+[31m-          <input class="input-neon" type="password" formControlName="confirmarPassword" placeholder="••••••••" />[m
+[31m-          @if (changePasswordForm.get('confirmarPassword')?.touched && changePasswordForm.hasError('passwordsMismatch')) {[m
+[31m-            <span class="popup-error">Las contraseñas no coinciden</span>[m
+[31m-          }[m
+[32m+[m[32m          <div class="pw-field">[m
+[32m+[m[32m            <label class="pw-field__label">Contraseña nueva</label>[m
+[32m+[m[32m            <div class="pw-input-wrap">[m
+[32m+[m[32m              <input class="input-neon pw-input-wrap__input" [type]="showPwNueva ? 'text' : 'password'" formControlName="passwordNueva" />[m
+[32m+[m[32m              <button type="button" class="pw-eye" (click)="showPwNueva = !showPwNueva" title="Mostrar/ocultar">[m
+[32m+[m[32m                {{ showPwNueva ? '🙈' : '👁️' }}[m
+[32m+[m[32m              </button>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m            @if (changePasswordForm.get('passwordNueva')?.touched && changePasswordForm.get('passwordNueva')?.hasError('minlength')) {[m
+[32m+[m[32m              <span class="popup-error">Mínimo 8 caracteres</span>[m
+[32m+[m[32m            }[m
+[32m+[m[32m          </div>[m
+[32m+[m
+[32m+[m[32m          <div class="pw-field">[m
+[32m+[m[32m            <label class="pw-field__label">Confirmar la contraseña nueva</label>[m
+[32m+[m[32m            <div class="pw-input-wrap">[m
+[32m+[m[32m              <input class="input-neon pw-input-wrap__input" [type]="showPwConfirmar ? 'text' : 'password'" formControlName="confirmarPassword" />[m
+[32m+[m[32m              <button type="button" class="pw-eye" (click)="showPwConfirmar = !showPwConfirmar" title="Mostrar/ocultar">[m
+[32m+[m[32m                {{ showPwConfirmar ? '🙈' : '👁️' }}[m
+[32m+[m[32m              </button>[m
+[32m+[m[32m            </div>[m
+[32m+[m[32m            @if (changePasswordForm.get('confirmarPassword')?.touched && changePasswordForm.hasError('passwordsMismatch')) {[m
+[32m+[m[32m              <span class="popup-error">Las contraseñas no coinciden</span>[m
+[32m+[m[32m            }[m
+[32m+[m[32m          </div>[m
+ [m
+[31m-          <div class="popup-actions">[m
+[32m+[m[32m          <div class="popup-actions change-popup__actions">[m
+             <button type="button" class="btn-ghost" (click)="closeChangePasswordPopup()">Cancelar</button>[m
+             <button type="submit" class="btn-neon" [disabled]="changingPassword">[m
+[31m-              {{ changingPassword ? 'Guardando...' : 'Guardar' }}[m
+[32m+[m[32m              {{ changingPassword ? 'Guardando...' : 'Aceptar' }}[m
+             </button>[m
+           </div>[m
+         </form>[m
+[1mdiff --git a/src/app/components/lobby/lobby.scss b/src/app/components/lobby/lobby.scss[m
+[1mindex b3d8326..c20f841 100644[m
+[1m--- a/src/app/components/lobby/lobby.scss[m
+[1m+++ b/src/app/components/lobby/lobby.scss[m
+[36m@@ -208,12 +208,33 @@[m [mapp-game-table {[m
+   gap: 10px;[m
+ }[m
+ [m
+[31m-// ── Profile dropdown ────────────────────────────────────────────────────────[m
+[31m-.profile-menu-wrap {[m
+[32m+[m[32m// ── Hamburguesa + menú desplegable ──────────────────────────────────────────[m
+[32m+[m[32m.hamburger-btn {[m
+[32m+[m[32m  flex-direction: column;[m
+[32m+[m[32m  justify-content: center;[m
+[32m+[m[32m  align-items: center;[m
+[32m+[m[32m  gap: 4px;[m
+[32m+[m
+[32m+[m[32m  span {[m
+[32m+[m[32m    display: block;[m
+[32m+[m[32m    width: 18px;[m
+[32m+[m[32m    height: 2px;[m
+[32m+[m[32m    background: currentColor;[m
+[32m+[m[32m    border-radius: 2px;[m
+[32m+[m[32m    transition: all 250ms;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &:hover {[m
+[32m+[m[32m    transform: none; // neutraliza el rotate(45deg) heredado de .icon-btn[m
+[32m+[m[32m    span { background: var(--neon-cyan); }[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.header-menu-wrap {[m
+   position: relative;[m
+ }[m
+ [m
+[31m-.profile-menu {[m
+[32m+[m[32m.header-menu {[m
+   position: absolute;[m
+   top: calc(100% + 8px);[m
+   right: 0;[m
+[36m@@ -227,6 +248,9 @@[m [mapp-game-table {[m
+   z-index: 5;[m
+ [m
+   &__item {[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 8px;[m
+     width: 100%;[m
+     text-align: left;[m
+     background: transparent;[m
+[36m@@ -241,15 +265,11 @@[m [mapp-game-table {[m
+       background: rgba(0, 229, 255, 0.1);[m
+       color: var(--neon-cyan);[m
+     }[m
+[32m+[m[32m  }[m
+ [m
+[31m-    &--danger {[m
+[31m-      color: #ff4d6d;[m
+[31m-    }[m
+[31m-[m
+[31m-    &--danger:hover {[m
+[31m-      background: rgba(255, 77, 109, 0.14);[m
+[31m-      color: #ff2244;[m
+[31m-    }[m
+[32m+[m[32m  &__icon {[m
+[32m+[m[32m    font-size: 15px;[m
+[32m+[m[32m    line-height: 1;[m
+   }[m
+ }[m
+ [m
+[36m@@ -322,36 +342,12 @@[m [mapp-game-table {[m
+ .change-popup-overlay {[m
+   position: fixed;[m
+   inset: 0;[m
+[31m-  z-index: 20;[m
+[31m-  background: rgba(1, 6, 18, 0.55);[m
+[32m+[m[32m  z-index: 30;[m
+[32m+[m[32m  background: rgba(1, 6, 18, 0.65);[m
+   display: flex;[m
+   align-items: center;[m
+   justify-content: center;[m
+[31m-}[m
+[31m-[m
+[31m-.change-popup {[m
+[31m-  width: min(460px, 92vw);[m
+[31m-  padding: 24px;[m
+[31m-[m
+[31m-  h3 {[m
+[31m-    font-size: 22px;[m
+[31m-    margin-bottom: 18px;[m
+[31m-    color: var(--text-100);[m
+[31m-  }[m
+[31m-[m
+[31m-  form {[m
+[31m-    display: flex;[m
+[31m-    flex-direction: column;[m
+[31m-    gap: 10px;[m
+[31m-  }[m
+[31m-[m
+[31m-  label {[m
+[31m-    font-size: 12px;[m
+[31m-    color: var(--text-80);[m
+[31m-    letter-spacing: 0.04em;[m
+[31m-    text-transform: uppercase;[m
+[31m-    margin-top: 4px;[m
+[31m-  }[m
+[32m+[m[32m  animation: overlay-fade 200ms ease-out;[m
+ }[m
+ [m
+ .popup-msg {[m
+[36m@@ -510,3 +506,398 @@[m [mapp-game-table {[m
+     font-size: 13px;[m
+   }[m
+ }[m
+[32m+[m
+[32m+[m[32m// ── Profile popup ────────────────────────────────────────────────────────────[m
+[32m+[m[32m.profile-popup-overlay {[m
+[32m+[m[32m  position: fixed;[m
+[32m+[m[32m  inset: 0;[m
+[32m+[m[32m  z-index: 20;[m
+[32m+[m[32m  background: rgba(1, 6, 18, 0.6);[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  align-items: center;[m
+[32m+[m[32m  justify-content: center;[m
+[32m+[m[32m  animation: overlay-fade 200ms ease-out;[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.profile-popup {[m
+[32m+[m[32m  width: min(480px, 92vw);[m
+[32m+[m[32m  padding: 24px 28px 28px;[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  flex-direction: column;[m
+[32m+[m[32m  gap: 22px;[m
+[32m+[m[32m  animation: popup-slide 300ms var(--spring);[m
+[32m+[m
+[32m+[m[32m  &__header {[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 10px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__back {[m
+[32m+[m[32m    padding: 6px 14px;[m
+[32m+[m[32m    font-size: 12px;[m
+[32m+[m[32m    flex-shrink: 0;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__title {[m
+[32m+[m[32m    font-family: var(--font-body);[m
+[32m+[m[32m    font-size: 20px;[m
+[32m+[m[32m    font-weight: 700;[m
+[32m+[m[32m    color: var(--text-100);[m
+[32m+[m[32m    flex: 1;[m
+[32m+[m[32m    text-align: center;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__header-spacer {[m
+[32m+[m[32m    // Same width as the back button to keep the title centered[m
+[32m+[m[32m    width: 70px;[m
+[32m+[m[32m    flex-shrink: 0;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__logout {[m
+[32m+[m[32m    background: linear-gradient(135deg, rgba(255, 77, 109, 0.22), rgba(236, 72, 153, 0.14));[m
+[32m+[m[32m    border-color: rgba(255, 77, 109, 0.45);[m
+[32m+[m[32m    text-shadow: 0 0 10px rgba(255, 77, 109, 0.55);[m
+[32m+[m
+[32m+[m[32m    &:hover:not(:disabled) {[m
+[32m+[m[32m      border-color: rgba(255, 77, 109, 0.75);[m
+[32m+[m[32m      box-shadow:[m
+[32m+[m[32m        0 0 25px rgba(255, 77, 109, 0.3),[m
+[32m+[m[32m        0 8px 30px rgba(0, 0, 0, 0.4);[m
+[32m+[m[32m      text-shadow: 0 0 18px rgba(255, 77, 109, 0.8);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m// ── Profile hero (avatar + nombre + stats) ───────────────────────────────────[m
+[32m+[m[32m.profile-hero {[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  align-items: center;[m
+[32m+[m[32m  gap: 18px;[m
+[32m+[m
+[32m+[m[32m  &__info {[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    flex-direction: column;[m
+[32m+[m[32m    gap: 8px;[m
+[32m+[m[32m    flex: 1;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__name-row {[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    align-items: center;[m
+[32m+[m[32m    gap: 8px;[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__name {[m
+[32m+[m[32m    font-size: 18px;[m
+[32m+[m[32m    font-weight: 700;[m
+[32m+[m[32m    color: var(--text-100);[m
+[32m+[m[32m    font-family: var(--font-body);[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__pencil {[m
+[32m+[m[32m    background: transparent;[m
+[32m+[m[32m    border: none;[m
+[32m+[m[32m    cursor: pointer;[m
+[32m+[m[32m    font-size: 14px;[m
+[32m+[m[32m    padding: 2px 4px;[m
+[32m+[m[32m    border-radius: 6px;[m
+[32m+[m[32m    line-height: 1;[m
+[32m+[m[32m    color: var(--text-50);[m
+[32m+[m[32m    transition: all 200ms;[m
+[32m+[m[32m    flex-shrink: 0;[m
+[32m+[m
+[32m+[m[32m    &:hover {[m
+[32m+[m[32m      color: var(--neon-cyan);[m
+[32m+[m[32m      background: rgba(0, 229, 255, 0.1);[m
+[32m+[m[32m    }[m
+[32m+[m[32m  }[m
+[32m+[m
+[32m+[m[32m  &__stats {[m
+[32m+[m[32m    display: flex;[m
+[32m+[m[32m    flex-wrap: wrap;[m
+[32m+[m[32m    gap: 6px;[m
+[32m+[m[32m  }[m
+[32m+[m[32m}[m
+[32m+[m
+[32m+[m[32m.profile-avatar {[m
+[32m+[m[32m  position: relative;[m
+[32m+[m[32m  width: 64px;[m
+[32m+[m[32m  height: 64px;[m
+[32m+[m[32m  border-radius: 50%;[m
+[32m+[m[32m  border: 2px solid var(--glass-border);[m
+[32m+[m[32m  background: var(--glass);[m
+[32m+[m[32m  backdrop-filter: blur(10px);[m
+[32m+[m[32m  display: flex;[m
+[32m+[m[32m  align-items: center;[m
+[32m+[m[32m  justify-content: center;[m
+[32m+[m[32m  font-size: 30px;[m
+[32m+[m[
