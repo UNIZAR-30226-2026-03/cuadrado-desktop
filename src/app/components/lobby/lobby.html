@@ -19,17 +19,12 @@
       </div>
 
       <div class="header-icons">
-        <button class="icon-btn" (click)="openConfigPopup()" title="Configuración">⚙️</button>
-        <div class="profile-menu-wrap">
-          <button class="icon-btn" (click)="toggleProfileMenu()" title="Perfil">👤</button>
-          @if (showProfileMenu) {
-            <div class="profile-menu">
-              <button class="profile-menu__item" (click)="openChangePasswordPopup()">
-                Cambiar contraseña
-              </button>
-              <button class="profile-menu__item profile-menu__item--danger" (click)="onLogout()">
-                Cerrar sesión
-              </button>
+        <div class="hamburger-wrap">
+          <button class="icon-btn icon-btn--menu" (click)="toggleHamburgerMenu()" title="Menú">☰</button>
+          @if (showHamburgerMenu) {
+            <div class="header-menu">
+              <button class="header-menu__item" (click)="openProfilePopup()">Perfil</button>
+              <button class="header-menu__item" (click)="openConfigPopup()">Settings</button>
             </div>
           }
         </div>
@@ -92,6 +87,115 @@ Partida</span>
           <button class="btn-ghost deck-popup__btn deck-popup__btn--disabled" disabled>REANUDAR ÚLTIMA PARTIDA</button>
         </div>
         <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  @if (showProfilePopup) {
+    <div class="profile-popup-overlay" (click)="closeProfilePopup()">
+      <div class="profile-popup glass-card" (click)="$event.stopPropagation()">
+        <div class="profile-popup__header">
+          <button class="btn-ghost profile-popup__back" (click)="closeProfilePopup()">← Volver</button>
+          <h3 class="profile-popup__title">Perfil</h3>
+        </div>
+
+        @if (profileStatusMessage) {
+          <p class="popup-msg popup-msg--ok">{{ profileStatusMessage }}</p>
+        }
+        @if (profileStatusError) {
+          <p class="popup-msg popup-msg--error">{{ profileStatusError }}</p>
+        }
+
+        <section class="profile-main">
+          <button class="profile-avatar-btn" (click)="toggleAvatarSelector()" title="Editar avatar">
+            @if (currentAvatarSkin && !hasAvatarImageError(currentAvatarSkin.id)) {
+              <img [src]="getAvatarImageUrl(currentAvatarSkin)"
+                   [alt]="currentAvatarSkin.name"
+                   (error)="onAvatarImageError(currentAvatarSkin.id)" />
+            } @else {
+              <span class="profile-avatar-fallback">👤</span>
+            }
+            <span class="profile-avatar-btn__edit">✏️</span>
+          </button>
+
+          @if (!isEditingProfileName) {
+            <div class="profile-name-row">
+              <h4 class="profile-name">{{ profileName }}</h4>
+              <button class="profile-edit-btn" (click)="startProfileNameEdit()" title="Editar nombre">✏️</button>
+            </div>
+          } @else {
+            <div class="profile-name-edit">
+              <input class="input-neon"
+                     [(ngModel)]="profileNameDraft"
+                     maxlength="20"
+                     placeholder="Nombre de usuario" />
+              <div class="profile-name-edit__actions">
+                <button class="btn-ghost" (click)="cancelProfileNameEdit()">Cancelar</button>
+                <button class="btn-neon" (click)="saveProfileName()">Guardar</button>
+              </div>
+              @if (profileNameError) {
+                <span class="popup-error">{{ profileNameError }}</span>
+              }
+            </div>
+          }
+        </section>
+
+        @if (showAvatarSelector) {
+          <section class="profile-avatar-selector">
+            <h4 class="profile-avatar-selector__title">Avatares</h4>
+
+            @if (loadingProfileAvatars) {
+              <p class="profile-hint">Cargando avatares...</p>
+            } @else {
+              <div class="profile-avatar-grid">
+                @for (skin of avatarSkins(); track skin.id) {
+                  <button class="avatar-option"
+                          [class.avatar-option--locked]="!isAvatarOwned(skin)"
+                          [class.avatar-option--selected]="isAvatarSelected(skin)"
+                          [disabled]="!isAvatarOwned(skin) || savingProfileAvatar"
+                          (click)="selectAvatarSkin(skin)">
+                    @if (!hasAvatarImageError(skin.id)) {
+                      <img [src]="getAvatarImageUrl(skin)"
+                           [alt]="skin.name"
+                           (error)="onAvatarImageError(skin.id)" />
+                    } @else {
+                      <span class="avatar-option__fallback">{{ skin.name.charAt(0) }}</span>
+                    }
+
+                    @if (!isAvatarOwned(skin)) {
+                      <span class="avatar-option__lock">🔒</span>
+                    }
+
+                    @if (isAvatarSelected(skin)) {
+                      <span class="avatar-option__check">✓</span>
+                    }
+                  </button>
+                }
+              </div>
+
+              @if (avatarSkins().length === 0) {
+                <p class="profile-hint">No hay avatares disponibles.</p>
+              }
+            }
+          </section>
+        }
+
+        <section class="profile-stats-card">
+          <h4 class="profile-stats-card__title">Estadísticas</h4>
+          <div class="profile-stats-card__row">
+            <span>Partidas jugadas</span>
+            <strong>{{ usuario?.partidasJugadas ?? 0 }}</strong>
+          </div>
+          <div class="profile-stats-card__row">
+            <span>Partidas ganadas</span>
+            <strong>{{ usuario?.partidasGanadas ?? 0 }}</strong>
+          </div>
+        </section>
+
+        <div class="profile-actions">
+          <button class="btn-ghost" (click)="openChangePasswordPopup()">Cambiar contraseña</button>
+          <button class="btn-neon profile-actions__logout" (click)="onLogout()">Cerrar sesión</button>
+        </div>
       </div>
     </div>
   }

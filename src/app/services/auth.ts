@@ -47,7 +47,7 @@ export class AuthService {
             partidasJugadas: u.gamesPlayed ?? 0,
             partidasGanadas: u.gamesWon ?? 0,
             ranking: u.rankPlacement ?? 0,
-            avatar: '',
+            avatar: u.equippedAvatarId ?? '',
             reverso: u.equippedSkinID || '',
             tapete: '',
           };
@@ -85,6 +85,7 @@ export class AuthService {
           exp: profile.eloRating ?? current.exp,
           partidasJugadas: profile.gamesPlayed ?? current.partidasJugadas,
           partidasGanadas: profile.gamesWon ?? current.partidasGanadas,
+          avatar: profile.equipado?.avatar ?? current.avatar,
         };
 
         return refreshed;

@@ -2,11 +2,13 @@ import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
 import { GameTable } from '../game-table/game-table';
+import { environment } from '../../environment';
 
 interface SpawnedCube {
   id: number;
@@ -15,6 +17,14 @@ interface SpawnedCube {
   y: number;
   duration: number;
   faces: string[];
+}
+
+interface Skin {
+  id: string;
+  name: string;
+  type: string;
+  price: number;
+  url: string;
 }
 
 const MAX_CUBES = 16;
@@ -46,10 +56,25 @@ const MAX_CUBES = 16;
   ],
 })
 export class Lobby implements OnInit, OnDestroy {
-  showProfileMenu = false;
+  showHamburgerMenu = false;
   showChangePasswordPopup = false;
   showDeckPopup = false;
   showConfigPopup = false;
+  showProfilePopup = false;
+  showAvatarSelector = false;
+
+  isEditingProfileName = false;
+  profileDisplayName = '';
+  profileNameDraft = '';
+  profileNameError = '';
+  profileStatusMessage = '';
+  profileStatusError = '';
+
+  loadingProfileAvatars = false;
+  savingProfileAvatar = false;
+  avatarSkins = signal<Skin[]>([]);
+  ownedAvatarIds = signal<Set<string>>(new Set());
+  avatarImageErrors = signal<Set<string>>(new Set());
 
   // Configuración
   configMusic = 80;
@@ -71,7 +96,8 @@ export class Lobby implements OnInit, OnDestroy {
   constructor(
     protected auth: AuthService,
     private router: Router,
-    private fb: FormBuilder
+    private fb: FormBuilder,
+    private http: HttpClient,
   ) {
     this.changePasswordForm = this.fb.group({
       passwordActual: ['', [Validators.required]],
@@ -81,6 +107,8 @@ export class Lobby implements OnInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    this.profileDisplayName = this.usuario?.nombre ?? '';
+
     // Lote inicial escalonado
     for (let i = 0; i < 8; i++) {
       const t = setTimeout(() => this.spawnCube(), i * 500);
@@ -131,9 +159,22 @@ export class Lobby implements OnInit, OnDestroy {
   }
 
   get usuario() { return this.auth.usuario(); }
+  get profileName(): string {
+    return this.profileDisplayName || this.usuario?.nombre || 'Jugador';
+  }
+
+  get currentAvatarSkin(): Skin | null {
+    const equippedAvatarId = this.usuario?.avatar;
+    if (!equippedAvatarId) return null;
+    return this.avatarSkins().find(skin => skin.id === equippedAvatarId) || null;
+  }
 
   navegar(ruta: string): void { this.router.navigate([ruta]); }
-  onLogout(): void { this.auth.logout(); }
+  onLogout(): void {
+    this.showHamburgerMenu = false;
+    this.showProfilePopup = false;
+    this.auth.logout();
+  }
 
   openDeckPopup(): void { this.showDeckPopup = true; }
   closeDeckPopup(): void { this.showDeckPopup = false; }
@@ -143,11 +184,12 @@ export class Lobby implements OnInit, OnDestroy {
     this.router.navigate(['/create-room'], { queryParams: { barajas: num } });
   }
 
-  toggleProfileMenu(): void {
-    this.showProfileMenu = !this.showProfileMenu;
+  toggleHamburgerMenu(): void {
+    this.showHamburgerMenu = !this.showHamburgerMenu;
   }
 
   openConfigPopup(): void {
+    this.showHamburgerMenu = false;
     this.showConfigPopup = true;
     if (!this.configInputDevice) {
       this.configInputDevice = 'default';
@@ -175,8 +217,178 @@ export class Lobby implements OnInit, OnDestroy {
     this.showConfigPopup = false;
   }
 
+  openProfilePopup(): void {
+    this.showHamburgerMenu = false;
+    this.showProfilePopup = true;
+    this.showAvatarSelector = false;
+    this.isEditingProfileName = false;
+    this.profileNameError = '';
+    this.profileStatusMessage = '';
+    this.profileStatusError = '';
+
+    if (!this.profileDisplayName) {
+      this.profileDisplayName = this.usuario?.nombre ?? 'Jugador';
+    }
+
+    this.auth.refreshProfile().subscribe();
+    this.loadProfileAvatars();
+  }
+
+  closeProfilePopup(): void {
+    this.showProfilePopup = false;
+    this.showAvatarSelector = false;
+    this.isEditingProfileName = false;
+    this.profileNameDraft = '';
+    this.profileNameError = '';
+    this.profileStatusError = '';
+    this.profileStatusMessage = '';
+  }
+
+  toggleAvatarSelector(): void {
+    this.profileStatusMessage = '';
+    this.profileStatusError = '';
+    this.showAvatarSelector = !this.showAvatarSelector;
+
+    if (this.showAvatarSelector && this.avatarSkins().length === 0) {
+      this.loadProfileAvatars();
+    }
+  }
+
+  startProfileNameEdit(): void {
+    this.profileStatusMessage = '';
+    this.profileStatusError = '';
+    this.profileNameError = '';
+    this.profileNameDraft = this.profileName;
+    this.isEditingProfileName = true;
+  }
+
+  cancelProfileNameEdit(): void {
+    this.isEditingProfileName = false;
+    this.profileNameDraft = '';
+    this.profileNameError = '';
+  }
+
+  saveProfileName(): void {
+    const nextName = this.profileNameDraft.trim();
+
+    if (!nextName) {
+      this.profileNameError = 'El nombre no puede estar vacío.';
+      return;
+    }
+
+    if (nextName.length < 3) {
+      this.profileNameError = 'El nombre debe tener al menos 3 caracteres.';
+      return;
+    }
+
+    if (nextName.length > 20) {
+      this.profileNameError = 'El nombre no puede superar los 20 caracteres.';
+      return;
+    }
+
+    this.profileDisplayName = nextName;
+    this.isEditingProfileName = false;
+    this.profileNameDraft = '';
+    this.profileNameError = '';
+    this.profileStatusError = '';
+    this.profileStatusMessage = 'Nombre actualizado.';
+  }
+
+  isAvatarOwned(skin: Skin): boolean {
+    return this.ownedAvatarIds().has(skin.id);
+  }
+
+  isAvatarSelected(skin: Skin): boolean {
+    return this.usuario?.avatar === skin.id;
+  }
+
+  selectAvatarSkin(skin: Skin): void {
+    if (!this.isAvatarOwned(skin) || this.savingProfileAvatar) {
+      return;
+    }
+
+    if (this.isAvatarSelected(skin)) {
+      this.showAvatarSelector = false;
+      return;
+    }
+
+    const token = this.auth.getToken();
+    if (!token) {
+      this.profileStatusError = 'No hay sesión activa para actualizar el avatar.';
+      return;
+    }
+
+    this.savingProfileAvatar = true;
+    this.profileStatusError = '';
+    this.profileStatusMessage = '';
+
+    const headers = { Authorization: `Bearer ${token}` };
+    this.http.patch(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
+      next: () => {
+        this.savingProfileAvatar = false;
+        this.showAvatarSelector = false;
+        this.auth.updateUser({ avatar: skin.id });
+        this.auth.refreshProfile().subscribe();
+        this.profileStatusMessage = 'Avatar actualizado.';
+      },
+      error: () => {
+        this.savingProfileAvatar = false;
+        this.profileStatusError = 'No se pudo actualizar el avatar.';
+      },
+    });
+  }
+
+  getAvatarImageUrl(skin: Skin): string {
+    return skin.url || `assets/skins/${skin.name}.png`;
+  }
+
+  onAvatarImageError(skinId: string): void {
+    this.avatarImageErrors.update(prev => new Set(prev).add(skinId));
+  }
+
+  hasAvatarImageError(skinId: string): boolean {
+    return this.avatarImageErrors().has(skinId);
+  }
+
+  private loadProfileAvatars(): void {
+    const token = this.auth.getToken();
+    if (!token) {
+      this.avatarSkins.set([]);
+      this.ownedAvatarIds.set(new Set());
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+    this.loadingProfileAvatars = true;
+
+    this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
+      next: (skins) => {
+        this.avatarSkins.set(skins.filter(skin => skin.type === 'Avatar'));
+        this.loadingProfileAvatars = false;
+      },
+      error: () => {
+        this.avatarSkins.set([]);
+        this.loadingProfileAvatars = false;
+      },
+    });
+
+    this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
+      next: (ownedSkins) => {
+        const ownedAvatarIds = ownedSkins
+          .filter(skin => skin.type === 'Avatar')
+          .map(skin => skin.id);
+
+        this.ownedAvatarIds.set(new Set(ownedAvatarIds));
+      },
+      error: () => {
+        this.ownedAvatarIds.set(new Set());
+      },
+    });
+  }
+
   openChangePasswordPopup(): void {
-    this.showProfileMenu = false;
+    this.showHamburgerMenu = false;
+    this.showProfilePopup = false;
     this.showChangePasswordPopup = true;
     this.changePasswordForm.reset();
     this.changePasswordMessage = '';
