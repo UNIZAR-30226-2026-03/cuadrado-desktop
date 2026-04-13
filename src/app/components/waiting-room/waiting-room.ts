@@ -59,6 +59,7 @@ export class WaitingRoom implements OnInit {
   miNombre = signal('');
   iniciandoPartida = signal(false);
   codigoCopiado = signal(false);
+  botsAAgregar = signal(1);
 
   // Popups
   showStartPopup = signal(false);
@@ -70,6 +71,12 @@ export class WaitingRoom implements OnInit {
     if (!s) return [];
     const vacios = MAX_JUGADORES - s.jugadores.length;
     return Array.from({ length: vacios }, (_, i) => i);
+  });
+
+  maxBotsAgregables = computed(() => {
+    const s = this.sala();
+    if (!s) return 0;
+    return Math.max(0, MAX_JUGADORES - s.jugadores.length);
   });
 
   puedeIniciar = computed(() => {
@@ -116,6 +123,16 @@ export class WaitingRoom implements OnInit {
     effect(() => {
       if (this.todosListos() && this.soyAnfitrion() && !this.iniciandoPartida()) {
         this.showStartPopup.set(true);
+      }
+    });
+
+    // Mantener el contador de bots dentro del rango disponible.
+    effect(() => {
+      const max = this.maxBotsAgregables();
+      const actual = this.botsAAgregar();
+      const normalizado = this.normalizarCantidadBots(actual, max);
+      if (actual !== normalizado) {
+        this.botsAAgregar.set(normalizado);
       }
     });
   }
@@ -165,25 +182,32 @@ export class WaitingRoom implements OnInit {
   }
 
   iniciarConPresentes(): void {
+    if (!this.puedeJugarConPresentes()) return;
     this.showStartPopup.set(false);
     this.lanzarPartida();
   }
 
-  iniciarConBots(): void {
+  agregarBots(): void {
     const sala = this.sala();
     if (!sala) return;
 
-    // Rellenar huecos con bots
+    const maxDisponibles = Math.max(0, MAX_JUGADORES - sala.jugadores.length);
+    const cantidad = this.normalizarCantidadBots(this.botsAAgregar(), maxDisponibles);
+    if (cantidad <= 0) return;
+
     const nombresUsados = sala.jugadores.map(j => j.nombre);
-    while (sala.jugadores.length < MAX_JUGADORES) {
+    for (let i = 0; i < cantidad && sala.jugadores.length < MAX_JUGADORES; i++) {
       const bot = this.roomService.generarBot(nombresUsados, sala.dificultadBots);
       sala.jugadores.push(bot);
       nombresUsados.push(bot.nombre);
     }
-    this.actualizarSala(sala);
 
-    this.showStartPopup.set(false);
-    this.lanzarPartida();
+    this.actualizarSala(sala);
+  }
+
+  onBotsAAgregarInput(event: Event): void {
+    const valor = Number((event.target as HTMLInputElement).value);
+    this.botsAAgregar.set(this.normalizarCantidadBots(valor, this.maxBotsAgregables()));
   }
 
   private lanzarPartida(): void {
@@ -248,5 +272,11 @@ export class WaitingRoom implements OnInit {
   private actualizarSala(sala: SalaData): void {
     this.roomService.guardarSala(sala);
     this.sala.set({ ...sala });
+  }
+
+  private normalizarCantidadBots(valor: number, max: number): number {
+    if (max <= 0) return 0;
+    const entero = Number.isFinite(valor) ? Math.trunc(valor) : 1;
+    return Math.min(Math.max(entero, 1), max);
   }
 }

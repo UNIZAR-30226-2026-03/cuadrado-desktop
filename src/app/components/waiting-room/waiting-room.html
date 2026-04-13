@@ -118,11 +118,28 @@
                   (click)="iniciarConPresentes()">
             Jugar con presentes
           </button>
-          <button class="btn-neon modal__option-btn"
-                  [disabled]="s.jugadores.length >= 8"
-                  (click)="iniciarConBots()">
-            Rellenar con bots
-          </button>
+
+          <div class="modal__bots-row">
+            <button class="btn-neon modal__option-btn modal__option-btn--bots"
+                    [disabled]="maxBotsAgregables() === 0 || botsAAgregar() <= 0"
+                    (click)="agregarBots()">
+              Añadir bots
+            </button>
+
+            <input class="modal__bots-input"
+                   type="number"
+                   [value]="botsAAgregar()"
+                   [attr.min]="maxBotsAgregables() > 0 ? 1 : 0"
+                   [attr.max]="maxBotsAgregables()"
+                   step="1"
+                   [disabled]="maxBotsAgregables() === 0"
+                   (input)="onBotsAAgregarInput($event)"
+                   aria-label="Número de bots a añadir" />
+          </div>
+
+          <span class="modal__bots-help">
+            Máximo disponible: {{ maxBotsAgregables() }}
+          </span>
         </div>
         <button class="btn-ghost btn--sm" (click)="cerrarPopupInicio()">Cancelar</button>
       </div>

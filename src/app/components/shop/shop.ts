@@ -11,7 +11,7 @@ import { environment } from '../../environment';
 interface Skin {
   id: string;
   name: string;
-  type: string;
+  type: 'Carta' | 'Tapete' | 'Avatar';
   price: number;
   url: string;
 }
@@ -79,6 +79,42 @@ export class Shop implements OnInit {
     this.loadData();
   }
 
+  private normalizeSkinType(type: string | null | undefined): Skin['type'] | null {
+    const normalized = (type ?? '').trim().toLowerCase();
+    if (normalized === 'carta' || normalized === 'card' || normalized === 'reverso') return 'Carta';
+    if (normalized === 'tapete' || normalized === 'mat') return 'Tapete';
+    if (normalized === 'avatar') return 'Avatar';
+    return null;
+  }
+
+  private normalizeSkin(raw: Partial<Skin> | null | undefined): Skin | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const price = Number(raw.price);
+    const name = (raw.name ?? '').trim();
+    const type = this.normalizeSkinType(raw.type);
+    if (!name || !type) return null;
+
+    return {
+      id: (raw.id ?? '').trim() || name,
+      name,
+      type,
+      price: Number.isFinite(price) ? price : 0,
+      url: (raw.url ?? '').trim(),
+    };
+  }
+
+  private normalizeSkins(rawSkins: unknown): Skin[] {
+    if (!Array.isArray(rawSkins)) return [];
+    return rawSkins
+      .map(raw => this.normalizeSkin(raw as Partial<Skin>))
+      .filter((skin): skin is Skin => !!skin);
+  }
+
+  private getSkinIdentifier(skin: Skin): string {
+    return skin.id || skin.name;
+  }
+
   private loadData() {
     this.loading.set(true);
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
@@ -86,7 +122,7 @@ export class Shop implements OnInit {
     // Cargar skins de la tienda
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
       next: (skins) => {
-        this.allSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete' || s.type === 'Avatar'));
+        this.allSkins.set(this.normalizeSkins(skins));
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -95,7 +131,8 @@ export class Shop implements OnInit {
     // Cargar inventario del usuario
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
       next: (owned) => {
-        this.ownedSkinNames.set(new Set(owned.map(s => s.name)));
+        const normalizedOwned = this.normalizeSkins(owned);
+        this.ownedSkinNames.set(new Set(normalizedOwned.map(s => s.name)));
         if (this.usuario) {
           this.equippedSkinId.set(this.usuario.reverso || null);
           this.equippedTapeteId.set(this.usuario.tapete || null);
@@ -145,7 +182,7 @@ export class Shop implements OnInit {
     this.purchasing.set(true);
 
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.post<any>(`${environment.apiUrl}/skins/buy/${skin.id}`, {}, { headers }).subscribe({
+    this.http.post<any>(`${environment.apiUrl}/skins/buy/${this.getSkinIdentifier(skin)}`, {}, { headers }).subscribe({
       next: () => {
         this.purchasing.set(false);
         this.modalType.set('success');
@@ -181,7 +218,7 @@ export class Shop implements OnInit {
 
   equipAndGoToInventory(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
+    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${this.getSkinIdentifier(skin)}`, {}, { headers }).subscribe({
       next: () => {
         if (this.usuario) {
           const field = skin.type === 'Tapete' ? 'tapete' : 'reverso';

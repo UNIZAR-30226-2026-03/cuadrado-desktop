@@ -1,13 +1,16 @@
 import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { NgStyle } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
+import { environment } from '../../environment';
 
-// ── Tipos internos del tablero ────────────────────────────────────────────────
+// Tipos internos del tablero
 
 type Palo = 'corazones' | 'picas' | 'rombos' | 'treboles';
 type Posicion = 'south' | 'north' | 'east' | 'west' | 'ne' | 'nw' | 'se' | 'sw';
-type FaseTurno = 'banner' | 'robando' | 'decidiendo' | 'idle' | 'fin';
+type FaseTurno = 'banner' | 'robando' | 'decidiendo' | 'idle' | 'shuffle' | 'fin';
 
 interface CartaMesa {
   valor: number;  // 1-13
@@ -25,6 +28,8 @@ interface JugadorMesa {
   posicion: Posicion;
   mano: CartaMesa[];
   cartaPendiente: CartaMesa | null;
+  reverso?: string;  // nombre de la skin de dorso de carta equipada
+  tapete?: string;   // nombre de la skin de tapete equipada
 }
 
 // Posiciones según número de jugadores: índice 0 = yo (sur)
@@ -44,13 +49,13 @@ const CARTAS_POR_JUGADOR = 4;
 @Component({
   selector: 'app-tablero',
   standalone: true,
-  imports: [],
+  imports: [NgStyle],
   templateUrl: './tablero.html',
   styleUrl: './tablero.scss',
 })
 export class Tablero implements OnInit, OnDestroy {
 
-  // ── Estado reactivo ─────────────────────────────────────────────────────────
+  // Estado reactivo
   jugadores        = signal<JugadorMesa[]>([]);
   turnoIdx         = signal(0);
   fase             = signal<FaseTurno>('idle');
@@ -60,21 +65,29 @@ export class Tablero implements OnInit, OnDestroy {
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
 
-  // ── Computados ──────────────────────────────────────────────────────────────
+  // Computados
   jugadorActual   = computed(() => this.jugadores()[this.turnoIdx()] ?? null);
   esMiTurno       = computed(() => !!this.jugadorActual()?.esYo);
   timerPorcentaje = computed(() => (this.timerSegundos() / TURNO_SEGUNDOS) * 100);
   timerUrgente    = computed(() => this.timerSegundos() <= 5 && this.esMiTurno() && this.fase() === 'decidiendo');
 
-  // ── Internos ────────────────────────────────────────────────────────────────
+  // Internos
+  // TODO(backend): deck → GameManager.robarCarta() vía evento game:carta-robada
   private deck: CartaMesa[] = [];
+  // TODO(backend): discardPile → GameManager (cartasDescartadas) vía evento game:mazo-rebarajado
+  private discardPile: CartaMesa[] = [];
   private timerInterval: ReturnType<typeof setInterval> | null = null;
   private phaseTimeout:  ReturnType<typeof setTimeout>  | null = null;
+
+  // URLs reales de las skins equipadas (obtenidas del backend)
+  private localReversoUrl = signal<string | null>(null);
+  private localTapeteUrl  = signal<string | null>(null);
 
   constructor(
     private router:      Router,
     private auth:        AuthService,
     private roomService: RoomService,
+    private http:        HttpClient,
   ) {}
 
   ngOnInit(): void {
@@ -84,15 +97,26 @@ export class Tablero implements OnInit, OnDestroy {
       return;
     }
     this.inicializarJuego(sala.jugadores);
+    this.cargarSkinsEquipadas();
+  }
+
+  private cargarSkinsEquipadas(): void {
+    const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
+    this.http.get<{ carta: string | null; tapete: string | null }>(
+      `${environment.apiUrl}/skins/equipped`, { headers }
+    ).subscribe({
+      next: (data) => {
+        if (data.carta)  this.localReversoUrl.set(data.carta);
+        if (data.tapete) this.localTapeteUrl.set(data.tapete);
+      },
+    });
   }
 
   ngOnDestroy(): void {
     this.limpiarTimers();
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
   // Inicialización
-  // ══════════════════════════════════════════════════════════════════════════════
 
   private inicializarJuego(lista: JugadorSala[]): void {
     const miNombre = this.auth.usuario()?.nombre ?? '';
@@ -105,20 +129,28 @@ export class Tablero implements OnInit, OnDestroy {
     const n = Math.min(ordenados.length, 8);
     const posiciones = POSICIONES[n] ?? POSICIONES[4];
 
+    // TODO(backend): crearBarajaMezclada → GameManager.rellenarBaraja() + mezclarArray()
     this.deck = this.crearBarajaMezclada();
+    this.discardPile = [];
 
-    const jugadoresMesa: JugadorMesa[] = ordenados.slice(0, n).map((j, i) => ({
-      id:             j.id,
-      nombre:         j.nombre,
-      avatar:         j.avatar,
-      esYo:           j.nombre === miNombre && !j.esBot,
-      esBot:          j.esBot,
-      posicion:       posiciones[i],
-      mano:           Array.from({ length: CARTAS_POR_JUGADOR }, () =>
-                        ({ ...this.deck.pop()!, visible: false, seleccionada: false })
-                      ),
-      cartaPendiente: null,
-    }));
+    const usuario = this.auth.usuario();
+    const jugadoresMesa: JugadorMesa[] = ordenados.slice(0, n).map((j, i) => {
+      const esYo = j.nombre === miNombre && !j.esBot;
+      return {
+        id:             j.id,
+        nombre:         j.nombre,
+        avatar:         j.avatar,
+        esYo,
+        esBot:          j.esBot,
+        posicion:       posiciones[i],
+        mano:           Array.from({ length: CARTAS_POR_JUGADOR }, () =>
+                          ({ ...this.deck.pop()!, visible: false, seleccionada: false })
+                        ),
+        cartaPendiente: null,
+        reverso:        esYo ? (usuario?.reverso || undefined) : undefined,
+        tapete:         esYo ? (usuario?.tapete || undefined) : undefined,
+      };
+    });
 
     this.deckCount.set(this.deck.length);
     this.jugadores.set(jugadoresMesa);
@@ -143,9 +175,8 @@ export class Tablero implements OnInit, OnDestroy {
     return baraja;
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
   // Ciclo de turno
-  // ══════════════════════════════════════════════════════════════════════════════
+
 
   private iniciarTurno(): void {
     this.fase.set('banner');
@@ -154,9 +185,14 @@ export class Tablero implements OnInit, OnDestroy {
     this.phaseTimeout = setTimeout(() => this.ejecutarRobo(), 2000);
   }
 
+  // TODO(backend): ejecutarRobo → WebsocketService.robarCarta(gameId) → GameManager.robarCarta()
+  //   ✅ game:carta-robada emite { partidaId, jugadorRobado (índice), cartasRestantes }
+  //   ✅ game:decision-requerida emite { gameId, game: cartaRobada } solo al jugador que robó
+  //      NOTA: en el backend el campo de la carta se llama "game", no "carta".
   private ejecutarRobo(): void {
     if (this.deck.length === 0) {
-      this.finalizarPartida('El mazo se ha agotado');
+      // No debería ocurrir: el shuffle se gestiona en programarSiguienteTurno
+      this.finalizarPartida('El mazo se ha agotado sin poder rebarajar');
       return;
     }
 
@@ -186,7 +222,7 @@ export class Tablero implements OnInit, OnDestroy {
     }, 800);
   }
 
-  // ── Timer del jugador humano ─────────────────────────────────────────────────
+  // Timer del jugador humano
 
   private iniciarTimer(): void {
     this.timerSegundos.set(TURNO_SEGUNDOS);
@@ -207,15 +243,26 @@ export class Tablero implements OnInit, OnDestroy {
     }
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
   // Acciones del jugador humano (llamadas desde el template)
-  // ══════════════════════════════════════════════════════════════════════════════
 
   activarModoIntercambio(): void {
     if (!this.esMiTurno() || this.fase() !== 'decidiendo') return;
     this.modoIntercambio.set(true);
   }
 
+  cancelarModoIntercambio(): void {
+    this.modoIntercambio.set(false);
+  }
+
+  // TODO(backend): accionCubo → WebsocketService.solicitarCubo(gameId) → GameManager.solicitarCubo()
+  //   El backend activa N+1 turnos de cuenta atrás; si el solicitante no gana,
+  //   recibe penalización del 30% en ELO y cubitos (evento game:cubo-activado).
+  accionCubo(): void {
+    this.finalizarPartida('¡Cubo! La partida ha terminado.');
+  }
+
+  // TODO(backend): accionDescartar → WebsocketService.descartarPendiente(gameId)
+  //   → GameManager.descartarCartaPendiente() → evento game:descartar-pendiente (broadcast)
   accionDescartar(): void {
     if (this.fase() !== 'decidiendo') return;
     this.pararTimer();
@@ -227,7 +274,9 @@ export class Tablero implements OnInit, OnDestroy {
     if (!carta) return;
 
     // La carta robada va a la pila de descartes boca arriba (visible para todos)
-    this.discardTop.set({ ...carta, visible: true });
+    const cartaDescartada = { ...carta, visible: true };
+    this.discardTop.set(cartaDescartada);
+    this.discardPile.push(cartaDescartada);
     all[idx] = { ...jugador, cartaPendiente: null };
     this.jugadores.set(all);
 
@@ -238,6 +287,9 @@ export class Tablero implements OnInit, OnDestroy {
    * Se llama al hacer clic en una carta de la mano durante el modo intercambio.
    * jugadorIdx: índice del jugador en el array (siempre el jugador local)
    * cartaIdx:   posición de la carta en su mano (0-3)
+   *
+   * TODO(backend): seleccionarCartaMano → WebsocketService.cartaPorPendiente(gameId, numCarta)
+   *   → GameManager.descartarCartaPorPendiente() → evento game:descartar-pendiente (broadcast)
    */
   seleccionarCartaMano(jugadorIdx: number, cartaIdx: number): void {
     if (!this.modoIntercambio()) return;
@@ -247,8 +299,9 @@ export class Tablero implements OnInit, OnDestroy {
     if (!jugador?.esYo || !jugador.cartaPendiente) return;
 
     // La carta de la mano va al descarte boca arriba
-    const cartaVieja = jugador.mano[cartaIdx];
-    this.discardTop.set({ ...cartaVieja, visible: true });
+    const cartaVieja = { ...jugador.mano[cartaIdx], visible: true };
+    this.discardTop.set(cartaVieja);
+    this.discardPile.push(cartaVieja);
 
     // La carta pendiente ocupa su lugar en la mano (boca abajo)
     const nuevaMano = [...jugador.mano];
@@ -263,9 +316,13 @@ export class Tablero implements OnInit, OnDestroy {
     this.programarSiguienteTurno();
   }
 
-  // ══════════════════════════════════════════════════════════════════════════════
   // Lógica de bots
-  // ══════════════════════════════════════════════════════════════════════════════
+  // TODO(backend): botDecide y botIntercambiar deben eliminarse cuando el frontend se integre
+  //   con el backend. ✅ El backend ya tiene sistema completo de bots:
+  //   - BotsService con estrategias EasyStrategy / MediumStrategy / HardStrategy
+  //   - GameGateway.scheduleBotProcessing() + flushBotActions() ejecutan turnos de bot
+  //   - Los bots emiten los mismos eventos que humanos (game:bot-roba-carta, etc.)
+  //   Estas funciones locales solo se usan mientras el Tablero no consuma WebSocket.
 
   private botDecide(): void {
     // El bot "piensa" entre 1 y 2,2 segundos
@@ -288,7 +345,9 @@ export class Tablero implements OnInit, OnDestroy {
     if (!jugador.cartaPendiente) return;
 
     // La carta de la mano del bot va al descarte (boca arriba, todos la ven)
-    this.discardTop.set({ ...jugador.mano[cartaIdx], visible: true });
+    const cartaBot = { ...jugador.mano[cartaIdx], visible: true };
+    this.discardTop.set(cartaBot);
+    this.discardPile.push(cartaBot);
 
     const nuevaMano = [...jugador.mano];
     nuevaMano[cartaIdx] = { ...jugador.cartaPendiente, visible: false, seleccionada: false };
@@ -302,8 +361,26 @@ export class Tablero implements OnInit, OnDestroy {
   // Avance de turno y fin de partida
   // ══════════════════════════════════════════════════════════════════════════════
 
+  // TODO(backend): programarSiguienteTurno debe eliminarse; el backend avanza el turno
+  //   automáticamente al procesar acciones. avanzarTurno() en GameManager muta el estado
+  //   interno pero ❌ NO emite ningún evento. El frontend deberá inferir el cambio de turno
+  //   desde otros eventos (game:descartar-pendiente, game:turno-expirado, etc.).
   private programarSiguienteTurno(): void {
     this.fase.set('idle');
+
+    // Si el mazo se agotó, intentar rebarajar antes de avanzar
+    if (this.deck.length === 0) {
+      if (this.discardPile.length > 0) {
+        // TODO(backend): ejecutarShuffle → escuchar game:mazo-rebarajado
+        //   ✅ El backend emite automáticamente game:mazo-rebarajado tras cada robarCarta()
+        //   cuando el mazo se agota (GameManager.intentarRebarajarDescartes()).
+        this.ejecutarShuffle();
+      } else {
+        this.finalizarPartida('El mazo se ha agotado');
+      }
+      return;
+    }
+
     this.phaseTimeout = setTimeout(() => {
       const n = this.jugadores().length;
       this.turnoIdx.set((this.turnoIdx() + 1) % n);
@@ -311,6 +388,51 @@ export class Tablero implements OnInit, OnDestroy {
     }, 500);
   }
 
+  /**
+   * Mecánica de reposición del mazo (Shuffle):
+   * - La carta superior del descarte se mantiene visible
+   * - El resto de las descartadas se mezclan y forman el nuevo mazo
+   * - Se muestra un banner "¡Shuffle!" durante 2 segundos
+   * - Tras el banner continúa el siguiente turno en orden
+   *
+   * TODO(backend): Este método debe eliminarse y reemplazarse por el handler de
+   *   game:mazo-rebarajado ✅ (ya emitido por GameGateway tras intentarRebarajarDescartes).
+   *   El payload del backend es: { gameId, cantidadCartasMazo, cantidadCartasDescartadas }.
+   */
+  private ejecutarShuffle(): void {
+    this.fase.set('shuffle');
+
+    // La carta superior del descarte se mantiene; el resto forma el nuevo mazo
+    const cartaSuperior = this.discardPile[this.discardPile.length - 1] ?? null;
+    const cartasParaMazo = this.discardPile.slice(0, this.discardPile.length - 1);
+
+    // Fisher-Yates: mezclar las cartas del descarte para el nuevo mazo
+    for (let i = cartasParaMazo.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [cartasParaMazo[i], cartasParaMazo[j]] = [cartasParaMazo[j], cartasParaMazo[i]];
+    }
+
+    // Nuevo mazo: todas boca abajo
+    this.deck = cartasParaMazo.map(c => ({ ...c, visible: false, seleccionada: false }));
+    this.deckCount.set(this.deck.length);
+
+    // El descarte queda solo con la carta superior
+    this.discardPile = cartaSuperior ? [cartaSuperior] : [];
+    this.discardTop.set(cartaSuperior ?? null);
+
+    // Tras 2 segundos: avanzar al siguiente jugador
+    this.phaseTimeout = setTimeout(() => {
+      this.fase.set('idle');
+      this.phaseTimeout = setTimeout(() => {
+        const n = this.jugadores().length;
+        this.turnoIdx.set((this.turnoIdx() + 1) % n);
+        this.iniciarTurno();
+      }, 500);
+    }, 2000);
+  }
+
+  // TODO(backend): finalizarPartida → handler de game:partida-finalizada
+  //   con { motivo, ranking, ganadorId, cartasJugadores, recompensas }
   private finalizarPartida(mensaje: string): void {
     this.limpiarTimers();
     this.fase.set('fin');
@@ -334,6 +456,30 @@ export class Tablero implements OnInit, OnDestroy {
 
   esRoja(palo: Palo): boolean {
     return palo === 'corazones' || palo === 'rombos';
+  }
+
+  reversoStyle(jugador: JugadorMesa): Record<string, string> {
+    if (!jugador.reverso) return {};
+    const url = this.localReversoUrl();
+    if (!url) return {};
+    return {
+      'background-image': `url(${url})`,
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-repeat': 'no-repeat',
+    };
+  }
+
+  tapeteStyle(jugador: JugadorMesa): Record<string, string> {
+    if (!jugador.tapete) return {};
+    const url = this.localTapeteUrl();
+    if (!url) return {};
+    return {
+      'background-image': `url(${url})`,
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-repeat': 'no-repeat',
+    };
   }
 
   salirPartida(): void {
