@@ -3,7 +3,6 @@ import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
-import { HttpClient } from '@angular/common/http';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
