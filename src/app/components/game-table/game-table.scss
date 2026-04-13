@@ -112,6 +112,11 @@
   }
 }
 
+// Carta con skin de reverso: oculta el patrón neon para mostrar la imagen limpia
+.game-table__card--skin {
+  &::after { display: none; }
+}
+
 .game-table__hand--active .game-table__card {
   border-color: rgba(0, 229, 255, 0.82);
   box-shadow:

@@ -28,6 +28,15 @@
     </div>
   }
 
+  <!-- ── Banner de Shuffle (2 segundos) ───────────────────────────────── -->
+  @if (fase() === 'shuffle') {
+    <div class="tablero__banner">
+      <div class="tablero__banner-box tablero__banner-box--shuffle">
+        ¡Shuffle!
+      </div>
+    </div>
+  }
+
   <!-- ── Pantalla de fin de partida ────────────────────────────────────── -->
   @if (fase() === 'fin') {
     <div class="tablero__fin-overlay">
@@ -95,72 +104,93 @@
           }
         </div>
 
-        <!-- Zona de cartas: mano 2×2 + slot pendiente -->
-        <div class="tablero__mano-area" [class.tablero__mano-area--yo]="jugador.esYo">
+        <!-- Controles: cartas + botones de acción en fila -->
+        <div class="tablero__jugador-controls">
 
-          <!-- Mano: rejilla 2×2 -->
-          <div class="tablero__mano"
-               [class.tablero__mano--seleccionable]="modoIntercambio() && jugador.esYo">
-            @for (carta of jugador.mano; track $index; let ci = $index) {
-              <div
-                class="tablero__carta"
-                [class.tablero__carta--dorso]="!carta.visible"
-                [class.tablero__carta--cara]="carta.visible"
-                [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
-                [class.tablero__carta--yo]="jugador.esYo"
-                [class.tablero__carta--seleccionable]="modoIntercambio() && jugador.esYo"
-                (click)="seleccionarCartaMano(i, ci)">
-                @if (carta.visible) {
-                  <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(carta.valor) }}</span>
-                  <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(carta.palo) }}</span>
-                  <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(carta.palo) }}</span>
-                  <span class="tablero__cv tablero__cv--br">{{ getValorCarta(carta.valor) }}</span>
-                }
-              </div>
+          <!-- Zona de cartas: mano 2×2 + slot pendiente -->
+          <div class="tablero__mano-area" [class.tablero__mano-area--yo]="jugador.esYo">
+
+            <!-- Tapete personalizado (skin del jugador) -->
+            @if (jugador.tapete) {
+              <div class="tablero__tapete" [ngStyle]="tapeteStyle(jugador)"></div>
             }
-          </div>
 
-          <!-- Carta pendiente (robada del mazo) -->
-          <div class="tablero__pendiente-slot">
-            @if (jugador.cartaPendiente; as pending) {
-              <div class="tablero__carta tablero__carta--pendiente"
-                   [class.tablero__carta--dorso]="!pending.visible"
-                   [class.tablero__carta--cara]="pending.visible"
-                   [class.tablero__carta--roja]="pending.visible && esRoja(pending.palo)">
-                @if (pending.visible) {
-                  <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(pending.valor) }}</span>
-                  <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(pending.palo) }}</span>
-                  <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(pending.palo) }}</span>
-                  <span class="tablero__cv tablero__cv--br">{{ getValorCarta(pending.valor) }}</span>
-                }
-              </div>
-            } @else if (jugador.esYo) {
-              <!-- Placeholder visible solo para el jugador local -->
-              <div class="tablero__carta tablero__carta--placeholder"></div>
-            }
-          </div>
+            <!-- Mano: rejilla 2×2 -->
+            <div class="tablero__mano"
+                 [class.tablero__mano--seleccionable]="modoIntercambio() && jugador.esYo">
+              @for (carta of jugador.mano; track $index; let ci = $index) {
+                <div
+                  class="tablero__carta"
+                  [class.tablero__carta--dorso]="!carta.visible"
+                  [class.tablero__carta--skin]="!carta.visible && !!jugador.reverso"
+                  [class.tablero__carta--cara]="carta.visible"
+                  [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
+                  [class.tablero__carta--yo]="jugador.esYo"
+                  [class.tablero__carta--seleccionable]="modoIntercambio() && jugador.esYo"
+                  [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
+                  (click)="seleccionarCartaMano(i, ci)">
+                  @if (carta.visible) {
+                    <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(carta.valor) }}</span>
+                    <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(carta.palo) }}</span>
+                    <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(carta.palo) }}</span>
+                    <span class="tablero__cv tablero__cv--br">{{ getValorCarta(carta.valor) }}</span>
+                  }
+                </div>
+              }
+            </div>
 
-        </div><!-- /tablero__mano-area -->
+            <!-- Carta pendiente (robada del mazo) -->
+            <div class="tablero__pendiente-slot">
+              @if (jugador.cartaPendiente; as pending) {
+                <div class="tablero__carta tablero__carta--pendiente"
+                     [class.tablero__carta--dorso]="!pending.visible"
+                     [class.tablero__carta--skin]="!pending.visible && !!jugador.reverso"
+                     [class.tablero__carta--cara]="pending.visible"
+                     [class.tablero__carta--roja]="pending.visible && esRoja(pending.palo)"
+                     [ngStyle]="!pending.visible ? reversoStyle(jugador) : {}">
+                  @if (pending.visible) {
+                    <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(pending.valor) }}</span>
+                    <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(pending.palo) }}</span>
+                    <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(pending.palo) }}</span>
+                    <span class="tablero__cv tablero__cv--br">{{ getValorCarta(pending.valor) }}</span>
+                  }
+                </div>
+              } @else if (jugador.esYo) {
+                <!-- Placeholder visible solo para el jugador local -->
+                <div class="tablero__carta tablero__carta--placeholder"></div>
+              }
+            </div>
 
-        <!-- Botones de acción (solo el jugador local en su turno) -->
-        @if (jugador.esYo && esMiTurno() && fase() === 'decidiendo') {
-          <div class="tablero__acciones">
-            @if (!modoIntercambio()) {
-              <button class="tablero__btn tablero__btn--intercambiar"
-                      (click)="activarModoIntercambio()">
-                Intercambiar
-              </button>
+          </div><!-- /tablero__mano-area -->
+
+          <!-- Botones de acción (solo el jugador local en su turno) -->
+          @if (jugador.esYo && esMiTurno() && fase() === 'decidiendo') {
+            <div class="tablero__acciones">
+              @if (!modoIntercambio()) {
+                <button class="tablero__btn tablero__btn--intercambiar"
+                        (click)="activarModoIntercambio()">
+                  Intercambiar
+                </button>
+              } @else {
+                <button class="tablero__btn tablero__btn--cancelar"
+                        (click)="cancelarModoIntercambio()">
+                  Cancelar
+                </button>
+              }
               <button class="tablero__btn tablero__btn--descartar"
                       (click)="accionDescartar()">
                 Descartar
               </button>
-            } @else {
-              <p class="tablero__hint">
-                Selecciona una de tus cartas para intercambiarla por la que has sacado del mazo central
-              </p>
-            }
-          </div>
-        }
+            </div>
+
+            <!-- Botón ¡Cubo! redondo -->
+            <button class="tablero__btn tablero__btn--cubo"
+                    (click)="accionCubo()">
+              ¡Cubo!
+            </button>
+          }
+
+        </div><!-- /tablero__jugador-controls -->
 
       </div><!-- /tablero__jugador -->
     }

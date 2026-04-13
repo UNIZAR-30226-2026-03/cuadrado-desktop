@@ -11,7 +11,7 @@ import { environment } from '../../environment';
 interface Skin {
   id: string;
   name: string;
-  type: string;
+  type: 'Carta' | 'Tapete' | 'Avatar';
   price: number;
   url: string;
 }
@@ -77,13 +77,49 @@ export class Inventory implements OnInit {
     this.loadInventory();
   }
 
+  private normalizeSkinType(type: string | null | undefined): Skin['type'] | null {
+    const normalized = (type ?? '').trim().toLowerCase();
+    if (normalized === 'carta' || normalized === 'card' || normalized === 'reverso') return 'Carta';
+    if (normalized === 'tapete' || normalized === 'mat') return 'Tapete';
+    if (normalized === 'avatar') return 'Avatar';
+    return null;
+  }
+
+  private normalizeSkin(raw: Partial<Skin> | null | undefined): Skin | null {
+    if (!raw || typeof raw !== 'object') return null;
+
+    const price = Number(raw.price);
+    const name = (raw.name ?? '').trim();
+    const type = this.normalizeSkinType(raw.type);
+    if (!name || !type) return null;
+
+    return {
+      id: (raw.id ?? '').trim() || name,
+      name,
+      type,
+      price: Number.isFinite(price) ? price : 0,
+      url: (raw.url ?? '').trim(),
+    };
+  }
+
+  private normalizeSkins(rawSkins: unknown): Skin[] {
+    if (!Array.isArray(rawSkins)) return [];
+    return rawSkins
+      .map(raw => this.normalizeSkin(raw as Partial<Skin>))
+      .filter((skin): skin is Skin => !!skin);
+  }
+
+  private getSkinIdentifier(skin: Skin): string {
+    return skin.id || skin.name;
+  }
+
   private loadInventory() {
     this.loading.set(true);
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
 
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/inventory`, { headers }).subscribe({
       next: (skins) => {
-        this.ownedSkins.set(skins.filter(s => s.type === 'Carta' || s.type === 'Tapete' || s.type === 'Avatar'));
+        this.ownedSkins.set(this.normalizeSkins(skins));
         if (this.usuario) {
           this.equippedCardName.set(this.usuario.reverso || null);
           this.equippedTapeteName.set(this.usuario.tapete || null);
@@ -110,7 +146,7 @@ export class Inventory implements OnInit {
 
   equipSkin(skin: Skin) {
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
-    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${skin.id}`, {}, { headers }).subscribe({
+    this.http.patch<any>(`${environment.apiUrl}/skins/equip/${this.getSkinIdentifier(skin)}`, {}, { headers }).subscribe({
       next: () => {
         if (skin.type === 'Carta') {
           this.equippedCardName.set(skin.name);

@@ -7,16 +7,27 @@ import { environment } from '../environment';
 
 export interface EvInicioPartida {
   partidaId: string;
+  jugadores: string[];  // userIds en orden de turno
+  jugadoresDetalle: Array<{
+    userId: string;
+    controlador: 'humano' | 'bot';
+    dificultadBot?: 'facil' | 'media' | 'dificil';
+    nombreEnPartida?: string;
+  }>;
+  // ❌ NO incluye: cartas en mano, turno inicial, fase, turnDeadlineAt, deckCount
 }
 
 export interface EvCartaRobada {
   partidaId: string;
   jugadorRobado: number; // índice en turnoJugadores[]
+  cartasRestantes: number; // cantidad de cartas restantes en el mazo
 }
 
 export interface EvDecisionRequerida {
   gameId: string;
-  carta?: { carta: number; palo: string; puntos: number }; // la carta robada (sólo al que robó)
+  // La carta robada solo se envía al jugador que robó.
+  // NOTA: en el backend la propiedad se llama "game", no "carta".
+  game?: { carta: number; palo: string; puntos: number; protegida: boolean };
 }
 
 export interface EvDescartarPendiente {

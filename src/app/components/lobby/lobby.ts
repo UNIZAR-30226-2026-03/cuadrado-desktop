@@ -1,6 +1,7 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
+import { HttpClient } from '@angular/common/http';
 import { ReactiveFormsModule, FormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import {
@@ -93,6 +94,9 @@ export class Lobby implements OnInit, OnDestroy {
   private cubeTimers: ReturnType<typeof setTimeout>[] = [];
   private spawnTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // URL de la skin de reverso equipada
+  reversoUrl = signal<string | null>(null);
+
   constructor(
     protected auth: AuthService,
     private router: Router,
@@ -116,6 +120,19 @@ export class Lobby implements OnInit, OnDestroy {
     }
     // Spawneo continuo
     this.scheduleNextCube();
+    // Skin de reverso del usuario
+    this.cargarSkinReverso();
+  }
+
+  private cargarSkinReverso(): void {
+    const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
+    this.http.get<{ carta: string | null; tapete: string | null }>(
+      `${environment.apiUrl}/skins/equipped`, { headers }
+    ).subscribe({
+      next: (data) => {
+        if (data.carta) this.reversoUrl.set(data.carta);
+      },
+    });
   }
 
   ngOnDestroy(): void {

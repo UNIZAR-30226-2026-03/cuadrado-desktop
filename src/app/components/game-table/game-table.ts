@@ -1,5 +1,5 @@
 import {
-  Component, OnInit, OnDestroy, signal, computed,
+  Component, Input, OnInit, OnDestroy, signal, computed,
   ElementRef, ViewChild, AfterViewInit
 } from '@angular/core';
 import { NgStyle } from '@angular/common';
@@ -26,6 +26,7 @@ const CARD_DECK: TableCard[] = CARD_SUITS.flatMap(suit =>
 })
 export class GameTable implements OnInit, OnDestroy, AfterViewInit {
   @ViewChild('tableEl') tableEl!: ElementRef<HTMLElement>;
+  @Input() reversoUrl: string | null = null;
 
   phase = signal<IdlePhase>('idle');
   drawnCard = signal<TableCard | null>(null);
@@ -116,6 +117,16 @@ export class GameTable implements OnInit, OnDestroy, AfterViewInit {
 
   colorKey(suit: string): string {
     return suit === '♦' || suit === '♥' ? 'red' : 'black';
+  }
+
+  cardStyle(): Record<string, string> {
+    if (!this.reversoUrl) return {};
+    return {
+      'background-image': `url(${this.reversoUrl})`,
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-repeat': 'no-repeat',
+    };
   }
 
   private buildInitialHands(): Record<PlayerPosition, TableCard[]> {
