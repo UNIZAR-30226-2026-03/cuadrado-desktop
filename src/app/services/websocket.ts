@@ -69,6 +69,42 @@ export interface EvMazoRebarajado {
   cantidadCartasDescartadas: number;
 }
 
+// ── Tipos de sala ─────────────────────────────────────────────────────────────
+
+export interface RoomRules {
+  maxPlayers: number;
+  turnTimeSeconds: number;
+  isPrivate: boolean;
+  fillWithBots: boolean;
+}
+
+export interface RoomStatePlayer {
+  userId: string;
+  controlador: 'bot' | 'humano';
+  dificultadBot?: string;
+  nombreEnPartida?: string;
+  socketId: string;
+  isHost: boolean;
+  joinedAt: Date;
+  connected: boolean;
+  ready: boolean;
+}
+
+export interface EvRoomUpdate {
+  name: string;
+  code: string;
+  hostId: string;
+  players: RoomStatePlayer[];
+  rules: RoomRules;
+  started: boolean;
+  createdAt: Date;
+}
+
+export interface EvRoomClosed {
+  reason: string;
+  roomCode: string;
+}
+
 // ── Servicio ─────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
@@ -87,7 +123,8 @@ export class WebsocketService {
   partidaFinalizada$ = new Subject<EvPartidaFinalizada>();
   cuboActivado$      = new Subject<EvCuboActivado>();
   mazoRebarajado$    = new Subject<EvMazoRebarajado>();
-  roomUpdate$        = new Subject<unknown>();
+  roomUpdate$        = new Subject<EvRoomUpdate>();
+  roomClosed$        = new Subject<EvRoomClosed>();
   error$             = new Subject<string>();
 
   conectar(token: string, roomCode?: string): void {
@@ -108,7 +145,8 @@ export class WebsocketService {
       this.error$.next(err?.error?.message ?? 'Error WebSocket'));
 
     // Eventos de sala
-    this.socket.on('room:update', (data: unknown) => this.roomUpdate$.next(data));
+    this.socket.on('room:update', (data: EvRoomUpdate) => this.roomUpdate$.next(data));
+    this.socket.on('room:closed', (data: EvRoomClosed) => this.roomClosed$.next(data));
 
     // Eventos de partida
     this.socket.on('game:inicio-partida',    (d: EvInicioPartida)     => this.inicioPartida$.next(d));
@@ -120,6 +158,46 @@ export class WebsocketService {
     this.socket.on('game:partida-finalizada',(d: EvPartidaFinalizada) => this.partidaFinalizada$.next(d));
     this.socket.on('game:cubo-activado',     (d: EvCuboActivado)      => this.cuboActivado$.next(d));
     this.socket.on('game:mazo-rebarajado',   (d: EvMazoRebarajado)    => this.mazoRebarajado$.next(d));
+  }
+
+  /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
+  conectarYEsperar(token: string): Promise<void> {
+    if (this.socket?.connected) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+      this.conectar(token);
+      const timeout = setTimeout(() => reject(new Error('WS connection timeout')), 5000);
+      this.socket!.once('connect', () => { clearTimeout(timeout); resolve(); });
+      this.socket!.once('connect_error', (err) => { clearTimeout(timeout); reject(err); });
+    });
+  }
+
+  // ── Acciones de sala ───────────────────────────────────────────────────────
+
+  async createRoom(name: string, rules: RoomRules): Promise<{ success: boolean; roomCode?: string; roomName?: string }> {
+    if (!this.socket) return { success: false };
+    try {
+      return await this.socket.emitWithAck('rooms:create', { name, rules });
+    } catch {
+      return { success: false };
+    }
+  }
+
+  async joinRoomWs(roomCode: string): Promise<{ success: boolean; roomCode?: string }> {
+    if (!this.socket) return { success: false };
+    try {
+      return await this.socket.emitWithAck('rooms:join', { roomCode });
+    } catch {
+      return { success: false };
+    }
+  }
+
+  leaveRoom(): void {
+    this.emit('rooms:leave', {});
+  }
+
+  toggleReady(): void {
+    this.emit('rooms:toggle-ready', {});
   }
 
   // ── Emitir acciones de juego ───────────────────────────────────────────────

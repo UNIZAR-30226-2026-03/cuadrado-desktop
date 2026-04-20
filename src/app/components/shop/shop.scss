@@ -18,7 +18,24 @@ $margin: 20px;
   gap: 16px;
 }
 
-// ── Header ──────────────────────────────────────────────────────────────────
+// ── Top bar compartida ──────────────────────────────────────────────────────
+.shop-top-bar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin: -#{$margin} -#{$margin} 0;
+  z-index: 3;
+}
+
+// ── Cabecera secundaria (volver + tienda) ───────────────────────────────────
+.shop-subheader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-shrink: 0;
+  z-index: 2;
+}
+
+// ── Header (legacy) ─────────────────────────────────────────────────────────
 .shop-header {
   display: flex;
   align-items: center;

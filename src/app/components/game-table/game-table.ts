@@ -3,6 +3,7 @@ import {
   ElementRef, ViewChild, AfterViewInit
 } from '@angular/core';
 import { NgStyle } from '@angular/common';
+import { environment } from '../../environment';
 
 type IdlePhase = 'idle' | 'drawing' | 'peeking' | 'swapping' | 'discarding';
 type PlayerPosition = 'north' | 'south' | 'east' | 'west';
@@ -120,9 +121,9 @@ export class GameTable implements OnInit, OnDestroy, AfterViewInit {
   }
 
   cardStyle(): Record<string, string> {
-    if (!this.reversoUrl) return {};
+    const url = this.reversoUrl ?? environment.defaultReversoUrl;
     return {
-      'background-image': `url(${this.reversoUrl})`,
+      'background-image': `url(${url})`,
       'background-size': 'cover',
       'background-position': 'center',
       'background-repeat': 'no-repeat',

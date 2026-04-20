@@ -17,72 +17,12 @@ $margin: 20px;
   z-index: 1;
 }
 
-// ── Header ──────────────────────────────────────────────────────────────────
-.lobby-header {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
+// ── Top bar compartida ──────────────────────────────────────────────────────
+.lobby-top-bar-wrap {
+  position: relative;
   flex-shrink: 0;
-  z-index: 2;
-}
-
-.lobby-top-right {
-  display: flex;
-  align-items: center;
-  gap: 44px;
-}
-
-.lobby-stats {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-.stat-pill {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  padding: 7px 14px;
-  font-size: 13px;
-  font-weight: 600;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 22px;
-  backdrop-filter: blur(12px);
-  transition: all 250ms;
-
-  &:hover {
-    border-color: var(--glass-border-lit);
-    box-shadow: 0 0 18px rgba(0, 229, 255, 0.12);
-  }
-  &__icon { font-size: 14px; }
-}
-
-.icon-btn {
-  width: 38px;
-  height: 38px;
-  border-radius: 50%;
-  border: 1px solid var(--glass-border);
-  background: var(--glass);
-  color: var(--text-80);
-  font-size: 17px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 250ms;
-
-  &:hover {
-    color: var(--neon-cyan);
-    border-color: rgba(0, 229, 255, 0.4);
-    box-shadow: 0 0 14px rgba(0, 229, 255, 0.15);
-    transform: translateY(-1px);
-  }
-}
-
-.icon-btn--menu {
-  font-size: 21px;
-  line-height: 1;
+  margin: -#{$margin} -#{$margin} 0;
+  z-index: 3;
 }
 
 // ── Logo (ocupa TODO el espacio restante) ───────────────────────────────────
@@ -206,22 +146,11 @@ app-game-table {
   }
 }
 
-// ── Agrupación de iconos de cabecera ─────────────────────────────────────────
-.header-icons {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-// ── Menú hamburguesa ────────────────────────────────────────────────────────
-.hamburger-wrap {
-  position: relative;
-}
-
+// ── Menú hamburguesa (desplegable del TopBar) ───────────────────────────────
 .header-menu {
   position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  top: calc(100% + 4px);
+  right: 16px;
   min-width: 160px;
   background: var(--glass);
   border: 1px solid var(--glass-border);

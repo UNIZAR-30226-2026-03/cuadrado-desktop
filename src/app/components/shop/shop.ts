@@ -1,12 +1,17 @@
 import { Component, OnInit, signal, computed, ElementRef, ViewChild } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
+import { TopBar } from '../shared/top-bar/top-bar';
 import { environment } from '../../environment';
+
+type Category = 'all' | 'Carta' | 'Tapete' | 'Avatar';
+type SortKey = 'price-asc' | 'price-desc' | 'name';
 
 interface Skin {
   id: string;
@@ -19,7 +24,7 @@ interface Skin {
 @Component({
   selector: 'app-shop',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [DecimalPipe, FormsModule, TopBar],
   templateUrl: './shop.html',
   styleUrl: './shop.scss',
   animations: [
@@ -43,7 +48,8 @@ export class Shop implements OnInit {
   ownedSkinNames = signal<Set<string>>(new Set());
   equippedSkinId = signal<string | null>(null);
   equippedTapeteId = signal<string | null>(null);
-  sortBy = signal<'price-asc' | 'price-desc' | 'name'>('price-asc');
+  sortBy = signal<SortKey>('price-asc');
+  category = signal<Category>('all');
   loading = signal(true);
 
   // Modal
@@ -66,6 +72,10 @@ export class Shop implements OnInit {
   reverseSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Carta'));
   tapeteSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Tapete'));
   avatarSkins = computed(() => this.filteredAndSorted().filter(s => s.type === 'Avatar'));
+
+  showReversos = computed(() => this.category() === 'all' || this.category() === 'Carta');
+  showTapetes = computed(() => this.category() === 'all' || this.category() === 'Tapete');
+  showAvatares = computed(() => this.category() === 'all' || this.category() === 'Avatar');
 
   constructor(
     protected auth: AuthService,
@@ -123,7 +133,9 @@ export class Shop implements OnInit {
     // Cargar skins de la tienda
     this.http.get<Skin[]>(`${environment.apiUrl}/skins/store`).subscribe({
       next: (skins) => {
-        this.allSkins.set(this.normalizeSkins(skins));
+        const normalized = this.normalizeSkins(skins)
+          .filter(s => !this.isDefaultSkin(s));
+        this.allSkins.set(normalized);
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
@@ -146,7 +158,17 @@ export class Shop implements OnInit {
   goBack() { this.router.navigate(['/lobby']); }
   goToInventory() { this.router.navigate(['/inventory']); }
 
-  setSort(s: 'price-asc' | 'price-desc' | 'name') { this.sortBy.set(s); }
+  // Placeholder: el popup de ajustes se implementa en un paso posterior.
+  openSettingsFromTopBar(): void {
+    this.router.navigate(['/lobby']);
+  }
+
+  private isDefaultSkin(skin: Skin): boolean {
+    return skin.type === 'Carta' && skin.name.trim().toLowerCase() === 'default';
+  }
+
+  setSort(s: SortKey) { this.sortBy.set(s); }
+  setCategory(c: Category) { this.category.set(c); }
 
   isOwned(skin: Skin): boolean {
     return this.ownedSkinNames().has(skin.name);

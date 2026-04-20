@@ -1,11 +1,11 @@
 import { Component, OnInit, signal, computed } from '@angular/core';
-import { DecimalPipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
+import { TopBar } from '../shared/top-bar/top-bar';
 import { environment } from '../../environment';
 
 interface Skin {
@@ -19,7 +19,7 @@ interface Skin {
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [DecimalPipe],
+  imports: [TopBar],
   templateUrl: './inventory.html',
   styleUrl: './inventory.scss',
   animations: [
@@ -42,6 +42,7 @@ export class Inventory implements OnInit {
   ownedSkins = signal<Skin[]>([]);
   equippedCardName = signal<string | null>(null);
   equippedTapeteName = signal<string | null>(null);
+  equippedAvatarId = signal<string | null>(null);
   loading = signal(true);
 
   // Computed: skins separadas por tipo
@@ -59,9 +60,15 @@ export class Inventory implements OnInit {
     return this.ownedSkins().find(s => s.type === 'Tapete' && s.name === eq) || null;
   });
 
+  equippedAvatar = computed(() => {
+    const eq = this.equippedAvatarId();
+    return this.ownedSkins().find(s => s.type === 'Avatar' && s.id === eq) || null;
+  });
+
   totalItems = computed(() => this.ownedSkins().length);
   totalCards = computed(() => this.cardSkins().length);
   totalMats = computed(() => this.matSkins().length);
+  totalAvatars = computed(() => this.avatarSkins().length);
 
 
   constructor(
@@ -123,6 +130,7 @@ export class Inventory implements OnInit {
         if (this.usuario) {
           this.equippedCardName.set(this.usuario.reverso || null);
           this.equippedTapeteName.set(this.usuario.tapete || null);
+          this.equippedAvatarId.set(this.usuario.avatar || null);
         }
         this.loading.set(false);
       },
@@ -138,10 +146,29 @@ export class Inventory implements OnInit {
     this.router.navigate(['/shop'], { fragment: `section-${section}` });
   }
 
+  // Placeholder: el popup de ajustes se implementa en un paso posterior.
+  openSettingsFromTopBar(): void {
+    this.router.navigate(['/lobby']);
+  }
+
   isEquipped(skin: Skin): boolean {
     if (skin.type === 'Carta') return this.equippedCardName() === skin.name;
     if (skin.type === 'Tapete') return this.equippedTapeteName() === skin.name;
+    if (skin.type === 'Avatar') return this.equippedAvatarId() === skin.id;
     return false;
+  }
+
+  isDefaultCard(skin: Skin): boolean {
+    return skin.type === 'Carta' && skin.name.trim().toLowerCase() === 'default';
+  }
+
+  canUnequip(skin: Skin): boolean {
+    // La skin default del reverso no se puede desequipar manualmente.
+    return !this.isDefaultCard(skin);
+  }
+
+  private findDefaultCard(): Skin | null {
+    return this.ownedSkins().find(s => this.isDefaultCard(s)) ?? null;
   }
 
   equipSkin(skin: Skin) {
@@ -158,6 +185,11 @@ export class Inventory implements OnInit {
           if (this.usuario) {
             this.auth.updateUser({ tapete: skin.name });
           }
+        } else if (skin.type === 'Avatar') {
+          this.equippedAvatarId.set(skin.id);
+          if (this.usuario) {
+            this.auth.updateUser({ avatar: skin.id });
+          }
         }
       },
     });
@@ -172,10 +204,21 @@ export class Inventory implements OnInit {
           if (this.usuario) {
             this.auth.updateUser({ reverso: '' });
           }
+          // Al desequipar un reverso personalizado, equipar la skin default
+          // automáticamente para cumplir el requisito de "default siempre equipada".
+          const fallback = this.findDefaultCard();
+          if (fallback) {
+            this.equipSkin(fallback);
+          }
         } else if (type === 'Tapete') {
           this.equippedTapeteName.set(null);
           if (this.usuario) {
             this.auth.updateUser({ tapete: '' });
+          }
+        } else if (type === 'Avatar') {
+          this.equippedAvatarId.set(null);
+          if (this.usuario) {
+            this.auth.updateUser({ avatar: '' });
           }
         }
       },

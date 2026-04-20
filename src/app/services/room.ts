@@ -28,6 +28,7 @@ export interface SalaData {
   dificultadBots: 'Fácil' | 'Normal' | 'Difícil';
   creadaEn: number;
   numBarajas: 1 | 2;
+  maxJugadores: number;
   reglasActivas: string[];  // e.g. ['A', '3', '7']
 }
 
@@ -154,7 +155,7 @@ export class RoomService {
         id: 'XK7M2P', nombre: 'Sala del Rey', anfitrion: 'Carlos_PRO',
         publica: true, estado: 'esperando',
         dificultadBots: 'Normal', creadaEn: ahora - 120000,
-        numBarajas: 1, reglasActivas: ['A', '3'],
+        numBarajas: 1, maxJugadores: 8, reglasActivas: ['A', '3'],
         jugadores: [
           { id: 'u1', nombre: 'Carlos_PRO', esBot: false, esAnfitrion: true, listo: true, avatar: '😎' },
           { id: 'u2', nombre: 'MariaLuz', esBot: false, esAnfitrion: false, listo: false, avatar: '🌟' }
@@ -164,7 +165,7 @@ export class RoomService {
         id: 'AB3N9W', nombre: 'Partida rápida', anfitrion: 'Jugador_X',
         publica: true, estado: 'esperando',
         dificultadBots: 'Fácil', creadaEn: ahora - 60000,
-        numBarajas: 1, reglasActivas: [],
+        numBarajas: 1, maxJugadores: 4, reglasActivas: [],
         jugadores: [
           { id: 'u3', nombre: 'Jugador_X', esBot: false, esAnfitrion: true, listo: true, avatar: '🎮' },
           { id: 'b1', nombre: 'Bot_Águila', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Fácil', avatar: '🦅' },
@@ -175,7 +176,7 @@ export class RoomService {
         id: 'QR5TL8', nombre: 'Torneo de ases', anfitrion: 'ProGamer99',
         publica: true, estado: 'en_partida',
         dificultadBots: 'Difícil', creadaEn: ahora - 300000,
-        numBarajas: 2, reglasActivas: ['A', '3', '7', '10'],
+        numBarajas: 2, maxJugadores: 4, reglasActivas: ['A', '3', '7', '10'],
         jugadores: [
           { id: 'u4', nombre: 'ProGamer99', esBot: false, esAnfitrion: true, listo: true, avatar: '🏆' },
           { id: 'u5', nombre: 'NovaCraft', esBot: false, esAnfitrion: false, listo: true, avatar: '🚀' },
@@ -187,7 +188,7 @@ export class RoomService {
         id: 'MN4H7K', nombre: 'Sala chill', anfitrion: 'Luna_22',
         publica: true, estado: 'esperando',
         dificultadBots: 'Normal', creadaEn: ahora - 45000,
-        numBarajas: 1, reglasActivas: ['A'],
+        numBarajas: 1, maxJugadores: 6, reglasActivas: ['A'],
         jugadores: [
           { id: 'u7', nombre: 'Luna_22', esBot: false, esAnfitrion: true, listo: true, avatar: '🌙' }
         ]
@@ -196,7 +197,7 @@ export class RoomService {
         id: 'WP8G3R', nombre: 'Los imparables', anfitrion: 'DarkKnight',
         publica: true, estado: 'llena',
         dificultadBots: 'Normal', creadaEn: ahora - 180000,
-        numBarajas: 2, reglasActivas: ['A', '3', '7'],
+        numBarajas: 2, maxJugadores: 4, reglasActivas: ['A', '3', '7'],
         jugadores: [
           { id: 'u8', nombre: 'DarkKnight', esBot: false, esAnfitrion: true, listo: true, avatar: '🦇' },
           { id: 'u9', nombre: 'SolNaciente', esBot: false, esAnfitrion: false, listo: true, avatar: '☀️' },
@@ -208,7 +209,7 @@ export class RoomService {
         id: 'FJ2V5D', nombre: 'Novatos welcome', anfitrion: 'Principiante1',
         publica: true, estado: 'esperando',
         dificultadBots: 'Fácil', creadaEn: ahora - 30000,
-        numBarajas: 1, reglasActivas: [],
+        numBarajas: 1, maxJugadores: 6, reglasActivas: [],
         jugadores: [
           { id: 'u11', nombre: 'Principiante1', esBot: false, esAnfitrion: true, listo: false, avatar: '🐣' },
           { id: 'u12', nombre: 'NuevoJugador', esBot: false, esAnfitrion: false, listo: false, avatar: '🎲' },

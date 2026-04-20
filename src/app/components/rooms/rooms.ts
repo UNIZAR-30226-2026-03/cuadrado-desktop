@@ -9,11 +9,13 @@ import {
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
 import { RoomService, SalaData, MAX_JUGADORES } from '../../services/room';
+import { WebsocketService } from '../../services/websocket';
+import { TopBar } from '../shared/top-bar/top-bar';
 
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [],
+  imports: [TopBar],
   templateUrl: './rooms.html',
   styleUrl: './rooms.scss',
   animations: [
@@ -68,7 +70,8 @@ export class Rooms implements OnInit {
   constructor(
     private router: Router,
     private auth: AuthService,
-    private roomService: RoomService
+    private roomService: RoomService,
+    private ws: WebsocketService
   ) {}
 
   ngOnInit(): void {
@@ -102,27 +105,70 @@ export class Rooms implements OnInit {
   }
 
   unirsePorCodigo(): void {
-    const codigo = this.codigoInput().trim();
+    const codigo = this.codigoInput().trim().toUpperCase();
     if (codigo.length !== 6) {
       this.errorCodigo.set('El código debe tener 6 caracteres');
       return;
     }
 
-    const sala = this.roomService.buscarSalaPorCodigo(codigo);
-    if (!sala) {
-      this.errorCodigo.set('No se encontró ninguna sala con ese código');
-      return;
-    }
-    if (sala.estado === 'en_partida') {
-      this.errorCodigo.set('Esta sala ya tiene una partida en curso');
-      return;
-    }
-    if (sala.estado === 'llena' || sala.jugadores.length >= MAX_JUGADORES) {
-      this.errorCodigo.set('Esta sala está llena');
+    // Primero buscar en localStorage (salas locales/mock)
+    const salaLocal = this.roomService.buscarSalaPorCodigo(codigo);
+    if (salaLocal) {
+      if (salaLocal.estado === 'en_partida') {
+        this.errorCodigo.set('Esta sala ya tiene una partida en curso');
+        return;
+      }
+      if (salaLocal.estado === 'llena' || salaLocal.jugadores.length >= MAX_JUGADORES) {
+        this.errorCodigo.set('Esta sala está llena');
+        return;
+      }
+      this.unirseASala(salaLocal);
       return;
     }
 
-    this.unirseASala(sala);
+    // Si no está en local, intentar unirse al backend directamente por código
+    const token = this.auth.getToken();
+    if (!token) {
+      this.errorCodigo.set('No se encontró ninguna sala con ese código');
+      return;
+    }
+
+    this.ws.conectarYEsperar(token).then(() => {
+      return this.ws.joinRoomWs(codigo);
+    }).then(resp => {
+      if (!resp.success) {
+        this.errorCodigo.set('No se encontró ninguna sala con ese código');
+        return;
+      }
+      // Crear una SalaData mínima para el invitado basada en el código de sala
+      const usuario = this.auth.usuario();
+      const nombreUsuario = usuario?.nombre || 'Jugador';
+      const sala: SalaData = {
+        id: codigo,
+        nombre: resp.roomCode ? `Sala ${resp.roomCode}` : 'Sala online',
+        anfitrion: '',
+        publica: true,
+        estado: 'esperando',
+        jugadores: [{
+          id: `user_${nombreUsuario}_${Date.now()}`,
+          nombre: nombreUsuario,
+          esBot: false,
+          esAnfitrion: false,
+          listo: false,
+          avatar: '🎮',
+        }],
+        dificultadBots: 'Normal',
+        creadaEn: Date.now(),
+        numBarajas: 1,
+        maxJugadores: 8,
+        reglasActivas: [],
+      };
+      this.roomService.guardarSala(sala);
+      this.roomService.setEsAnfitrion(false);
+      this.router.navigate(['/waiting-room']);
+    }).catch(() => {
+      this.errorCodigo.set('No se encontró ninguna sala con ese código');
+    });
   }
 
   // ═══ Unirse a sala desde tarjeta ═══
@@ -131,34 +177,38 @@ export class Rooms implements OnInit {
     this.unirseASala(sala);
   }
 
-  private unirseASala(sala: SalaData): void {
+  private async unirseASala(sala: SalaData): Promise<void> {
     const usuario = this.auth.usuario();
     const nombreUsuario = usuario?.nombre || 'Jugador';
+    const token = this.auth.getToken();
+
+    // Unirse a la sala en el backend (para sync multijugador en tiempo real)
+    if (token) {
+      try {
+        await this.ws.conectarYEsperar(token);
+        await this.ws.joinRoomWs(sala.id);
+        // Si el backend acepta el join, usamos el código de sala tal cual
+      } catch {
+        // Backend no disponible: continuar con flujo local
+      }
+    }
 
     // Evitar duplicados: si el jugador ya esta en la sala, no lo añade de nuevo
     const yaEnSala = sala.jugadores.some(j => !j.esBot && j.nombre === nombreUsuario);
-    if (yaEnSala) {
-      // Ya esta en la sala, simplemente navegar
-      this.roomService.guardarSala(sala);
-      this.roomService.setEsAnfitrion(false);
-      this.router.navigate(['/waiting-room']);
-      return;
-    }
+    if (!yaEnSala) {
+      const nuevoJugador = {
+        id: `user_${nombreUsuario}_${Date.now()}`,
+        nombre: nombreUsuario,
+        esBot: false,
+        esAnfitrion: false,
+        listo: false,
+        avatar: '🎮'
+      };
+      sala.jugadores.push(nuevoJugador);
 
-    const nuevoJugador = {
-      id: `user_${nombreUsuario}_${Date.now()}`,
-      nombre: nombreUsuario,
-      esBot: false,
-      esAnfitrion: false,
-      listo: false,
-      avatar: '🎮'
-    };
-
-    sala.jugadores.push(nuevoJugador);
-
-    // Actualizar estado si se llena
-    if (sala.jugadores.length >= MAX_JUGADORES) {
-      sala.estado = 'llena';
+      if (sala.jugadores.length >= MAX_JUGADORES) {
+        sala.estado = 'llena';
+      }
     }
 
     this.roomService.guardarSala(sala);
@@ -188,6 +238,11 @@ export class Rooms implements OnInit {
   avatarAnfitrion(sala: SalaData): string {
     const host = sala.jugadores.find(j => j.esAnfitrion);
     return host?.avatar || '👤';
+  }
+
+  // Placeholder: el popup de ajustes se implementa en un paso posterior.
+  openSettingsFromTopBar(): void {
+    this.router.navigate(['/lobby']);
   }
 
   volver(): void {

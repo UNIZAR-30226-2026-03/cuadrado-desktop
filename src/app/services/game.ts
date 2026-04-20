@@ -35,6 +35,11 @@ export class GameService {
     if (id) this.ws.cartaPorPendiente(id, numCarta);
   }
 
+  solicitarCubo(): void {
+    const id = this._gameId();
+    if (id) this.ws.solicitarCubo(id);
+  }
+
   setGameId(gameId: string): void {
     this._gameId.set(gameId);
   }

@@ -37,6 +37,15 @@
     </div>
   }
 
+  <!-- ── Banner de Cubo activo ────────────────────────────────────────── -->
+  @if (cuboActivado() && cuboInfo(); as info) {
+    <div class="tablero__banner tablero__banner--cubo">
+      <div class="tablero__banner-box tablero__banner-box--cubo">
+        ¡CUBO activado! · {{ info.turnosRestantes }} turnos restantes
+      </div>
+    </div>
+  }
+
   <!-- ── Pantalla de fin de partida ────────────────────────────────────── -->
   @if (fase() === 'fin') {
     <div class="tablero__fin-overlay">
@@ -122,7 +131,7 @@
                 <div
                   class="tablero__carta"
                   [class.tablero__carta--dorso]="!carta.visible"
-                  [class.tablero__carta--skin]="!carta.visible && !!jugador.reverso"
+                  [class.tablero__carta--skin]="!carta.visible && jugador.esYo"
                   [class.tablero__carta--cara]="carta.visible"
                   [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
                   [class.tablero__carta--yo]="jugador.esYo"
@@ -163,7 +172,22 @@
 
           </div><!-- /tablero__mano-area -->
 
-          <!-- Botones de acción (solo el jugador local en su turno) -->
+          <!-- Botones fase BANNER: Robar + Cubo -->
+          @if (jugador.esYo && esMiTurno() && robarDisponible()) {
+            <div class="tablero__acciones">
+              <button class="tablero__btn tablero__btn--robar"
+                      (click)="accionRobar()">
+                Robar ({{ robarSegundos() }}s)
+              </button>
+            </div>
+            <button class="tablero__btn tablero__btn--cubo"
+                    [disabled]="cuboActivado()"
+                    (click)="accionCubo()">
+              ¡Cubo!
+            </button>
+          }
+
+          <!-- Botones fase DECIDIENDO: Intercambiar/Descartar + Cubo -->
           @if (jugador.esYo && esMiTurno() && fase() === 'decidiendo') {
             <div class="tablero__acciones">
               @if (!modoIntercambio()) {
@@ -182,9 +206,8 @@
                 Descartar
               </button>
             </div>
-
-            <!-- Botón ¡Cubo! redondo -->
             <button class="tablero__btn tablero__btn--cubo"
+                    [disabled]="cuboActivado()"
                     (click)="accionCubo()">
               ¡Cubo!
             </button>

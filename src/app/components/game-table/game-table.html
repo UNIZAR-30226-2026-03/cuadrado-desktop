@@ -25,7 +25,7 @@
            [class.game-table__hand--active]="isActive(pos)">
         @for (i of cardIndices; track i) {
           <div class="game-table__card"
-               [class.game-table__card--skin]="!!reversoUrl"
+               [class.game-table__card--skin]="true"
                [class.game-table__card--swapping]="handSwapIndex(pos) === i"
                [ngStyle]="cardStyle()">
           </div>

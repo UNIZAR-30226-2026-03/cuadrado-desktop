@@ -1,10 +1,13 @@
-import { Component, OnInit, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { RoomService, SalaData, JugadorSala, MAX_JUGADORES } from '../../services/room';
+import { RoomService, SalaData, JugadorSala } from '../../services/room';
+import { WebsocketService, EvRoomUpdate } from '../../services/websocket';
+import { TopBar } from '../shared/top-bar/top-bar';
 
 interface PowerCard {
   card: string;
@@ -30,7 +33,7 @@ const POWER_DESCRIPTIONS: Record<string, string> = {
 @Component({
   selector: 'app-waiting-room',
   standalone: true,
-  imports: [],
+  imports: [TopBar],
   templateUrl: './waiting-room.html',
   styleUrl: './waiting-room.scss',
   animations: [
@@ -53,30 +56,30 @@ const POWER_DESCRIPTIONS: Record<string, string> = {
     ]),
   ],
 })
-export class WaitingRoom implements OnInit {
+export class WaitingRoom implements OnInit, OnDestroy {
   sala = signal<SalaData | null>(null);
   soyAnfitrion = signal(false);
   miNombre = signal('');
   iniciandoPartida = signal(false);
   codigoCopiado = signal(false);
-  botsAAgregar = signal(1);
-
   // Popups
   showStartPopup = signal(false);
   showPowersPopup = signal(false);
   selectedPowerCard = signal<PowerCard | null>(null);
 
+  private subs: Subscription[] = [];
+
   slotsVacios = computed(() => {
     const s = this.sala();
     if (!s) return [];
-    const vacios = MAX_JUGADORES - s.jugadores.length;
+    const vacios = s.maxJugadores - s.jugadores.length;
     return Array.from({ length: vacios }, (_, i) => i);
   });
 
   maxBotsAgregables = computed(() => {
     const s = this.sala();
     if (!s) return 0;
-    return Math.max(0, MAX_JUGADORES - s.jugadores.length);
+    return Math.max(0, s.maxJugadores - s.jugadores.length);
   });
 
   puedeIniciar = computed(() => {
@@ -117,22 +120,13 @@ export class WaitingRoom implements OnInit {
   constructor(
     private router: Router,
     private auth: AuthService,
-    private roomService: RoomService
+    private roomService: RoomService,
+    private ws: WebsocketService
   ) {
     // Auto-abrir popup de inicio cuando todos los humanos esten listos
     effect(() => {
       if (this.todosListos() && this.soyAnfitrion() && !this.iniciandoPartida()) {
         this.showStartPopup.set(true);
-      }
-    });
-
-    // Mantener el contador de bots dentro del rango disponible.
-    effect(() => {
-      const max = this.maxBotsAgregables();
-      const actual = this.botsAAgregar();
-      const normalizado = this.normalizarCantidadBots(actual, max);
-      if (actual !== normalizado) {
-        this.botsAAgregar.set(normalizado);
       }
     });
   }
@@ -146,6 +140,69 @@ export class WaitingRoom implements OnInit {
     this.sala.set(sala);
     this.soyAnfitrion.set(this.roomService.esAnfitrion());
     this.miNombre.set(this.auth.usuario()?.nombre || 'Jugador');
+
+    // Suscribirse a actualizaciones de sala en tiempo real
+    this.subs.push(
+      this.ws.roomUpdate$.subscribe(state => this.sincronizarDesdeBackend(state)),
+      this.ws.roomClosed$.subscribe(() => {
+        // El host cerró la sala: volver al lobby
+        localStorage.removeItem('cubo_sala_actual');
+        localStorage.removeItem('cubo_es_anfitrion');
+        this.router.navigate(['/lobby']);
+      }),
+    );
+  }
+
+  ngOnDestroy(): void {
+    this.subs.forEach(s => s.unsubscribe());
+  }
+
+  // ── Sincronización con backend ───────────────────────────────────────────────
+
+  private sincronizarDesdeBackend(state: EvRoomUpdate): void {
+    const sala = this.sala();
+    if (!sala) return;
+
+    // Actualizar nombre del anfitrión
+    const nuevoAnfitrion = state.players.find(p => p.isHost)?.userId || sala.anfitrion;
+
+    // Construir lista de jugadores fusionando datos del backend con los locales
+    const nuevosJugadores: JugadorSala[] = state.players.map(p => {
+      const nombre = p.controlador === 'bot'
+        ? (p.nombreEnPartida || `Bot`)
+        : p.userId;  // userId === username en el backend
+      // Preservar avatar si ya estaba en la sala local
+      const existente = sala.jugadores.find(j => j.nombre === nombre);
+      return {
+        id: p.userId,
+        nombre,
+        esBot: p.controlador === 'bot',
+        esAnfitrion: p.isHost,
+        listo: p.ready,
+        avatar: existente?.avatar || (p.controlador === 'bot' ? '🤖' : '🎮'),
+      };
+    });
+
+    // Actualizar también maxJugadores si el backend lo conoce
+    const maxJugadores = state.rules?.maxPlayers || sala.maxJugadores;
+
+    let estado: 'esperando' | 'llena' | 'en_partida' = 'esperando';
+    if (state.started) {
+      estado = 'en_partida';
+    } else if (nuevosJugadores.length >= maxJugadores) {
+      estado = 'llena';
+    }
+
+    this.sala.set({
+      ...sala,
+      anfitrion: nuevoAnfitrion,
+      jugadores: nuevosJugadores,
+      maxJugadores,
+      estado,
+    });
+
+    // Persistir en localStorage para que tablero.ts lo pueda leer
+    this.roomService.guardarSala(this.sala()!);
   }
 
   // Copiar codigo
@@ -187,27 +244,21 @@ export class WaitingRoom implements OnInit {
     this.lanzarPartida();
   }
 
-  agregarBots(): void {
+  rellenarConBots(): void {
     const sala = this.sala();
     if (!sala) return;
 
-    const maxDisponibles = Math.max(0, MAX_JUGADORES - sala.jugadores.length);
-    const cantidad = this.normalizarCantidadBots(this.botsAAgregar(), maxDisponibles);
-    if (cantidad <= 0) return;
+    const huecos = Math.max(0, sala.maxJugadores - sala.jugadores.length);
+    if (huecos <= 0) return;
 
     const nombresUsados = sala.jugadores.map(j => j.nombre);
-    for (let i = 0; i < cantidad && sala.jugadores.length < MAX_JUGADORES; i++) {
+    for (let i = 0; i < huecos; i++) {
       const bot = this.roomService.generarBot(nombresUsados, sala.dificultadBots);
       sala.jugadores.push(bot);
       nombresUsados.push(bot.nombre);
     }
 
     this.actualizarSala(sala);
-  }
-
-  onBotsAAgregarInput(event: Event): void {
-    const valor = Number((event.target as HTMLInputElement).value);
-    this.botsAAgregar.set(this.normalizarCantidadBots(valor, this.maxBotsAgregables()));
   }
 
   private lanzarPartida(): void {
@@ -222,7 +273,15 @@ export class WaitingRoom implements OnInit {
     }, 2500);
   }
 
+  // Placeholder: el popup de ajustes se implementa en un paso posterior.
+  openSettingsFromTopBar(): void {
+    this.router.navigate(['/lobby']);
+  }
+
   cancelarSala(): void {
+    if (this.ws.estaConectado()) {
+      this.ws.leaveRoom();
+    }
     this.roomService.eliminarSala();
     this.router.navigate(['/lobby']);
   }
@@ -233,11 +292,23 @@ export class WaitingRoom implements OnInit {
     if (!sala) return;
     const yo = sala.jugadores.find(j => j.nombre === this.miNombre() && !j.esBot);
     if (!yo) return;
-    yo.listo = !yo.listo;
-    this.actualizarSala(sala);
+
+    // Si estamos conectados al backend, usar el evento WS (el backend responderá con room:update)
+    if (this.ws.estaConectado()) {
+      this.ws.toggleReady();
+      // Actualización optimista local mientras llega el room:update
+      yo.listo = !yo.listo;
+      this.sala.set({ ...sala });
+    } else {
+      yo.listo = !yo.listo;
+      this.actualizarSala(sala);
+    }
   }
 
   abandonarSala(): void {
+    if (this.ws.estaConectado()) {
+      this.ws.leaveRoom();
+    }
     const sala = this.sala();
     if (sala) {
       sala.jugadores = sala.jugadores.filter(j => j.nombre !== this.miNombre() || j.esBot);
@@ -274,9 +345,4 @@ export class WaitingRoom implements OnInit {
     this.sala.set({ ...sala });
   }
 
-  private normalizarCantidadBots(valor: number, max: number): number {
-    if (max <= 0) return 0;
-    const entero = Number.isFinite(valor) ? Math.trunc(valor) : 1;
-    return Math.min(Math.max(entero, 1), max);
-  }
 }

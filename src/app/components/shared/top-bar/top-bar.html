@@ -1,0 +1,27 @@
+<header class="top-bar">
+  <div class="top-bar__brand">
+    <img src="logo.png" alt="Cubo" class="top-bar__logo" />
+  </div>
+
+  <div class="top-bar__actions">
+    <div class="top-bar__badge top-bar__badge--cubitos" title="Cubitos">
+      <svg class="cubito-icon"
+           width="18" height="18" viewBox="0 0 24 24"
+           fill="none" stroke="currentColor"
+           stroke-width="1.6" stroke-linejoin="round">
+        <path d="M4 8 L12 4 L20 8 L12 12 Z" />
+        <path d="M4 8 L4 16 L12 20 L12 12" />
+        <path d="M20 8 L20 16 L12 20" />
+        <path d="M12 4 L12 12" opacity="0.4" />
+      </svg>
+      <span class="top-bar__badge-value">{{ cubitos | number }}</span>
+    </div>
+
+    <button class="top-bar__icon-btn"
+            (click)="onSettingsClick()"
+            aria-label="Ajustes"
+            title="Ajustes">
+      ☰
+    </button>
+  </div>
+</header>

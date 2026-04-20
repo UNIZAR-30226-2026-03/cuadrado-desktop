@@ -5,6 +5,8 @@ import {
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
 import { RoomService, SalaData } from '../../services/room';
+import { WebsocketService } from '../../services/websocket';
+import { TopBar } from '../shared/top-bar/top-bar';
 
 interface CardPower {
   card: string;
@@ -16,7 +18,7 @@ interface CardPower {
 @Component({
   selector: 'app-create-room',
   standalone: true,
-  imports: [],
+  imports: [TopBar],
   templateUrl: './create-room.html',
   styleUrl: './create-room.scss',
   animations: [
@@ -32,6 +34,7 @@ interface CardPower {
 export class CreateRoom implements OnInit {
   esPublica = signal(true);
   numBarajas = signal<1 | 2>(1);
+  maxJugadores = signal(8);
 
   cardPowers: CardPower[] = [
     { card: 'A',  image: '🂡', description: 'Intercambia todas tus cartas por todas las cartas de otro jugador.', enabled: false },
@@ -53,7 +56,8 @@ export class CreateRoom implements OnInit {
     private router: Router,
     private route: ActivatedRoute,
     private auth: AuthService,
-    private roomService: RoomService
+    private roomService: RoomService,
+    private ws: WebsocketService
   ) {}
 
   ngOnInit() {
@@ -69,10 +73,10 @@ export class CreateRoom implements OnInit {
     this.cardPowers[index].enabled = !this.cardPowers[index].enabled;
   }
 
-  crearSala(): void {
+  async crearSala(): Promise<void> {
     const usuario = this.auth.usuario();
-    const codigo = this.roomService.generarCodigo();
-    const nombre = `Sala de ${usuario?.nombre || 'Jugador'}`;
+    const token = this.auth.getToken();
+    const nombreSala = `Sala de ${usuario?.nombre || 'Jugador'}`;
 
     const anfitrion = {
       id: `user_${usuario?.nombre || 'anon'}`,
@@ -87,9 +91,29 @@ export class CreateRoom implements OnInit {
       .filter(p => p.enabled)
       .map(p => p.card);
 
+    let codigo = this.roomService.generarCodigo();
+
+    // Si hay token, crear la sala también en el backend para sync multijugador
+    if (token) {
+      try {
+        await this.ws.conectarYEsperar(token);
+        const resp = await this.ws.createRoom(nombreSala, {
+          maxPlayers: this.maxJugadores(),
+          turnTimeSeconds: 30,
+          isPrivate: !this.esPublica(),
+          fillWithBots: false,
+        });
+        if (resp.success && resp.roomCode) {
+          codigo = resp.roomCode;
+        }
+      } catch {
+        // Si el backend no está disponible, continuar con código local
+      }
+    }
+
     const sala: SalaData = {
       id: codigo,
-      nombre,
+      nombre: nombreSala,
       anfitrion: anfitrion.nombre,
       publica: this.esPublica(),
       estado: 'esperando',
@@ -97,12 +121,18 @@ export class CreateRoom implements OnInit {
       dificultadBots: 'Normal',
       creadaEn: Date.now(),
       numBarajas: this.numBarajas(),
+      maxJugadores: this.maxJugadores(),
       reglasActivas,
     };
 
     this.roomService.guardarSala(sala);
     this.roomService.setEsAnfitrion(true);
     this.router.navigate(['/waiting-room']);
+  }
+
+  // Placeholder: el popup de ajustes se implementa en un paso posterior.
+  openSettingsFromTopBar(): void {
+    this.router.navigate(['/lobby']);
   }
 
   volver(): void {

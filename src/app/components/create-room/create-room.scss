@@ -16,6 +16,14 @@ $margin: 20px;
   gap: 16px;
 }
 
+// ── Top bar compartida ──────────────────────────────────────────────────────
+.create-room-top-bar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin: -#{$margin} -#{$margin} 0;
+  z-index: 3;
+}
+
 // ── Header ──────────────────────────────────────────────────────────────────
 .page-header {
   display: flex;
@@ -103,6 +111,35 @@ $margin: 20px;
   border-radius: 10px;
   border: 1px solid var(--glass-border);
   background: rgba(0, 229, 255, 0.04);
+}
+
+// ── Stepper de jugadores ────────────────────────────────────────────────────
+.stepper-btn {
+  width: 44px;
+  cursor: pointer;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+  padding: 8px 0;
+  user-select: none;
+  transition: all 200ms;
+
+  &:hover:not(:disabled) {
+    color: var(--neon-cyan);
+    border-color: var(--neon-cyan);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+  }
+}
+
+.stepper-value {
+  min-width: 52px;
+  text-align: center;
+  font-size: 22px;
 }
 
 // ── Toggle publico/privado ──────────────────────────────────────────────────

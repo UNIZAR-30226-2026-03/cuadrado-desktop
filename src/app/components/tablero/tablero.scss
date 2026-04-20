@@ -138,6 +138,14 @@ $carta-gap:     5px;
     text-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
     animation: banner-fade-in 300ms ease-out, shuffle-pulse 0.6s ease-in-out infinite alternate;
   }
+
+  &--cubo {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.25), rgba(168, 85, 247, 0.25));
+    border-color: rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 40px rgba(239, 68, 68, 0.2), 0 8px 32px rgba(0, 0, 0, 0.7);
+    color: #fca5a5;
+    font-size: 15px;
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -635,7 +643,25 @@ $carta-gap:     5px;
     text-transform: uppercase;
     box-shadow: 0 4px 20px rgba(251, 191, 36, 0.5);
     flex-shrink: 0;
-    &:hover { box-shadow: 0 6px 28px rgba(251, 191, 36, 0.75); transform: translateY(-2px) scale(1.04); }
+    &:hover:not(:disabled) { box-shadow: 0 6px 28px rgba(251, 191, 36, 0.75); transform: translateY(-2px) scale(1.04); }
+    &:active:not(:disabled) { transform: translateY(0) scale(1); filter: brightness(0.9); }
+    &:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+  }
+
+  &--robar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    padding: 0;
+    background: linear-gradient(135deg, #a855f7, #7c3aed);
+    color: #fff;
+    font-weight: 800;
+    font-size: 9px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 4px 20px rgba(168, 85, 247, 0.5);
+    flex-shrink: 0;
+    &:hover { box-shadow: 0 6px 28px rgba(168, 85, 247, 0.75); transform: translateY(-2px) scale(1.04); }
     &:active { transform: translateY(0) scale(1); filter: brightness(0.9); }
   }
 }

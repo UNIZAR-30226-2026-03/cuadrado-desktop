@@ -1,29 +1,17 @@
 <div class="inventory">
 
-  <!-- Header -->
-  <header class="inv-header">
+  <!-- Top bar compartida -->
+  <div class="inv-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
+  <!-- Cabecera secundaria: volver + tienda -->
+  <div class="inv-subheader">
     <button class="back-btn" (click)="goBack()" title="Volver al lobby">
       ← Lobby
     </button>
-
-    <div class="inv-top-right">
-      <div class="inv-stats">
-        <div class="stat-pill">
-          <span class="stat-pill__icon">💎</span>
-          <span>{{ usuario?.monedas ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">⭐</span>
-          <span>{{ usuario?.exp ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">🏆</span>
-          <span>#{{ usuario?.ranking ?? '—' }}</span>
-        </div>
-      </div>
-      <button class="icon-btn" (click)="goToShop()" title="Tienda">🛒</button>
-    </div>
-  </header>
+    <button class="icon-btn" (click)="goToShop()" title="Tienda">🛒</button>
+  </div>
 
   <!-- Titulo -->
   <h1 class="page-title">
@@ -72,6 +60,25 @@
           <span class="equipped-slot__name empty-text">Ninguno</span>
         }
       </div>
+
+      <div class="equipped-slot">
+        <span class="equipped-slot__label">👤 Avatar</span>
+        @if (equippedAvatar(); as av) {
+          <div class="equipped-slot__preview" [style.background]="getSkinGradient(av.name)">
+            @if (!imgFailed().has(av.name)) {
+              <img class="equipped-slot__img" [src]="getSkinImageUrl(av)" [alt]="av.name" (error)="onImgError(av.name)">
+            } @else {
+              <span class="equipped-slot__emoji">{{ getSkinIcon(av.name) }}</span>
+            }
+          </div>
+          <span class="equipped-slot__name">{{ av.name }}</span>
+        } @else {
+          <div class="equipped-slot__preview equipped-slot__preview--empty">
+            <span class="equipped-slot__emoji">—</span>
+          </div>
+          <span class="equipped-slot__name empty-text">Ninguno</span>
+        }
+      </div>
     </div>
   </section>
 
@@ -88,6 +95,10 @@
     <div class="stat-box">
       <span class="stat-box__value">{{ totalMats() }}</span>
       <span class="stat-box__label">Tapetes</span>
+    </div>
+    <div class="stat-box">
+      <span class="stat-box__value">{{ totalAvatars() }}</span>
+      <span class="stat-box__label">Avatares</span>
     </div>
   </section>
 
@@ -118,7 +129,11 @@
               <h3 class="inv-card__name">{{ skin.name }}</h3>
               @if (isEquipped(skin)) {
                 <span class="equipped-badge">✓ EQUIPADO</span>
-                <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
+                @if (canUnequip(skin)) {
+                  <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
+                } @else {
+                  <span class="default-lock-hint">Skin por defecto</span>
+                }
               } @else {
                 <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
               }
@@ -201,21 +216,29 @@
     }
 
     <!-- AVATARES -->
+    <h2 class="catalog-section-title">AVATARES</h2>
     @if (avatarSkins().length > 0) {
-      <h2 class="catalog-section-title">AVATARES</h2>
       <section class="inv-grid">
-        @for (skin of avatarSkins(); track skin.name) {
-          <div class="inv-card glass-card">
+        @for (skin of avatarSkins(); track skin.id) {
+          <div class="inv-card glass-card" [class.inv-card--equipped]="isEquipped(skin)">
             <div class="inv-card__preview" [style.background]="getSkinGradient(skin.name)">
               @if (!imgFailed().has(skin.name)) {
                 <img class="inv-card__img" [src]="getSkinImageUrl(skin)" [alt]="skin.name" (error)="onImgError(skin.name)">
               } @else {
                 <span class="inv-card__emoji">{{ getSkinIcon(skin.name) }}</span>
               }
+              @if (isEquipped(skin)) {
+                <div class="equipped-indicator">✓</div>
+              }
             </div>
             <div class="inv-card__body">
               <h3 class="inv-card__name">{{ skin.name }}</h3>
-              <span class="equipped-badge">✓ OBTENIDO</span>
+              @if (isEquipped(skin)) {
+                <span class="equipped-badge">✓ EQUIPADO</span>
+                <button class="btn-ghost btn--xs" (click)="unequipSkin(skin.type)">DESEQUIPAR</button>
+              } @else {
+                <button class="btn-neon btn--xs" (click)="equipSkin(skin)">EQUIPAR</button>
+              }
             </div>
           </div>
         }
@@ -228,6 +251,18 @@
           </div>
         </div>
       </section>
+    } @else {
+      <div class="empty-inline">
+        <span>No tienes avatares todavía.</span>
+        <div class="inv-card inv-card--add glass-card" (click)="goToShopSection('avatares')">
+          <div class="inv-card__preview inv-card__preview--add">
+            <span class="inv-card__add-icon">+</span>
+          </div>
+          <div class="inv-card__body">
+            <h3 class="inv-card__name">Ir a la Tienda</h3>
+          </div>
+        </div>
+      </div>
     }
   }
 

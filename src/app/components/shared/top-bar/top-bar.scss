@@ -1,0 +1,95 @@
+:host {
+  display: block;
+  width: 100%;
+}
+
+.top-bar {
+  flex-shrink: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: linear-gradient(180deg, rgba(11, 23, 51, 0.95) 0%, rgba(11, 23, 51, 0.8) 100%);
+  border-bottom: 1px solid rgba(0, 229, 255, 0.18);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.4);
+  min-height: 58px;
+}
+
+.top-bar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-bar__logo {
+  height: 36px;
+  width: auto;
+  filter: drop-shadow(0 0 8px rgba(0, 229, 255, 0.4));
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.top-bar__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.top-bar__badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: rgba(12, 30, 70, 0.7);
+  border: 1.5px solid rgba(0, 229, 255, 0.18);
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #e6f1ff;
+  transition: border-color 300ms ease, box-shadow 300ms ease;
+}
+
+.top-bar__badge:hover {
+  border-color: rgba(0, 229, 255, 0.5);
+  box-shadow: 0 0 12px rgba(0, 229, 255, 0.15);
+}
+
+.top-bar__badge--cubitos { border-color: rgba(0, 229, 255, 0.25); }
+.top-bar__badge--cubitos .cubito-icon { color: #00e5ff; }
+
+.top-bar__badge-value {
+  color: #e6f1ff;
+  letter-spacing: 0.02em;
+}
+
+.top-bar__icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 18px;
+  background: rgba(10, 25, 60, 0.5);
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  border-radius: 50%;
+  color: #cfe1ff;
+  cursor: pointer;
+  transition: color 250ms ease, border-color 250ms ease, box-shadow 250ms ease, transform 250ms ease;
+}
+
+.top-bar__icon-btn:hover {
+  color: #00e5ff;
+  border-color: rgba(0, 229, 255, 0.4);
+  box-shadow: 0 0 15px rgba(0, 229, 255, 0.15);
+  transform: scale(1.05);
+}
+
+@media (max-width: 720px) {
+  .top-bar { padding: 8px 14px; min-height: 52px; }
+  .top-bar__logo { height: 30px; }
+  .top-bar__badge { padding: 4px 10px; font-size: 12px; }
+  .top-bar__icon-btn { width: 32px; height: 32px; font-size: 16px; }
+}

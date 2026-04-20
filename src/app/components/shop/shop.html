@@ -1,29 +1,17 @@
 <div class="shop" #shopContainer>
 
-  <!-- Header -->
-  <header class="shop-header">
+  <!-- Top bar compartida -->
+  <div class="shop-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
+  <!-- Cabecera secundaria: volver + inventario -->
+  <div class="shop-subheader">
     <button class="back-btn" (click)="goBack()" title="Volver al lobby">
       ← Lobby
     </button>
-
-    <div class="shop-top-right">
-      <div class="shop-stats">
-        <div class="stat-pill">
-          <span class="stat-pill__icon">💎</span>
-          <span>{{ usuario?.monedas ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">⭐</span>
-          <span>{{ usuario?.exp ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">🏆</span>
-          <span>#{{ usuario?.ranking ?? '—' }}</span>
-        </div>
-      </div>
-      <button class="icon-btn" (click)="goToInventory()" title="Inventario">🧰</button>
-    </div>
-  </header>
+    <button class="icon-btn" (click)="goToInventory()" title="Inventario">🧰</button>
+  </div>
 
   <!-- Titulo -->
   <h1 class="page-title">
@@ -34,10 +22,25 @@
   <!-- Filtros y ordenacion -->
   <div class="filters">
     <div class="filter-group">
-      <label class="filter-label">Ordenar:</label>
-      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-asc'" (click)="setSort('price-asc')">Precio ↑</button>
-      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'price-desc'" (click)="setSort('price-desc')">Precio ↓</button>
-      <button class="filter-btn" [class.filter-btn--active]="sortBy() === 'name'" (click)="setSort('name')">Nombre</button>
+      <label class="filter-label" for="shop-category">Categoría:</label>
+      <select id="shop-category" class="filter-select"
+              [ngModel]="category()"
+              (ngModelChange)="setCategory($event)">
+        <option value="all">Todas</option>
+        <option value="Carta">Reversos</option>
+        <option value="Tapete">Tapetes</option>
+        <option value="Avatar">Avatares</option>
+      </select>
+    </div>
+    <div class="filter-group">
+      <label class="filter-label" for="shop-sort">Ordenar:</label>
+      <select id="shop-sort" class="filter-select"
+              [ngModel]="sortBy()"
+              (ngModelChange)="setSort($event)">
+        <option value="price-asc">Precio ↑</option>
+        <option value="price-desc">Precio ↓</option>
+        <option value="name">Nombre</option>
+      </select>
     </div>
   </div>
 
@@ -49,7 +52,7 @@
     </div>
   } @else {
     <!-- REVERSOS -->
-    @if (reverseSkins().length > 0) {
+    @if (showReversos() && reverseSkins().length > 0) {
       <h2 class="catalog-section-title" id="section-reversos">REVERSOS</h2>
       <section class="skins-grid">
         @for (skin of reverseSkins(); track skin.name) {
@@ -89,7 +92,7 @@
     }
 
     <!-- TAPETES -->
-    @if (tapeteSkins().length > 0) {
+    @if (showTapetes() && tapeteSkins().length > 0) {
       <h2 class="catalog-section-title" id="section-tapetes">TAPETES</h2>
       <section class="skins-grid">
         @for (skin of tapeteSkins(); track skin.name) {
@@ -129,7 +132,7 @@
     }
 
     <!-- AVATARES -->
-    @if (avatarSkins().length > 0) {
+    @if (showAvatares() && avatarSkins().length > 0) {
       <h2 class="catalog-section-title" id="section-avatares">AVATARES</h2>
       <section class="skins-grid">
         @for (skin of avatarSkins(); track skin.name) {

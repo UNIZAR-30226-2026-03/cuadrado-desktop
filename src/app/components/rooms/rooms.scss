@@ -19,6 +19,14 @@ $margin: 20px;
   overflow-x: hidden;
 }
 
+// ── Top bar compartida ──────────────────────────────────────────────────────
+.rooms-top-bar-wrap {
+  position: relative;
+  flex-shrink: 0;
+  margin: -#{$margin} -#{$margin} 0;
+  z-index: 3;
+}
+
 // ── Header ──────────────────────────────────────────────────────────────────
 .page-header {
   display: flex;

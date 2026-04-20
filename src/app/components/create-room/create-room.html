@@ -1,5 +1,10 @@
 <div class="create-room">
 
+  <!-- Top bar compartida -->
+  <div class="create-room-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
   <!-- Header -->
   <header class="page-header">
     <button class="back-btn" (click)="volver()" title="Volver al lobby">← Lobby</button>
@@ -26,6 +31,20 @@
             <span class="toggle__thumb"></span>
           </button>
           <span class="toggle-option" [class.active]="!esPublica()">SALA PRIVADA</span>
+        </div>
+      </div>
+
+      <!-- Máximo de jugadores -->
+      <div class="config-field">
+        <label class="config-label">Máximo de jugadores</label>
+        <div class="toggle-row">
+          <button class="deck-info stepper-btn"
+                  (click)="maxJugadores.set(maxJugadores() > 2 ? maxJugadores() - 1 : 2)"
+                  [disabled]="maxJugadores() <= 2">−</button>
+          <div class="deck-info stepper-value">{{ maxJugadores() }}</div>
+          <button class="deck-info stepper-btn"
+                  (click)="maxJugadores.set(maxJugadores() < 8 ? maxJugadores() + 1 : 8)"
+                  [disabled]="maxJugadores() >= 8">+</button>
         </div>
       </div>
 

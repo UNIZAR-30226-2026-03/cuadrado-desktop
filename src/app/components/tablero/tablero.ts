@@ -2,8 +2,11 @@ import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { NgStyle } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
+import { GameService } from '../../services/game';
+import { WebsocketService } from '../../services/websocket';
 import { environment } from '../../environment';
 
 // Tipos internos del tablero
@@ -64,6 +67,10 @@ export class Tablero implements OnInit, OnDestroy {
   discardTop       = signal<CartaMesa | null>(null);
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
+  cuboActivado     = signal(false);
+  cuboInfo         = signal<{ solicitanteId: string; turnosRestantes: number } | null>(null);
+  robarDisponible  = signal(false);
+  robarSegundos    = signal(3);
 
   // Computados
   jugadorActual   = computed(() => this.jugadores()[this.turnoIdx()] ?? null);
@@ -77,17 +84,22 @@ export class Tablero implements OnInit, OnDestroy {
   // TODO(backend): discardPile → GameManager (cartasDescartadas) vía evento game:mazo-rebarajado
   private discardPile: CartaMesa[] = [];
   private timerInterval: ReturnType<typeof setInterval> | null = null;
+  private robarInterval: ReturnType<typeof setInterval> | null = null;
   private phaseTimeout:  ReturnType<typeof setTimeout>  | null = null;
+  private cuboTurnosLocal = 0; // contador de turnos restantes en modo local
 
   // URLs reales de las skins equipadas (obtenidas del backend)
   private localReversoUrl = signal<string | null>(null);
   private localTapeteUrl  = signal<string | null>(null);
+  private subs: Subscription[] = [];
 
   constructor(
     private router:      Router,
     private auth:        AuthService,
     private roomService: RoomService,
     private http:        HttpClient,
+    private gameService: GameService,
+    private ws:          WebsocketService,
   ) {}
 
   ngOnInit(): void {
@@ -98,6 +110,24 @@ export class Tablero implements OnInit, OnDestroy {
     }
     this.inicializarJuego(sala.jugadores);
     this.cargarSkinsEquipadas();
+
+    this.subs.push(
+      this.ws.cuboActivado$.subscribe(ev => {
+        this.cuboActivado.set(true);
+        this.cuboInfo.set({
+          solicitanteId: ev.solicitanteId,
+          turnosRestantes: ev.turnosRestantes,
+        });
+      }),
+      this.ws.partidaFinalizada$.subscribe(ev => {
+        const motivos: Record<string, string> = {
+          cubo: '¡Cubo! La partida ha terminado.',
+          sinCartasMazo: 'El mazo se ha agotado.',
+          unJugadorSinCartas: 'Un jugador se ha quedado sin cartas.',
+        };
+        this.finalizarPartida(motivos[ev.motivo] ?? 'La partida ha terminado.');
+      }),
+    );
   }
 
   private cargarSkinsEquipadas(): void {
@@ -106,7 +136,7 @@ export class Tablero implements OnInit, OnDestroy {
       `${environment.apiUrl}/skins/equipped`, { headers }
     ).subscribe({
       next: (data) => {
-        if (data.carta)  this.localReversoUrl.set(data.carta);
+        this.localReversoUrl.set(data.carta ?? environment.defaultReversoUrl);
         if (data.tapete) this.localTapeteUrl.set(data.tapete);
       },
     });
@@ -114,6 +144,7 @@ export class Tablero implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.limpiarTimers();
+    this.subs.forEach(s => s.unsubscribe());
   }
 
   // Inicialización
@@ -181,8 +212,16 @@ export class Tablero implements OnInit, OnDestroy {
   private iniciarTurno(): void {
     this.fase.set('banner');
     this.modoIntercambio.set(false);
-    // Banner visible 2 segundos → robo automático
-    this.phaseTimeout = setTimeout(() => this.ejecutarRobo(), 2000);
+
+    if (this.esMiTurno()) {
+      // Jugador local: mostrar botón Robar durante 3 segundos
+      this.robarDisponible.set(true);
+      this.robarSegundos.set(3);
+      this.iniciarTimerRobo();
+    } else {
+      // Bot / otro jugador: robo automático tras banner de 2 segundos
+      this.phaseTimeout = setTimeout(() => this.ejecutarRobo(), 2000);
+    }
   }
 
   // TODO(backend): ejecutarRobo → WebsocketService.robarCarta(gameId) → GameManager.robarCarta()
@@ -245,6 +284,32 @@ export class Tablero implements OnInit, OnDestroy {
 
   // Acciones del jugador humano (llamadas desde el template)
 
+  accionRobar(): void {
+    if (!this.robarDisponible()) return;
+    this.pararTimerRobo();
+    this.robarDisponible.set(false);
+    this.ejecutarRobo();
+  }
+
+  private iniciarTimerRobo(): void {
+    this.robarInterval = setInterval(() => {
+      const t = this.robarSegundos() - 1;
+      this.robarSegundos.set(t);
+      if (t <= 0) {
+        this.pararTimerRobo();
+        this.robarDisponible.set(false);
+        this.ejecutarRobo();
+      }
+    }, 1000);
+  }
+
+  private pararTimerRobo(): void {
+    if (this.robarInterval) {
+      clearInterval(this.robarInterval);
+      this.robarInterval = null;
+    }
+  }
+
   activarModoIntercambio(): void {
     if (!this.esMiTurno() || this.fase() !== 'decidiendo') return;
     this.modoIntercambio.set(true);
@@ -258,7 +323,21 @@ export class Tablero implements OnInit, OnDestroy {
   //   El backend activa N+1 turnos de cuenta atrás; si el solicitante no gana,
   //   recibe penalización del 30% en ELO y cubitos (evento game:cubo-activado).
   accionCubo(): void {
-    this.finalizarPartida('¡Cubo! La partida ha terminado.');
+    if (this.cuboActivado()) return; // solo se puede pedir una vez
+
+    const gameId = this.gameService.gameId();
+    if (gameId) {
+      this.gameService.solicitarCubo();
+    } else {
+      // Modo local: N+1 turnos restantes (todos juegan uno más incluyendo al solicitante)
+      const n = this.jugadores().length;
+      this.cuboTurnosLocal = n + 1;
+      this.cuboActivado.set(true);
+      this.cuboInfo.set({
+        solicitanteId: this.jugadorActual()?.nombre ?? '',
+        turnosRestantes: n,
+      });
+    }
   }
 
   // TODO(backend): accionDescartar → WebsocketService.descartarPendiente(gameId)
@@ -382,6 +461,17 @@ export class Tablero implements OnInit, OnDestroy {
     }
 
     this.phaseTimeout = setTimeout(() => {
+      // Cubo local: descontar turno y finalizar cuando corresponda
+      if (this.cuboActivado() && !this.gameService.gameId()) {
+        this.cuboTurnosLocal--;
+        const restantes = Math.max(0, this.cuboTurnosLocal - 1); // -1 para mostrar "0" en el último turno
+        this.cuboInfo.update(info => info ? { ...info, turnosRestantes: restantes } : info);
+        if (this.cuboTurnosLocal <= 0) {
+          this.finalizarPartida('¡Cubo! La partida ha terminado.');
+          return;
+        }
+      }
+
       const n = this.jugadores().length;
       this.turnoIdx.set((this.turnoIdx() + 1) % n);
       this.iniciarTurno();
@@ -459,7 +549,7 @@ export class Tablero implements OnInit, OnDestroy {
   }
 
   reversoStyle(jugador: JugadorMesa): Record<string, string> {
-    if (!jugador.reverso) return {};
+    if (!jugador.esYo) return {};
     const url = this.localReversoUrl();
     if (!url) return {};
     return {
@@ -489,6 +579,8 @@ export class Tablero implements OnInit, OnDestroy {
 
   private limpiarTimers(): void {
     this.pararTimer();
+    this.pararTimerRobo();
+    this.robarDisponible.set(false);
     if (this.phaseTimeout) {
       clearTimeout(this.phaseTimeout);
       this.phaseTimeout = null;

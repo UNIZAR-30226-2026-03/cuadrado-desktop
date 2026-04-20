@@ -1,5 +1,10 @@
 <div class="rooms">
 
+  <!-- Top bar compartida -->
+  <div class="rooms-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
   <!-- Header -->
   <header class="page-header">
     <button class="back-btn" (click)="volver()" title="Volver al lobby">← Lobby</button>

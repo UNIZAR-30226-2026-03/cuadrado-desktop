@@ -1,36 +1,15 @@
 <div class="lobby">
 
-  <!-- ═══ Header bar ═══ -->
-  <header class="lobby-header" @headerSlide>
-    <div class="lobby-top-right">
-      <div class="lobby-stats">
-        <div class="stat-pill">
-          <span class="stat-pill__icon">💎</span>
-          <span>{{ usuario?.monedas ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">⭐</span>
-          <span>{{ usuario?.exp ?? 0 | number }}</span>
-        </div>
-        <div class="stat-pill">
-          <span class="stat-pill__icon">🏆</span>
-          <span>#{{ usuario?.ranking ?? '—' }}</span>
-        </div>
+  <!-- ═══ Top bar compartida ═══ -->
+  <div class="lobby-top-bar-wrap" @headerSlide>
+    <app-top-bar (settings)="toggleHamburgerMenu()"></app-top-bar>
+    @if (showHamburgerMenu) {
+      <div class="header-menu">
+        <button class="header-menu__item" (click)="irPerfil()">Perfil</button>
+        <button class="header-menu__item" (click)="openConfigPopup()">Settings</button>
       </div>
-
-      <div class="header-icons">
-        <div class="hamburger-wrap">
-          <button class="icon-btn icon-btn--menu" (click)="toggleHamburgerMenu()" title="Menú">☰</button>
-          @if (showHamburgerMenu) {
-            <div class="header-menu">
-              <button class="header-menu__item" (click)="openProfilePopup()">Perfil</button>
-              <button class="header-menu__item" (click)="openConfigPopup()">Settings</button>
-            </div>
-          }
-        </div>
-      </div>
-    </div>
-  </header>
+    }
+  </div>
 
   <!-- ═══ Cubos 3D efímeros ═══ -->
   @for (cube of cubes(); track cube.id) {
@@ -74,6 +53,10 @@ Partida</span>
         <span class="nav-btn__icon">🔍</span>
         <span class="nav-btn__label">Unirse a sala</span>
       </button>
+      <button class="nav-btn" (click)="irPerfil()">
+        <span class="nav-btn__icon">👤</span>
+        <span class="nav-btn__label">Perfil</span>
+      </button>
     </div>
   </nav>
 
@@ -87,115 +70,6 @@ Partida</span>
           <button class="btn-ghost deck-popup__btn deck-popup__btn--disabled" disabled>REANUDAR ÚLTIMA PARTIDA</button>
         </div>
         <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
-      </div>
-    </div>
-  }
-
-  @if (showProfilePopup) {
-    <div class="profile-popup-overlay" (click)="closeProfilePopup()">
-      <div class="profile-popup glass-card" (click)="$event.stopPropagation()">
-        <div class="profile-popup__header">
-          <button class="btn-ghost profile-popup__back" (click)="closeProfilePopup()">← Volver</button>
-          <h3 class="profile-popup__title">Perfil</h3>
-        </div>
-
-        @if (profileStatusMessage) {
-          <p class="popup-msg popup-msg--ok">{{ profileStatusMessage }}</p>
-        }
-        @if (profileStatusError) {
-          <p class="popup-msg popup-msg--error">{{ profileStatusError }}</p>
-        }
-
-        <section class="profile-main">
-          <button class="profile-avatar-btn" (click)="toggleAvatarSelector()" title="Editar avatar">
-            @if (currentAvatarSkin && !hasAvatarImageError(currentAvatarSkin.id)) {
-              <img [src]="getAvatarImageUrl(currentAvatarSkin)"
-                   [alt]="currentAvatarSkin.name"
-                   (error)="onAvatarImageError(currentAvatarSkin.id)" />
-            } @else {
-              <span class="profile-avatar-fallback">👤</span>
-            }
-            <span class="profile-avatar-btn__edit">✏️</span>
-          </button>
-
-          @if (!isEditingProfileName) {
-            <div class="profile-name-row">
-              <h4 class="profile-name">{{ profileName }}</h4>
-              <button class="profile-edit-btn" (click)="startProfileNameEdit()" title="Editar nombre">✏️</button>
-            </div>
-          } @else {
-            <div class="profile-name-edit">
-              <input class="input-neon"
-                     [(ngModel)]="profileNameDraft"
-                     maxlength="20"
-                     placeholder="Nombre de usuario" />
-              <div class="profile-name-edit__actions">
-                <button class="btn-ghost" (click)="cancelProfileNameEdit()">Cancelar</button>
-                <button class="btn-neon" (click)="saveProfileName()">Guardar</button>
-              </div>
-              @if (profileNameError) {
-                <span class="popup-error">{{ profileNameError }}</span>
-              }
-            </div>
-          }
-        </section>
-
-        @if (showAvatarSelector) {
-          <section class="profile-avatar-selector">
-            <h4 class="profile-avatar-selector__title">Avatares</h4>
-
-            @if (loadingProfileAvatars) {
-              <p class="profile-hint">Cargando avatares...</p>
-            } @else {
-              <div class="profile-avatar-grid">
-                @for (skin of avatarSkins(); track skin.id) {
-                  <button class="avatar-option"
-                          [class.avatar-option--locked]="!isAvatarOwned(skin)"
-                          [class.avatar-option--selected]="isAvatarSelected(skin)"
-                          [disabled]="!isAvatarOwned(skin) || savingProfileAvatar"
-                          (click)="selectAvatarSkin(skin)">
-                    @if (!hasAvatarImageError(skin.id)) {
-                      <img [src]="getAvatarImageUrl(skin)"
-                           [alt]="skin.name"
-                           (error)="onAvatarImageError(skin.id)" />
-                    } @else {
-                      <span class="avatar-option__fallback">{{ skin.name.charAt(0) }}</span>
-                    }
-
-                    @if (!isAvatarOwned(skin)) {
-                      <span class="avatar-option__lock">🔒</span>
-                    }
-
-                    @if (isAvatarSelected(skin)) {
-                      <span class="avatar-option__check">✓</span>
-                    }
-                  </button>
-                }
-              </div>
-
-              @if (avatarSkins().length === 0) {
-                <p class="profile-hint">No hay avatares disponibles.</p>
-              }
-            }
-          </section>
-        }
-
-        <section class="profile-stats-card">
-          <h4 class="profile-stats-card__title">Estadísticas</h4>
-          <div class="profile-stats-card__row">
-            <span>Partidas jugadas</span>
-            <strong>{{ usuario?.partidasJugadas ?? 0 }}</strong>
-          </div>
-          <div class="profile-stats-card__row">
-            <span>Partidas ganadas</span>
-            <strong>{{ usuario?.partidasGanadas ?? 0 }}</strong>
-          </div>
-        </section>
-
-        <div class="profile-actions">
-          <button class="btn-ghost" (click)="openChangePasswordPopup()">Cambiar contraseña</button>
-          <button class="btn-neon profile-actions__logout" (click)="onLogout()">Cerrar sesión</button>
-        </div>
       </div>
     </div>
   }
@@ -247,45 +121,6 @@ Partida</span>
             </select>
           </div>
         </section>
-      </div>
-    </div>
-  }
-
-  @if (showChangePasswordPopup) {
-    <div class="change-popup-overlay" (click)="closeChangePasswordPopup()">
-      <div class="change-popup glass-card" (click)="$event.stopPropagation()">
-        <h3>Cambiar contraseña</h3>
-
-        @if (changePasswordMessage) {
-          <p class="popup-msg popup-msg--ok">{{ changePasswordMessage }}</p>
-        }
-        @if (changePasswordError) {
-          <p class="popup-msg popup-msg--error">{{ changePasswordError }}</p>
-        }
-
-        <form [formGroup]="changePasswordForm" (ngSubmit)="submitChangePassword()">
-          <label>Contraseña actual</label>
-          <input class="input-neon" type="password" formControlName="passwordActual" placeholder="••••••••" />
-
-          <label>Nueva contraseña</label>
-          <input class="input-neon" type="password" formControlName="passwordNueva" placeholder="••••••••" />
-          @if (changePasswordForm.get('passwordNueva')?.touched && changePasswordForm.get('passwordNueva')?.hasError('minlength')) {
-            <span class="popup-error">Mínimo 8 caracteres</span>
-          }
-
-          <label>Confirmar nueva contraseña</label>
-          <input class="input-neon" type="password" formControlName="confirmarPassword" placeholder="••••••••" />
-          @if (changePasswordForm.get('confirmarPassword')?.touched && changePasswordForm.hasError('passwordsMismatch')) {
-            <span class="popup-error">Las contraseñas no coinciden</span>
-          }
-
-          <div class="popup-actions">
-            <button type="button" class="btn-ghost" (click)="closeChangePasswordPopup()">Cancelar</button>
-            <button type="submit" class="btn-neon" [disabled]="changingPassword">
-              {{ changingPassword ? 'Guardando...' : 'Guardar' }}
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   }

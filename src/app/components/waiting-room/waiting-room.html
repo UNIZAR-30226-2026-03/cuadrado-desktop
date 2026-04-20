@@ -1,6 +1,11 @@
 @if (sala(); as s) {
 <div class="waiting-room">
 
+  <!-- Top bar compartida -->
+  <div class="waiting-room-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
   <!-- Cabecera -->
   <header class="room-header" @fadeIn>
     <button class="back-btn" (click)="soyAnfitrion() ? cancelarSala() : abandonarSala()">
@@ -25,7 +30,7 @@
 
   <!-- Panel de jugadores -->
   <div class="players-panel" @slotStagger>
-    <h2 class="panel-title">Jugadores ({{ s.jugadores.length }}/8)</h2>
+    <h2 class="panel-title">Jugadores ({{ s.jugadores.length }}/{{ s.maxJugadores }})</h2>
 
     <div class="player-slots">
       @for (jugador of s.jugadores; track jugador.id) {
@@ -119,27 +124,11 @@
             Jugar con presentes
           </button>
 
-          <div class="modal__bots-row">
-            <button class="btn-neon modal__option-btn modal__option-btn--bots"
-                    [disabled]="maxBotsAgregables() === 0 || botsAAgregar() <= 0"
-                    (click)="agregarBots()">
-              Añadir bots
-            </button>
-
-            <input class="modal__bots-input"
-                   type="number"
-                   [value]="botsAAgregar()"
-                   [attr.min]="maxBotsAgregables() > 0 ? 1 : 0"
-                   [attr.max]="maxBotsAgregables()"
-                   step="1"
-                   [disabled]="maxBotsAgregables() === 0"
-                   (input)="onBotsAAgregarInput($event)"
-                   aria-label="Número de bots a añadir" />
-          </div>
-
-          <span class="modal__bots-help">
-            Máximo disponible: {{ maxBotsAgregables() }}
-          </span>
+          <button class="btn-neon modal__option-btn"
+                  [disabled]="maxBotsAgregables() === 0"
+                  (click)="rellenarConBots()">
+            Rellenar con bots
+          </button>
         </div>
         <button class="btn-ghost btn--sm" (click)="cerrarPopupInicio()">Cancelar</button>
       </div>
