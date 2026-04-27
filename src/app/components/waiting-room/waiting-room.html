@@ -36,8 +36,7 @@
       @for (jugador of s.jugadores; track jugador.id) {
         <div class="player-slot"
              [class.host]="jugador.esAnfitrion"
-             [class.bot]="jugador.esBot"
-             [class.ready]="jugador.listo">
+             [class.bot]="jugador.esBot">
 
           <div class="player-slot__avatar">
             <span class="avatar-emoji">{{ jugador.avatar }}</span>
@@ -56,14 +55,6 @@
               @else if (jugador.esBot) { Bot · {{ jugador.dificultad }} }
               @else { Jugador }
             </span>
-          </div>
-
-          <div class="player-slot__status">
-            @if (jugador.listo) {
-              <span class="status-badge ready">✔ Listo</span>
-            } @else {
-              <span class="status-badge waiting">⏳ Esperando</span>
-            }
           </div>
 
           @if (soyAnfitrion() && !jugador.esAnfitrion) {
@@ -87,9 +78,6 @@
 
   <!-- Controles centrales -->
   <div class="center-controls">
-    <button class="btn-neon btn--lg btn--ready" (click)="toggleListo()">
-      {{ estoyListo() ? '✋ No estoy listo' : '✔ Estoy listo' }}
-    </button>
     @if (soyAnfitrion()) {
       <button class="btn-neon btn--lg"
               [class.loading]="iniciandoPartida()"

@@ -267,6 +267,53 @@ $margin: 20px;
   letter-spacing: 0.06em;
 }
 
+// ── Error de unión ─────────────────────────────────────────────────────────
+.join-error {
+  font-size: 13px;
+  color: #ff6b8a;
+  text-shadow: 0 0 8px rgba(255, 107, 138, 0.3);
+  margin-bottom: 8px;
+}
+
+// ── Skeleton loader ──────────────────────────────────────────────────────────
+.skeleton-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 14px 18px;
+}
+
+@keyframes shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.skel {
+  border-radius: 6px;
+  height: 14px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(0, 229, 255, 0.10) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+
+  &--host    { width: 120px; flex-shrink: 0; }
+  &--players { width: 40px;  flex-shrink: 0; }
+  &--rules   { flex: 1; }
+  &--decks   { width: 110px; flex-shrink: 0; }
+  &--btn     { width: 72px;  height: 32px; border-radius: 8px; flex-shrink: 0; }
+}
+
 // ── Estado vacío ────────────────────────────────────────────────────────────
 .empty-state {
   flex: 1;

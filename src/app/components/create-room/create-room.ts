@@ -34,7 +34,10 @@ interface CardPower {
 export class CreateRoom implements OnInit {
   esPublica = signal(true);
   numBarajas = signal<1 | 2>(1);
-  maxJugadores = signal(8);
+  maxJugadores = signal(4);
+  turnTime = signal(30);
+
+  readonly turnTimeOptions = [15, 20, 30, 45, 60, 90] as const;
 
   cardPowers: CardPower[] = [
     { card: 'A',  image: '🂡', description: 'Intercambia todas tus cartas por todas las cartas de otro jugador.', enabled: false },
@@ -46,8 +49,8 @@ export class CreateRoom implements OnInit {
     { card: '7',  image: '🂧', description: 'Revela qué jugador tiene menos puntos en ese momento. (Poder almacenable)', enabled: false },
     { card: '8',  image: '🂨', description: 'La siguiente habilidad que se active no tendrá efecto. (Poder almacenable)', enabled: false },
     { card: '9',  image: '🂩', description: 'Ofrece un intercambio a otro jugador: ambos elegís una carta a ciegas.', enabled: false },
-    { card: '10', image: '🂪', description: 'Ve una de tus propias cartas.', enabled: false },
-    { card: 'J',  image: '🂫', description: 'Ve una de tus cartas y una de otro jugador; decide si las intercambias (con ese mismo jugador).', enabled: false },
+    { card: '10', image: '🂪', description: 'Ve una de tus propias cartas.', enabled: true },
+    { card: 'J',  image: '🂫', description: 'Ve una de tus cartas y una de otro jugador; decide si las intercambias (con ese mismo jugador).', enabled: true },
     { card: 'Q',  image: '🂭', description: 'Sin poder especial. (12 puntos)', enabled: false },
     { card: 'K',  image: '🂮', description: 'K roja = 0 puntos · K negra = 20 puntos.', enabled: false },
   ];
@@ -83,7 +86,6 @@ export class CreateRoom implements OnInit {
       nombre: usuario?.nombre || 'Anfitrión',
       esBot: false,
       esAnfitrion: true,
-      listo: false,
       avatar: '👑'
     };
 
@@ -97,9 +99,10 @@ export class CreateRoom implements OnInit {
     if (token) {
       try {
         await this.ws.conectarYEsperar(token);
+        await this.ws.leaveRoomAck();
         const resp = await this.ws.createRoom(nombreSala, {
           maxPlayers: this.maxJugadores(),
-          turnTimeSeconds: 30,
+          turnTimeSeconds: this.turnTime(),
           isPrivate: !this.esPublica(),
           fillWithBots: false,
         });

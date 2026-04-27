@@ -1,6 +1,7 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
+import { DecimalPipe } from '@angular/common';
 import {
   ReactiveFormsModule, FormsModule, FormBuilder, FormGroup,
   Validators, AbstractControl, ValidationErrors,
@@ -8,6 +9,12 @@ import {
 import { AuthService } from '../../services/auth';
 import { TopBar } from '../shared/top-bar/top-bar';
 import { environment } from '../../environment';
+
+interface MyRankingPosition {
+  position: number;
+  username: string;
+  eloRating: number;
+}
 
 interface Skin {
   id: string;
@@ -20,7 +27,7 @@ interface Skin {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, TopBar],
+  imports: [ReactiveFormsModule, FormsModule, TopBar, DecimalPipe],
   templateUrl: './profile.html',
   styleUrl: './profile.scss',
 })
@@ -40,6 +47,9 @@ export class Profile implements OnInit {
   avatarSkins = signal<Skin[]>([]);
   ownedAvatarIds = signal<Set<string>>(new Set());
   avatarImageErrors = signal<Set<string>>(new Set());
+
+  myPosition = signal<MyRankingPosition | null>(null);
+  rankingLoading = signal(false);
 
   changePasswordForm: FormGroup;
   changingPassword = false;
@@ -63,6 +73,7 @@ export class Profile implements OnInit {
     this.profileDisplayName = this.usuario?.nombre ?? '';
     this.auth.refreshProfile().subscribe();
     this.loadProfileAvatars();
+    this.cargarMiPosicion();
   }
 
   get usuario() { return this.auth.usuario(); }
@@ -82,6 +93,25 @@ export class Profile implements OnInit {
   openSettingsFromTopBar(): void { this.router.navigate(['/lobby']); }
 
   onLogout(): void { this.auth.logout(); }
+
+  irRanking(): void { this.router.navigate(['/ranking']); }
+
+  private cargarMiPosicion(): void {
+    const token = this.auth.getToken();
+    if (!token) return;
+
+    this.rankingLoading.set(true);
+    const headers = { Authorization: `Bearer ${token}` };
+    this.http.get<MyRankingPosition>(
+      `${environment.apiUrl}/users/me/position`, { headers }
+    ).subscribe({
+      next: (data) => {
+        this.myPosition.set(data);
+        this.rankingLoading.set(false);
+      },
+      error: () => this.rankingLoading.set(false),
+    });
+  }
 
   toggleAvatarSelector(): void {
     this.profileStatusMessage = '';

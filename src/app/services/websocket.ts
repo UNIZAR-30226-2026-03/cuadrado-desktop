@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { io, Socket } from 'socket.io-client';
-import { Subject } from 'rxjs';
+import { Subject, ReplaySubject } from 'rxjs';
 import { environment } from '../environment';
 
 // ── Tipos de eventos servidor → cliente ─────────────────────────────────────
@@ -57,6 +57,14 @@ export interface EvPartidaFinalizada {
   recompensas: unknown;
 }
 
+export interface EvTurnoIniciado {
+  gameId: string;
+  turn: number;
+  userId: string;
+  phase: string;
+  turnDeadlineAt: number;
+}
+
 export interface EvCuboActivado {
   gameId: string;
   solicitanteId: string;
@@ -105,6 +113,22 @@ export interface EvRoomClosed {
   roomCode: string;
 }
 
+export interface PublicRoomSummary {
+  name: string;
+  code: string;
+  playersCount: number;
+  rules: {
+    maxPlayers: number;
+    turnTimeSeconds: number;
+    isPrivate: boolean;
+    fillWithBots: boolean;
+    dificultadBots?: string;
+    deckCount?: number;
+    enabledPowers?: string[];
+  };
+  createdAt: string | Date;
+}
+
 // ── Servicio ─────────────────────────────────────────────────────────────────
 
 @Injectable({ providedIn: 'root' })
@@ -115,6 +139,7 @@ export class WebsocketService {
 
   // Streams para eventos de juego
   inicioPartida$     = new Subject<EvInicioPartida>();
+  turnoIniciado$     = new Subject<EvTurnoIniciado>();
   cartaRobada$       = new Subject<EvCartaRobada>();
   decisionRequerida$ = new Subject<EvDecisionRequerida>();
   descartePendiente$ = new Subject<EvDescartarPendiente>();
@@ -123,7 +148,7 @@ export class WebsocketService {
   partidaFinalizada$ = new Subject<EvPartidaFinalizada>();
   cuboActivado$      = new Subject<EvCuboActivado>();
   mazoRebarajado$    = new Subject<EvMazoRebarajado>();
-  roomUpdate$        = new Subject<EvRoomUpdate>();
+  roomUpdate$        = new ReplaySubject<EvRoomUpdate>(1);
   roomClosed$        = new Subject<EvRoomClosed>();
   error$             = new Subject<string>();
 
@@ -150,6 +175,7 @@ export class WebsocketService {
 
     // Eventos de partida
     this.socket.on('game:inicio-partida',    (d: EvInicioPartida)     => this.inicioPartida$.next(d));
+    this.socket.on('game:turno-iniciado',    (d: EvTurnoIniciado)     => this.turnoIniciado$.next(d));
     this.socket.on('game:carta-robada',      (d: EvCartaRobada)       => this.cartaRobada$.next(d));
     this.socket.on('game:decision-requerida',(d: EvDecisionRequerida) => this.decisionRequerida$.next(d));
     this.socket.on('game:descartar-pendiente',(d: EvDescartarPendiente)=> this.descartePendiente$.next(d));
@@ -177,7 +203,7 @@ export class WebsocketService {
   async createRoom(name: string, rules: RoomRules): Promise<{ success: boolean; roomCode?: string; roomName?: string }> {
     if (!this.socket) return { success: false };
     try {
-      return await this.socket.emitWithAck('rooms:create', { name, rules });
+      return await this.socket.timeout(6000).emitWithAck('rooms:create', { name, rules });
     } catch {
       return { success: false };
     }
@@ -186,9 +212,28 @@ export class WebsocketService {
   async joinRoomWs(roomCode: string): Promise<{ success: boolean; roomCode?: string }> {
     if (!this.socket) return { success: false };
     try {
-      return await this.socket.emitWithAck('rooms:join', { roomCode });
+      return await this.socket.timeout(5000).emitWithAck('rooms:join', { roomCode });
     } catch {
       return { success: false };
+    }
+  }
+
+  async listPublicRooms(): Promise<PublicRoomSummary[]> {
+    if (!this.socket) return [];
+    try {
+      const resp = await this.socket.timeout(5000).emitWithAck('rooms:list-public', {});
+      return resp?.success ? (resp.rooms ?? []) : [];
+    } catch {
+      return [];
+    }
+  }
+
+  async leaveRoomAck(): Promise<void> {
+    if (!this.socket?.connected) return;
+    try {
+      await this.socket.timeout(3000).emitWithAck('rooms:leave', {});
+    } catch {
+      // ignorar — el objetivo es limpiar el estado del backend
     }
   }
 
@@ -204,6 +249,10 @@ export class WebsocketService {
 
   emit<T>(event: string, payload: T): void {
     this.socket?.emit(event, payload);
+  }
+
+  startRoom(roomCode: string): void {
+    this.emit('rooms:start', { roomCode });
   }
 
   iniciarPartida(savedGameId?: string): void {

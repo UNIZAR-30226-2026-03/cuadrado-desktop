@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, signal, computed, effect } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import {
   trigger, transition, style, animate, query, stagger
@@ -7,6 +7,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, SalaData, JugadorSala } from '../../services/room';
 import { WebsocketService, EvRoomUpdate } from '../../services/websocket';
+import { GameService } from '../../services/game';
 import { TopBar } from '../shared/top-bar/top-bar';
 
 interface PowerCard {
@@ -68,6 +69,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
   selectedPowerCard = signal<PowerCard | null>(null);
 
   private subs: Subscription[] = [];
+  private partidaIniciada = false;
 
   slotsVacios = computed(() => {
     const s = this.sala();
@@ -84,28 +86,12 @@ export class WaitingRoom implements OnInit, OnDestroy {
 
   puedeIniciar = computed(() => {
     const s = this.sala();
-    if (!s || s.jugadores.length < 1) return false;
-    // El host debe estar listo para poder iniciar
-    const host = s.jugadores.find(j => j.esAnfitrion);
-    return host?.listo || false;
+    return s != null && s.jugadores.length >= 1;
   });
 
   puedeJugarConPresentes = computed(() => {
     const s = this.sala();
     return s ? s.jugadores.length >= 2 : false;
-  });
-
-  todosListos = computed(() => {
-    const s = this.sala();
-    if (!s || s.jugadores.length < 1) return false;
-    return s.jugadores.filter(j => !j.esBot).every(j => j.listo);
-  });
-
-  estoyListo = computed(() => {
-    const s = this.sala();
-    if (!s) return false;
-    const yo = s.jugadores.find(j => j.nombre === this.miNombre() && !j.esBot);
-    return yo?.listo || false;
   });
 
   activePowers = computed((): PowerCard[] => {
@@ -121,15 +107,9 @@ export class WaitingRoom implements OnInit, OnDestroy {
     private router: Router,
     private auth: AuthService,
     private roomService: RoomService,
-    private ws: WebsocketService
-  ) {
-    // Auto-abrir popup de inicio cuando todos los humanos esten listos
-    effect(() => {
-      if (this.todosListos() && this.soyAnfitrion() && !this.iniciandoPartida()) {
-        this.showStartPopup.set(true);
-      }
-    });
-  }
+    private ws: WebsocketService,
+    private gameService: GameService,
+  ) {}
 
   ngOnInit(): void {
     const sala = this.roomService.obtenerSala();
@@ -150,11 +130,20 @@ export class WaitingRoom implements OnInit, OnDestroy {
         localStorage.removeItem('cubo_es_anfitrion');
         this.router.navigate(['/lobby']);
       }),
+      this.ws.inicioPartida$.subscribe(ev => {
+        this.gameService.setGameId(ev.partidaId);
+        this.gameService.setTurnoJugadores(ev.jugadores);
+        this.partidaIniciada = true;
+        this.router.navigate(['/tablero']);
+      }),
     );
   }
 
   ngOnDestroy(): void {
     this.subs.forEach(s => s.unsubscribe());
+    if (!this.partidaIniciada && this.ws.estaConectado()) {
+      this.ws.leaveRoom();
+    }
   }
 
   // ── Sincronización con backend ───────────────────────────────────────────────
@@ -162,6 +151,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
   private sincronizarDesdeBackend(state: EvRoomUpdate): void {
     const sala = this.sala();
     if (!sala) return;
+    if (state.code !== sala.id) return;
 
     // Actualizar nombre del anfitrión
     const nuevoAnfitrion = state.players.find(p => p.isHost)?.userId || sala.anfitrion;
@@ -178,7 +168,6 @@ export class WaitingRoom implements OnInit, OnDestroy {
         nombre,
         esBot: p.controlador === 'bot',
         esAnfitrion: p.isHost,
-        listo: p.ready,
         avatar: existente?.avatar || (p.controlador === 'bot' ? '🤖' : '🎮'),
       };
     });
@@ -263,14 +252,20 @@ export class WaitingRoom implements OnInit, OnDestroy {
 
   private lanzarPartida(): void {
     this.iniciandoPartida.set(true);
-    setTimeout(() => {
-      const sala = this.sala();
-      if (sala) {
+    const sala = this.sala();
+    if (!sala) return;
+
+    if (this.ws.estaConectado()) {
+      // El backend emitirá game:inicio-partida a todos → inicioPartida$ subscription navega
+      this.ws.startRoom(sala.id);
+    } else {
+      // Modo sin conexión: navegación local directa
+      setTimeout(() => {
         sala.estado = 'en_partida';
         this.actualizarSala(sala);
-      }
-      this.router.navigate(['/tablero']);
-    }, 2500);
+        this.router.navigate(['/tablero']);
+      }, 2500);
+    }
   }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.
@@ -284,25 +279,6 @@ export class WaitingRoom implements OnInit, OnDestroy {
     }
     this.roomService.eliminarSala();
     this.router.navigate(['/lobby']);
-  }
-
-  // Controles del jugador
-  toggleListo(): void {
-    const sala = this.sala();
-    if (!sala) return;
-    const yo = sala.jugadores.find(j => j.nombre === this.miNombre() && !j.esBot);
-    if (!yo) return;
-
-    // Si estamos conectados al backend, usar el evento WS (el backend responderá con room:update)
-    if (this.ws.estaConectado()) {
-      this.ws.toggleReady();
-      // Actualización optimista local mientras llega el room:update
-      yo.listo = !yo.listo;
-      this.sala.set({ ...sala });
-    } else {
-      yo.listo = !yo.listo;
-      this.actualizarSala(sala);
-    }
   }
 
   abandonarSala(): void {

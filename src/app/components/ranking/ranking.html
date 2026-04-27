@@ -1,0 +1,76 @@
+<div class="ranking-page">
+
+  <div class="ranking-top-bar-wrap">
+    <app-top-bar (settings)="openSettingsFromTopBar()"></app-top-bar>
+  </div>
+
+  <header class="page-header">
+    <button class="back-btn" (click)="volver()">
+      <span>←</span>
+      <span>Lobby</span>
+    </button>
+    <h1 class="page-title">
+      <span class="page-title__icon">🏆</span>
+      Ranking
+    </h1>
+    <span class="header-spacer"></span>
+  </header>
+
+  @if (myPosition(); as mp) {
+    <section class="my-position-card glass-card">
+      <span class="my-position-card__label">Tu posición</span>
+      <div class="my-position-card__body">
+        <span class="my-position-card__rank">#{{ mp.position }}</span>
+        <span class="my-position-card__name">{{ mp.username }}</span>
+        <span class="my-position-card__elo">{{ mp.eloRating }} ELO</span>
+      </div>
+    </section>
+  }
+
+  <main class="ranking-main">
+    @if (loading()) {
+      <div class="loading-state">
+        <span class="loading-spinner"></span>
+        <p>Cargando ranking...</p>
+      </div>
+    } @else if (loadError()) {
+      <div class="empty-state">
+        <span class="empty-state__icon">⚠️</span>
+        <p class="empty-state__text">{{ loadError() }}</p>
+        <button class="btn-ghost" (click)="cargar()">Reintentar</button>
+      </div>
+    } @else if (topUsers().length === 0) {
+      <div class="empty-state">
+        <span class="empty-state__icon">📊</span>
+        <p class="empty-state__text">Todavía no hay jugadores en el ranking.</p>
+      </div>
+    } @else {
+      <section class="leaderboard glass-card">
+        <div class="leaderboard__header">
+          <span class="col col--pos">#</span>
+          <span class="col col--name">Jugador</span>
+          <span class="col col--elo">ELO</span>
+        </div>
+        <div class="leaderboard__list">
+          @for (row of topUsers(); track row.username) {
+            <div class="leaderboard-row"
+                 [class.leaderboard-row--me]="esYo(row)"
+                 [class.leaderboard-row--top1]="row.position === 1"
+                 [class.leaderboard-row--top2]="row.position === 2"
+                 [class.leaderboard-row--top3]="row.position === 3">
+              <span class="col col--pos">
+                @if (medalla(row.position); as m) {
+                  <span class="leaderboard-row__medal">{{ m }}</span>
+                }
+                <span class="leaderboard-row__pos">#{{ row.position }}</span>
+              </span>
+              <span class="col col--name">{{ row.username }}</span>
+              <span class="col col--elo">{{ row.eloRating }}</span>
+            </div>
+          }
+        </div>
+      </section>
+    }
+  </main>
+
+</div>

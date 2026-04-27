@@ -193,6 +193,41 @@ $margin: 20px;
   }
 }
 
+.filter-select {
+  padding: 6px 28px 6px 14px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-body);
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  color: var(--text-80);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 200ms;
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--neon-cyan) 50%),
+    linear-gradient(135deg, var(--neon-cyan) 50%, transparent 50%);
+  background-position:
+    calc(100% - 16px) 50%,
+    calc(100% - 11px) 50%;
+  background-size: 5px 5px, 5px 5px;
+  background-repeat: no-repeat;
+
+  &:hover,
+  &:focus {
+    color: var(--neon-cyan);
+    border-color: rgba(0, 229, 255, 0.4);
+    outline: none;
+  }
+
+  option {
+    background: #0b1733;
+    color: var(--text-80);
+  }
+}
+
 // ── Cuadrícula de skins ─────────────────────────────────────────────────────
 .skins-grid {
   display: grid;

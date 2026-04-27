@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
 import { GameService } from '../../services/game';
-import { WebsocketService } from '../../services/websocket';
+import { WebsocketService, EvTurnoIniciado } from '../../services/websocket';
 import { environment } from '../../environment';
 
 // Tipos internos del tablero
@@ -67,16 +67,27 @@ export class Tablero implements OnInit, OnDestroy {
   discardTop       = signal<CartaMesa | null>(null);
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
-  cuboActivado     = signal(false);
-  cuboInfo         = signal<{ solicitanteId: string; turnosRestantes: number } | null>(null);
-  robarDisponible  = signal(false);
+  cuboActivado      = signal(false);
+  cuboInfo          = signal<{ solicitanteId: string; turnosRestantes: number } | null>(null);
+  cuboBannerVisible = signal(false);
+  robarDisponible   = signal(false);
   robarSegundos    = signal(3);
 
   // Computados
-  jugadorActual   = computed(() => this.jugadores()[this.turnoIdx()] ?? null);
+  jugadorActual = computed(() => {
+    const order = this.turnoOrder;
+    if (order.length > 0) {
+      const userId = order[this.turnoIdx() % order.length];
+      return this.jugadores().find(j => j.nombre === userId) ?? null;
+    }
+    return this.jugadores()[this.turnoIdx()] ?? null;
+  });
   esMiTurno       = computed(() => !!this.jugadorActual()?.esYo);
   timerPorcentaje = computed(() => (this.timerSegundos() / TURNO_SEGUNDOS) * 100);
   timerUrgente    = computed(() => this.timerSegundos() <= 5 && this.esMiTurno() && this.fase() === 'decidiendo');
+
+  // Orden de turno sincronizado con el backend (userIds); vacío en modo local
+  private turnoOrder: string[] = [];
 
   // Internos
   // TODO(backend): deck → GameManager.robarCarta() vía evento game:carta-robada
@@ -86,6 +97,7 @@ export class Tablero implements OnInit, OnDestroy {
   private timerInterval: ReturnType<typeof setInterval> | null = null;
   private robarInterval: ReturnType<typeof setInterval> | null = null;
   private phaseTimeout:  ReturnType<typeof setTimeout>  | null = null;
+  private cuboBannerTimer: ReturnType<typeof setTimeout> | null = null;
   private cuboTurnosLocal = 0; // contador de turnos restantes en modo local
 
   // URLs reales de las skins equipadas (obtenidas del backend)
@@ -112,12 +124,19 @@ export class Tablero implements OnInit, OnDestroy {
     this.cargarSkinsEquipadas();
 
     this.subs.push(
+      this.ws.turnoIniciado$.subscribe((ev: EvTurnoIniciado) => {
+        const idx = this.turnoOrder.indexOf(ev.userId);
+        this.turnoIdx.set(idx >= 0 ? idx : 0);
+        this.limpiarTimers();
+        this.iniciarTurno();
+      }),
       this.ws.cuboActivado$.subscribe(ev => {
         this.cuboActivado.set(true);
         this.cuboInfo.set({
           solicitanteId: ev.solicitanteId,
           turnosRestantes: ev.turnosRestantes,
         });
+        this.showCuboBanner();
       }),
       this.ws.partidaFinalizada$.subscribe(ev => {
         const motivos: Record<string, string> = {
@@ -126,6 +145,9 @@ export class Tablero implements OnInit, OnDestroy {
           unJugadorSinCartas: 'Un jugador se ha quedado sin cartas.',
         };
         this.finalizarPartida(motivos[ev.motivo] ?? 'La partida ha terminado.');
+      }),
+      this.ws.roomClosed$.subscribe(() => {
+        this.finalizarPartida('La partida ha terminado porque un jugador abandonó.');
       }),
     );
   }
@@ -145,12 +167,16 @@ export class Tablero implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.limpiarTimers();
     this.subs.forEach(s => s.unsubscribe());
+    this.gameService.salirDePartida();
   }
 
   // Inicialización
 
   private inicializarJuego(lista: JugadorSala[]): void {
     const miNombre = this.auth.usuario()?.nombre ?? '';
+
+    // Capturar el orden de turno del backend si está disponible
+    this.turnoOrder = [...this.gameService.turnoJugadores()];
 
     // El jugador humano siempre en posición sur (índice 0)
     const yo    = lista.find(j => j.nombre === miNombre && !j.esBot);
@@ -186,8 +212,11 @@ export class Tablero implements OnInit, OnDestroy {
     this.deckCount.set(this.deck.length);
     this.jugadores.set(jugadoresMesa);
 
-    // Pequeño retraso para que el DOM se renderice antes del primer turno
-    this.phaseTimeout = setTimeout(() => this.iniciarTurno(), 600);
+    // Online: el primer turno lo lanza el backend vía game:turno-iniciado
+    // Local: arrancar inmediatamente
+    if (!this.gameService.gameId()) {
+      this.phaseTimeout = setTimeout(() => this.iniciarTurno(), 600);
+    }
   }
 
   private crearBarajaMezclada(): CartaMesa[] {
@@ -337,7 +366,17 @@ export class Tablero implements OnInit, OnDestroy {
         solicitanteId: this.jugadorActual()?.nombre ?? '',
         turnosRestantes: n,
       });
+      this.showCuboBanner();
     }
+  }
+
+  private showCuboBanner(): void {
+    if (this.cuboBannerTimer) clearTimeout(this.cuboBannerTimer);
+    this.cuboBannerVisible.set(true);
+    this.cuboBannerTimer = setTimeout(() => {
+      this.cuboBannerVisible.set(false);
+      this.cuboBannerTimer = null;
+    }, 3200);
   }
 
   // TODO(backend): accionDescartar → WebsocketService.descartarPendiente(gameId)
@@ -446,6 +485,9 @@ export class Tablero implements OnInit, OnDestroy {
   //   desde otros eventos (game:descartar-pendiente, game:turno-expirado, etc.).
   private programarSiguienteTurno(): void {
     this.fase.set('idle');
+
+    // Online: el backend avanza el turno y emitirá game:turno-iniciado
+    if (this.gameService.gameId()) return;
 
     // Si el mazo se agotó, intentar rebarajar antes de avanzar
     if (this.deck.length === 0) {
@@ -574,6 +616,7 @@ export class Tablero implements OnInit, OnDestroy {
 
   salirPartida(): void {
     this.limpiarTimers();
+    this.gameService.salirDePartida();
     this.router.navigate(['/lobby']);
   }
 
@@ -584,6 +627,10 @@ export class Tablero implements OnInit, OnDestroy {
     if (this.phaseTimeout) {
       clearTimeout(this.phaseTimeout);
       this.phaseTimeout = null;
+    }
+    if (this.cuboBannerTimer) {
+      clearTimeout(this.cuboBannerTimer);
+      this.cuboBannerTimer = null;
     }
   }
 }

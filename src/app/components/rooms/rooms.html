@@ -31,12 +31,28 @@
       </div>
     </div>
 
-    @if (salasFiltradas().length > 0) {
+    @if (errorJoin()) {
+      <p class="join-error" @fadeIn>⚠ {{ errorJoin() }}</p>
+    }
+
+    @if (cargandoInicial()) {
+      <div class="skeleton-list" @fadeIn>
+        @for (row of skeletonRows; track row) {
+          <div class="skeleton-row glass-card">
+            <span class="skel skel--host"></span>
+            <span class="skel skel--players"></span>
+            <span class="skel skel--rules"></span>
+            <span class="skel skel--decks"></span>
+            <span class="skel skel--btn"></span>
+          </div>
+        }
+      </div>
+    } @else if (salasFiltradas().length > 0) {
       <div class="rooms-list" @cardStagger>
         @for (sala of salasFiltradas(); track sala.id) {
-          <div class="room-row glass-card" [class.disabled]="!puedeUnirse(sala)">
-            <span class="room-row__host">{{ sala.anfitrion }}</span>
-            <span class="room-row__players">{{ sala.jugadores.length }}/8</span>
+          <div class="room-row glass-card">
+            <span class="room-row__host">{{ sala.anfitrion || sala.nombre }}</span>
+            <span class="room-row__players">{{ sala.jugadores.length }}/{{ sala.maxJugadores }}</span>
             <span class="room-row__rules">
               @if (sala.reglasActivas.length > 0) {
                 Reglas: {{ sala.reglasActivas.join(', ') }}
@@ -46,7 +62,7 @@
             </span>
             <span class="room-row__decks">Nº de barajas: {{ sala.numBarajas }}</span>
             <button class="btn-neon btn--sm room-row__join"
-                    [disabled]="!puedeUnirse(sala)"
+                    type="button"
                     (click)="unirseDesdeCard(sala)">
               Unirse
             </button>
@@ -73,15 +89,21 @@
     <h2 class="section-title">SALAS PRIVADAS</h2>
     <div class="code-input-row">
       <input class="input-neon code-input"
+             #codigoInputEl
              type="text"
              [value]="codigoInput()"
              (input)="onCodigoInput($event)"
-             (keydown.enter)="unirsePorCodigo()"
+             (keydown.enter)="unirsePorCodigo(codigoInputEl.value)"
              placeholder="Ej: AB3X7K"
              maxlength="6"
              spellcheck="false"
              autocomplete="off" />
-      <button class="btn-neon code-join-btn" (click)="unirsePorCodigo()">Unirse</button>
+      <button class="btn-neon code-join-btn"
+              type="button"
+              [disabled]="uniendoCodigo()"
+              (click)="unirsePorCodigo(codigoInputEl.value)">
+        {{ uniendoCodigo() ? 'Uniendo...' : 'Unirse' }}
+      </button>
     </div>
     @if (errorCodigo()) {
       <p class="code-error">{{ errorCodigo() }}</p>

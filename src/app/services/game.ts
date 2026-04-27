@@ -6,8 +6,10 @@ import { WebsocketService } from './websocket';
 })
 export class GameService {
   private _gameId = signal<string | null>(null);
+  private _turnoJugadores = signal<string[]>([]);
 
   gameId = this._gameId.asReadonly();
+  turnoJugadores = this._turnoJugadores.asReadonly();
   estaConectado = computed(() => this.ws.estaConectado());
 
   constructor(private ws: WebsocketService) {}
@@ -44,8 +46,13 @@ export class GameService {
     this._gameId.set(gameId);
   }
 
+  setTurnoJugadores(jugadores: string[]): void {
+    this._turnoJugadores.set(jugadores);
+  }
+
   salirDePartida(): void {
     this.ws.desconectar();
     this._gameId.set(null);
+    this._turnoJugadores.set([]);
   }
 }

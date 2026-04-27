@@ -37,12 +37,23 @@
     </div>
   }
 
-  <!-- ── Banner de Cubo activo ────────────────────────────────────────── -->
-  @if (cuboActivado() && cuboInfo(); as info) {
+  <!-- ── Banner de Cubo activo (flash 3s, centro) ────────────────────── -->
+  @if (cuboBannerVisible() && cuboInfo(); as info) {
     <div class="tablero__banner tablero__banner--cubo">
       <div class="tablero__banner-box tablero__banner-box--cubo">
-        ¡CUBO activado! · {{ info.turnosRestantes }} turnos restantes
+        ¡CUBO!
       </div>
+    </div>
+  }
+
+  <!-- ── Chip persistente de turnos restantes (esquina, siempre visible) -->
+  @if (cuboActivado() && cuboInfo(); as info) {
+    <div class="tablero__cubo-chip"
+         [class.tablero__cubo-chip--urgent]="info.turnosRestantes <= 2">
+      <span class="tablero__cubo-chip__label">¡CUBO!</span>
+      <span class="tablero__cubo-chip__sep">·</span>
+      <span class="tablero__cubo-chip__count">{{ info.turnosRestantes }}</span>
+      <span class="tablero__cubo-chip__unit">turnos</span>
     </div>
   }
 

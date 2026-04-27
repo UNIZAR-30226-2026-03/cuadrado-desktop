@@ -2,14 +2,15 @@
 //  Rooms — Pantalla de búsqueda y unión a salas
 // ═══════════════════════════════════════════════════════════════════════════════
 
-import { Component, OnInit, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import {
-  trigger, transition, style, animate, query, stagger
+  trigger, transition, style, animate
 } from '@angular/animations';
+import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
-import { RoomService, SalaData, MAX_JUGADORES } from '../../services/room';
-import { WebsocketService } from '../../services/websocket';
+import { RoomService, SalaData } from '../../services/room';
+import { WebsocketService, PublicRoomSummary } from '../../services/websocket';
 import { TopBar } from '../shared/top-bar/top-bar';
 
 @Component({
@@ -21,13 +22,8 @@ import { TopBar } from '../shared/top-bar/top-bar';
   animations: [
     trigger('cardStagger', [
       transition(':enter', [
-        query('.room-card', [
-          style({ opacity: 0, transform: 'translateY(20px) scale(0.96)' }),
-          stagger(60, [
-            animate('400ms cubic-bezier(0.34, 1.56, 0.64, 1)',
-              style({ opacity: 1, transform: 'none' })),
-          ]),
-        ], { optional: true }),
+        style({ opacity: 0, transform: 'translateY(8px)' }),
+        animate('140ms ease-out', style({ opacity: 1, transform: 'none' })),
       ]),
     ]),
     trigger('fadeIn', [
@@ -38,30 +34,35 @@ import { TopBar } from '../shared/top-bar/top-bar';
     ]),
   ],
 })
-export class Rooms implements OnInit {
+export class Rooms implements OnInit, OnDestroy {
   // Estado
-  codigoInput = signal('');
-  errorCodigo = signal('');
-  busqueda = signal('');
-  refrescando = signal(false);
-  salas = signal<SalaData[]>([]);
+  codigoInput   = signal('');
+  errorCodigo   = signal('');
+  errorJoin     = signal('');
+  busqueda      = signal('');
+  refrescando   = signal(false);
+  uniendoCodigo = signal(false);
+  salas         = signal<SalaData[]>([]);
+  cargandoInicial = signal(true);
 
-  // Salas filtradas por búsqueda
+  readonly skeletonRows = [1, 2, 3, 4];
+
+  private refreshInterval: ReturnType<typeof setInterval> | null = null;
+  private roomClosedSub: Subscription | null = null;
+
+  // Salas filtradas: solo las que están esperando jugadores
   salasFiltradas = computed(() => {
     const texto = this.busqueda().toLowerCase().trim();
-    let lista = this.salas();
+    // Solo mostrar salas en estado 'esperando' — omitir basura residual
+    let lista = this.salas().filter(s => s.estado === 'esperando');
     if (texto) {
       lista = lista.filter(s =>
         s.nombre.toLowerCase().includes(texto) ||
         s.anfitrion.toLowerCase().includes(texto)
       );
     }
-    // Ordenar: esperando primero, luego por número de jugadores desc, luego más recientes
+    // Ordenar: más jugadores primero, luego más recientes
     return lista.sort((a, b) => {
-      const estadoOrden = { 'esperando': 0, 'en_partida': 1, 'llena': 2 };
-      const oa = estadoOrden[a.estado] ?? 3;
-      const ob = estadoOrden[b.estado] ?? 3;
-      if (oa !== ob) return oa - ob;
       if (b.jugadores.length !== a.jugadores.length) return b.jugadores.length - a.jugadores.length;
       return b.creadaEn - a.creadaEn;
     });
@@ -77,167 +78,201 @@ export class Rooms implements OnInit {
   ngOnInit(): void {
     this.roomService.inicializarSalasMock();
     this.cargarSalas();
+    this.refrescando.set(true);
+
+    // Primera carga: reconexión limpia + salir de cualquier sala residual
+    // Igual que create-room.ts: conectar → leaveRoomAck → operar
+    const iniciarConLimpieza = async () => {
+      const token = this.auth.getToken();
+      if (token) {
+        try {
+          this.ws.desconectar();
+          await this.ws.conectarYEsperar(token);
+          await this.ws.leaveRoomAck(); // limpia userToRoom residual en el backend
+        } catch { /* continuar igualmente */ }
+      }
+      await this.cargarSalasBackend();
+    };
+
+    iniciarConLimpieza().finally(() => {
+      this.refrescando.set(false);
+      this.cargandoInicial.set(false);
+    });
+
+    this.refreshInterval = setInterval(() => this.cargarSalasBackend(), 8000);
+
+    // Escuchar cierres de sala en tiempo real — elimina la fila al instante
+    this.roomClosedSub = this.ws.roomClosed$.subscribe(({ roomCode }) => {
+      this.salas.update(lista => lista.filter(s => s.id !== roomCode));
+    });
   }
 
-  // ═══ Cargar salas públicas ═══
+  ngOnDestroy(): void {
+    if (this.refreshInterval) clearInterval(this.refreshInterval);
+    this.roomClosedSub?.unsubscribe();
+  }
+
+  // ═══ Cargar salas locales (mock / localStorage) ═══
   cargarSalas(): void {
     this.salas.set(this.roomService.obtenerSalasPublicas());
+  }
+
+  // ═══ Cargar salas reales del backend ═══
+  private async cargarSalasBackend(): Promise<void> {
+    const token = this.auth.getToken();
+    if (!token) return;
+    try {
+      await this.ws.conectarYEsperar(token);
+      const remotas = await this.ws.listPublicRooms();
+      // Backend alcanzado: reemplazar completamente (sin mezclar mocks locales)
+      this.salas.set(remotas.map(r => this.mapearSalaRemota(r)));
+    } catch {
+      // Backend no disponible — la lista local permanece como fallback
+    }
+  }
+
+  private mapearSalaRemota(r: PublicRoomSummary): SalaData {
+    const jugadores = Array.from({ length: r.playersCount }, (_, i) => ({
+      id: `remote_${r.code}_${i}`,
+      nombre: i === 0 ? 'Anfitrión' : `Jugador ${i + 1}`,
+      esBot: false,
+      esAnfitrion: i === 0,
+      avatar: i === 0 ? '👑' : '🎮',
+    }));
+    return {
+      id: r.code,
+      nombre: r.name,
+      anfitrion: '',
+      publica: true,
+      estado: 'esperando',
+      jugadores,
+      dificultadBots: 'Normal',
+      creadaEn: new Date(r.createdAt).getTime(),
+      numBarajas: (r.rules.deckCount === 2 ? 2 : 1) as 1 | 2,
+      maxJugadores: r.rules.maxPlayers,
+      reglasActivas: r.rules.enabledPowers ?? [],
+    };
   }
 
   // ═══ Refrescar lista ═══
   refrescar(): void {
     this.refrescando.set(true);
-    // Simular latencia de red
-    setTimeout(() => {
-      this.cargarSalas();
-      this.refrescando.set(false);
-    }, 800);
+    this.cargarSalasBackend().finally(() => this.refrescando.set(false));
   }
 
   // ═══ Unirse por código ═══
   onCodigoInput(event: Event): void {
     const input = event.target as HTMLInputElement;
-    // Forzar mayúsculas y limitar a 6 caracteres alfanuméricos
     const valor = input.value.toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
     input.value = valor;
     this.codigoInput.set(valor);
     this.errorCodigo.set('');
   }
 
-  unirsePorCodigo(): void {
-    const codigo = this.codigoInput().trim().toUpperCase();
+  async unirsePorCodigo(codigoRaw?: string): Promise<void> {
+    if (this.uniendoCodigo()) return;
+
+    const codigo = (codigoRaw ?? this.codigoInput())
+      .toUpperCase().replace(/[^A-Z0-9]/g, '').substring(0, 6);
+    this.codigoInput.set(codigo);
+
     if (codigo.length !== 6) {
       this.errorCodigo.set('El código debe tener 6 caracteres');
       return;
     }
 
-    // Primero buscar en localStorage (salas locales/mock)
-    const salaLocal = this.roomService.buscarSalaPorCodigo(codigo);
-    if (salaLocal) {
-      if (salaLocal.estado === 'en_partida') {
-        this.errorCodigo.set('Esta sala ya tiene una partida en curso');
-        return;
-      }
-      if (salaLocal.estado === 'llena' || salaLocal.jugadores.length >= MAX_JUGADORES) {
-        this.errorCodigo.set('Esta sala está llena');
-        return;
-      }
-      this.unirseASala(salaLocal);
-      return;
-    }
-
-    // Si no está en local, intentar unirse al backend directamente por código
     const token = this.auth.getToken();
     if (!token) {
-      this.errorCodigo.set('No se encontró ninguna sala con ese código');
+      this.errorCodigo.set('Sesión no válida. Vuelve a iniciar sesión.');
       return;
     }
 
-    this.ws.conectarYEsperar(token).then(() => {
-      return this.ws.joinRoomWs(codigo);
-    }).then(resp => {
+    try {
+      this.errorCodigo.set('');
+      this.uniendoCodigo.set(true);
+
+      // Patrón cuadrado-web: conectar → unirse directamente (sin leaveRoomAck)
+      await this.ws.conectarYEsperar(token);
+      const resp = await this.ws.joinRoomWs(codigo);
+
       if (!resp.success) {
         this.errorCodigo.set('No se encontró ninguna sala con ese código');
         return;
       }
-      // Crear una SalaData mínima para el invitado basada en el código de sala
-      const usuario = this.auth.usuario();
-      const nombreUsuario = usuario?.nombre || 'Jugador';
-      const sala: SalaData = {
-        id: codigo,
-        nombre: resp.roomCode ? `Sala ${resp.roomCode}` : 'Sala online',
-        anfitrion: '',
-        publica: true,
-        estado: 'esperando',
-        jugadores: [{
-          id: `user_${nombreUsuario}_${Date.now()}`,
-          nombre: nombreUsuario,
-          esBot: false,
-          esAnfitrion: false,
-          listo: false,
-          avatar: '🎮',
-        }],
-        dificultadBots: 'Normal',
-        creadaEn: Date.now(),
-        numBarajas: 1,
-        maxJugadores: 8,
-        reglasActivas: [],
-      };
-      this.roomService.guardarSala(sala);
-      this.roomService.setEsAnfitrion(false);
+
+      this.guardarSalaInvitado(resp.roomCode ?? codigo);
       this.router.navigate(['/waiting-room']);
-    }).catch(() => {
-      this.errorCodigo.set('No se encontró ninguna sala con ese código');
-    });
+    } catch {
+      this.errorCodigo.set('No se pudo conectar con el servidor');
+    } finally {
+      this.uniendoCodigo.set(false);
+    }
   }
 
   // ═══ Unirse a sala desde tarjeta ═══
-  unirseDesdeCard(sala: SalaData): void {
-    if (sala.estado !== 'esperando' || sala.jugadores.length >= MAX_JUGADORES) return;
-    this.unirseASala(sala);
+  async unirseDesdeCard(sala: SalaData): Promise<void> {
+    try {
+      await this.unirseASala(sala);
+    } catch {
+      this.mostrarErrorJoin('No se pudo unir a la sala. Inténtalo de nuevo.');
+    }
   }
 
   private async unirseASala(sala: SalaData): Promise<void> {
-    const usuario = this.auth.usuario();
-    const nombreUsuario = usuario?.nombre || 'Jugador';
     const token = this.auth.getToken();
-
-    // Unirse a la sala en el backend (para sync multijugador en tiempo real)
-    if (token) {
-      try {
-        await this.ws.conectarYEsperar(token);
-        await this.ws.joinRoomWs(sala.id);
-        // Si el backend acepta el join, usamos el código de sala tal cual
-      } catch {
-        // Backend no disponible: continuar con flujo local
-      }
+    if (!token) {
+      this.mostrarErrorJoin('Sesión no válida. Vuelve a iniciar sesión.');
+      return;
     }
 
-    // Evitar duplicados: si el jugador ya esta en la sala, no lo añade de nuevo
-    const yaEnSala = sala.jugadores.some(j => !j.esBot && j.nombre === nombreUsuario);
-    if (!yaEnSala) {
-      const nuevoJugador = {
+    await this.ws.conectarYEsperar(token);
+    const resultado = await this.ws.joinRoomWs(sala.id);
+
+    if (!resultado.success) {
+      this.mostrarErrorJoin('No se pudo unir a la sala. Puede que esté llena o haya comenzado.');
+      return;
+    }
+
+    this.guardarSalaInvitado(resultado.roomCode ?? sala.id);
+    this.router.navigate(['/waiting-room']);
+  }
+
+  // Persiste una SalaData mínima para el jugador invitado
+  private guardarSalaInvitado(codigo: string): void {
+    const usuario = this.auth.usuario();
+    const nombreUsuario = usuario?.nombre || 'Jugador';
+    const sala: SalaData = {
+      id: codigo,
+      nombre: `Sala ${codigo}`,
+      anfitrion: '',
+      publica: true,
+      estado: 'esperando',
+      jugadores: [{
         id: `user_${nombreUsuario}_${Date.now()}`,
         nombre: nombreUsuario,
         esBot: false,
         esAnfitrion: false,
-        listo: false,
-        avatar: '🎮'
-      };
-      sala.jugadores.push(nuevoJugador);
-
-      if (sala.jugadores.length >= MAX_JUGADORES) {
-        sala.estado = 'llena';
-      }
-    }
-
+        avatar: '🎮',
+      }],
+      dificultadBots: 'Normal',
+      creadaEn: Date.now(),
+      numBarajas: 1,
+      maxJugadores: 8,
+      reglasActivas: [],
+    };
     this.roomService.guardarSala(sala);
     this.roomService.setEsAnfitrion(false);
-    this.router.navigate(['/waiting-room']);
+  }
+
+  private mostrarErrorJoin(msg: string): void {
+    this.errorJoin.set(msg);
+    setTimeout(() => this.errorJoin.set(''), 3500);
   }
 
   // ═══ Búsqueda ═══
   onBusquedaInput(event: Event): void {
     const input = event.target as HTMLInputElement;
     this.busqueda.set(input.value);
-  }
-
-  // ═══ Helpers de template ═══
-  contarBots(sala: SalaData): number {
-    return sala.jugadores.filter(j => j.esBot).length;
-  }
-
-  porcentajeOcupacion(sala: SalaData): number {
-    return (sala.jugadores.length / MAX_JUGADORES) * 100;
-  }
-
-  puedeUnirse(sala: SalaData): boolean {
-    return sala.estado === 'esperando' && sala.jugadores.length < MAX_JUGADORES;
-  }
-
-  avatarAnfitrion(sala: SalaData): string {
-    const host = sala.jugadores.find(j => j.esAnfitrion);
-    return host?.avatar || '👤';
   }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.

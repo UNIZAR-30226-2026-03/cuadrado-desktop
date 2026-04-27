@@ -13,6 +13,7 @@ import { Rooms } from './components/rooms/rooms';
 import { WaitingRoom } from './components/waiting-room/waiting-room';
 import { Tutorial } from './components/tutorial/tutorial';
 import { Profile } from './components/profile/profile';
+import { Ranking } from './components/ranking/ranking';
 
 export const routes: Routes = [
   { path: '',                component: WelcomeComponent,        data: { animation: 'welcome' } },
@@ -29,5 +30,6 @@ export const routes: Routes = [
   { path: 'waiting-room',   component: WaitingRoom,              data: { animation: 'waiting-room' } },
   { path: 'tutorial',       component: Tutorial,                 data: { animation: 'tutorial' } },
   { path: 'profile',        component: Profile,                  data: { animation: 'profile' } },
+  { path: 'ranking',        component: Ranking,                  data: { animation: 'ranking' } },
   { path: '**',             redirectTo: '' },
 ];

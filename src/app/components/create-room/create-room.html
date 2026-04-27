@@ -48,6 +48,20 @@
         </div>
       </div>
 
+      <!-- Tiempo por turno -->
+      <div class="config-field">
+        <label class="config-label">Tiempo por turno</label>
+        <div class="turn-time-row">
+          @for (t of turnTimeOptions; track t) {
+            <button class="turn-time-btn"
+                    [class.turn-time-btn--active]="turnTime() === t"
+                    (click)="turnTime.set(t)">
+              {{ t }}s
+            </button>
+          }
+        </div>
+      </div>
+
       <!-- Lista de poderes de cartas -->
       <div class="config-field">
         <label class="config-label">Poderes de cartas</label>

@@ -37,6 +37,7 @@ export class AuthService {
       .pipe(
         tap(respuesta => {
           const token = respuesta.accessToken;
+          const refreshToken = respuesta.refreshToken;
           const u = respuesta.user;
 
           const user: Usuario = {
@@ -54,6 +55,9 @@ export class AuthService {
 
           this._token.set(token);
           localStorage.setItem('token', token);
+          if (refreshToken) {
+            localStorage.setItem('refreshToken', refreshToken);
+          }
           this.setUser(user);
           this.startProfileSync();
           this.refreshProfile().subscribe();
@@ -117,11 +121,18 @@ export class AuthService {
 
   // 4. LOGOUT (Avisar al backend)
   logout() {
-    const headers = { Authorization: `Bearer ${this.getToken()}` };
-    const refreshToken = localStorage.getItem('refreshToken') || ''; // Si usas refresh tokens
-    
+    const token = this.getToken();
+    const refreshToken = localStorage.getItem('refreshToken');
+
+    // Si el front no tiene refresh token, evitamos llamar al backend con valor vacío.
+    if (!token || !refreshToken) {
+      this.limpiarSesion();
+      return;
+    }
+
+    const headers = { Authorization: `Bearer ${token}` };
+
     this.http.post(`${environment.apiUrl}/auth/logout`, { refreshToken }, { headers })
-    
       .subscribe({
         next: () => this.limpiarSesion(),
         error: () => this.limpiarSesion() // Limpiamos el front incluso si el back falla

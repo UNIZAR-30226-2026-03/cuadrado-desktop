@@ -11,7 +11,6 @@ export interface JugadorSala {
   nombre: string;
   esBot: boolean;
   esAnfitrion: boolean;
-  listo: boolean;
   dificultad?: 'Fácil' | 'Normal' | 'Difícil';
   avatar: string;
 }
@@ -52,6 +51,57 @@ export class RoomService {
   private readonly SALAS_KEY = 'cubo_salas_publicas';
   private readonly ES_ANFITRION_KEY = 'cubo_es_anfitrion';
 
+  private normalizarJugador(raw: any, index: number): JugadorSala {
+    const esBot = !!raw?.esBot;
+    return {
+      id: typeof raw?.id === 'string' && raw.id.trim() ? raw.id : `jugador_${index}`,
+      nombre:
+        typeof raw?.nombre === 'string' && raw.nombre.trim()
+          ? raw.nombre
+          : (esBot ? `Bot_${index + 1}` : `Jugador ${index + 1}`),
+      esBot,
+      esAnfitrion: !!raw?.esAnfitrion,
+      dificultad: raw?.dificultad,
+      avatar: typeof raw?.avatar === 'string' && raw.avatar ? raw.avatar : (esBot ? '🤖' : '🎮'),
+    };
+  }
+
+  private normalizarSala(raw: any): SalaData {
+    const jugadoresRaw = Array.isArray(raw?.jugadores) ? raw.jugadores : [];
+    const jugadores = jugadoresRaw.map((j: any, i: number) => this.normalizarJugador(j, i));
+
+    const maxJugadores =
+      typeof raw?.maxJugadores === 'number' && raw.maxJugadores > 0
+        ? raw.maxJugadores
+        : MAX_JUGADORES;
+
+    const estadoRaw = raw?.estado;
+    let estado: 'esperando' | 'en_partida' | 'llena' =
+      estadoRaw === 'esperando' || estadoRaw === 'en_partida' || estadoRaw === 'llena'
+        ? estadoRaw
+        : 'esperando';
+
+    if (estado !== 'en_partida' && jugadores.length >= maxJugadores) {
+      estado = 'llena';
+    }
+
+    return {
+      id: typeof raw?.id === 'string' && raw.id.trim() ? raw.id : `ROOM_${Date.now()}`,
+      nombre: typeof raw?.nombre === 'string' ? raw.nombre : 'Sala',
+      anfitrion: typeof raw?.anfitrion === 'string' ? raw.anfitrion : '',
+      publica: raw?.publica !== false,
+      estado,
+      jugadores,
+      dificultadBots: raw?.dificultadBots === 'Fácil' || raw?.dificultadBots === 'Difícil' ? raw.dificultadBots : 'Normal',
+      creadaEn: typeof raw?.creadaEn === 'number' ? raw.creadaEn : Date.now(),
+      numBarajas: raw?.numBarajas === 2 ? 2 : 1,
+      maxJugadores,
+      reglasActivas: Array.isArray(raw?.reglasActivas)
+        ? raw.reglasActivas.filter((r: unknown) => typeof r === 'string')
+        : [],
+    };
+  }
+
   // ═══ Generación de código único de 6 caracteres ═══
   generarCodigo(): string {
     const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -78,7 +128,6 @@ export class RoomService {
       nombre: `Bot_${animal}`,
       esBot: true,
       esAnfitrion: false,
-      listo: true,
       dificultad,
       avatar: BOT_AVATARES[animal] || '🤖'
     };
@@ -94,7 +143,13 @@ export class RoomService {
 
   obtenerSala(): SalaData | null {
     const data = localStorage.getItem(this.SALA_KEY);
-    return data ? JSON.parse(data) : null;
+    if (!data) return null;
+
+    try {
+      return this.normalizarSala(JSON.parse(data));
+    } catch {
+      return null;
+    }
   }
 
   eliminarSala(): void {
@@ -117,7 +172,17 @@ export class RoomService {
   // ═══ Lista de salas públicas ═══
   obtenerSalasPublicas(): SalaData[] {
     const data = localStorage.getItem(this.SALAS_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+
+    try {
+      const parsed = JSON.parse(data);
+      const lista = Array.isArray(parsed) ? parsed : [];
+      const normalizadas = lista.map(s => this.normalizarSala(s));
+      localStorage.setItem(this.SALAS_KEY, JSON.stringify(normalizadas));
+      return normalizadas;
+    } catch {
+      return [];
+    }
   }
 
   private actualizarEnListaPublica(sala: SalaData): void {
@@ -157,8 +222,8 @@ export class RoomService {
         dificultadBots: 'Normal', creadaEn: ahora - 120000,
         numBarajas: 1, maxJugadores: 8, reglasActivas: ['A', '3'],
         jugadores: [
-          { id: 'u1', nombre: 'Carlos_PRO', esBot: false, esAnfitrion: true, listo: true, avatar: '😎' },
-          { id: 'u2', nombre: 'MariaLuz', esBot: false, esAnfitrion: false, listo: false, avatar: '🌟' }
+          { id: 'u1', nombre: 'Carlos_PRO', esBot: false, esAnfitrion: true, avatar: '😎' },
+          { id: 'u2', nombre: 'MariaLuz', esBot: false, esAnfitrion: false, avatar: '🌟' }
         ]
       },
       {
@@ -167,9 +232,9 @@ export class RoomService {
         dificultadBots: 'Fácil', creadaEn: ahora - 60000,
         numBarajas: 1, maxJugadores: 4, reglasActivas: [],
         jugadores: [
-          { id: 'u3', nombre: 'Jugador_X', esBot: false, esAnfitrion: true, listo: true, avatar: '🎮' },
-          { id: 'b1', nombre: 'Bot_Águila', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Fácil', avatar: '🦅' },
-          { id: 'b2', nombre: 'Bot_Zorro', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Fácil', avatar: '🦊' }
+          { id: 'u3', nombre: 'Jugador_X', esBot: false, esAnfitrion: true, avatar: '🎮' },
+          { id: 'b1', nombre: 'Bot_Águila', esBot: true, esAnfitrion: false, dificultad: 'Fácil', avatar: '🦅' },
+          { id: 'b2', nombre: 'Bot_Zorro', esBot: true, esAnfitrion: false, dificultad: 'Fácil', avatar: '🦊' }
         ]
       },
       {
@@ -178,10 +243,10 @@ export class RoomService {
         dificultadBots: 'Difícil', creadaEn: ahora - 300000,
         numBarajas: 2, maxJugadores: 4, reglasActivas: ['A', '3', '7', '10'],
         jugadores: [
-          { id: 'u4', nombre: 'ProGamer99', esBot: false, esAnfitrion: true, listo: true, avatar: '🏆' },
-          { id: 'u5', nombre: 'NovaCraft', esBot: false, esAnfitrion: false, listo: true, avatar: '🚀' },
-          { id: 'u6', nombre: 'ElMago42', esBot: false, esAnfitrion: false, listo: true, avatar: '🧙' },
-          { id: 'b3', nombre: 'Bot_Tigre', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Difícil', avatar: '🐯' }
+          { id: 'u4', nombre: 'ProGamer99', esBot: false, esAnfitrion: true, avatar: '🏆' },
+          { id: 'u5', nombre: 'NovaCraft', esBot: false, esAnfitrion: false, avatar: '🚀' },
+          { id: 'u6', nombre: 'ElMago42', esBot: false, esAnfitrion: false, avatar: '🧙' },
+          { id: 'b3', nombre: 'Bot_Tigre', esBot: true, esAnfitrion: false, dificultad: 'Difícil', avatar: '🐯' }
         ]
       },
       {
@@ -190,7 +255,7 @@ export class RoomService {
         dificultadBots: 'Normal', creadaEn: ahora - 45000,
         numBarajas: 1, maxJugadores: 6, reglasActivas: ['A'],
         jugadores: [
-          { id: 'u7', nombre: 'Luna_22', esBot: false, esAnfitrion: true, listo: true, avatar: '🌙' }
+          { id: 'u7', nombre: 'Luna_22', esBot: false, esAnfitrion: true, avatar: '🌙' }
         ]
       },
       {
@@ -199,10 +264,10 @@ export class RoomService {
         dificultadBots: 'Normal', creadaEn: ahora - 180000,
         numBarajas: 2, maxJugadores: 4, reglasActivas: ['A', '3', '7'],
         jugadores: [
-          { id: 'u8', nombre: 'DarkKnight', esBot: false, esAnfitrion: true, listo: true, avatar: '🦇' },
-          { id: 'u9', nombre: 'SolNaciente', esBot: false, esAnfitrion: false, listo: true, avatar: '☀️' },
-          { id: 'u10', nombre: 'AceDeEspadas', esBot: false, esAnfitrion: false, listo: true, avatar: '♠️' },
-          { id: 'b4', nombre: 'Bot_León', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Normal', avatar: '🦁' }
+          { id: 'u8', nombre: 'DarkKnight', esBot: false, esAnfitrion: true, avatar: '🦇' },
+          { id: 'u9', nombre: 'SolNaciente', esBot: false, esAnfitrion: false, avatar: '☀️' },
+          { id: 'u10', nombre: 'AceDeEspadas', esBot: false, esAnfitrion: false, avatar: '♠️' },
+          { id: 'b4', nombre: 'Bot_León', esBot: true, esAnfitrion: false, dificultad: 'Normal', avatar: '🦁' }
         ]
       },
       {
@@ -211,10 +276,10 @@ export class RoomService {
         dificultadBots: 'Fácil', creadaEn: ahora - 30000,
         numBarajas: 1, maxJugadores: 6, reglasActivas: [],
         jugadores: [
-          { id: 'u11', nombre: 'Principiante1', esBot: false, esAnfitrion: true, listo: false, avatar: '🐣' },
-          { id: 'u12', nombre: 'NuevoJugador', esBot: false, esAnfitrion: false, listo: false, avatar: '🎲' },
-          { id: 'b5', nombre: 'Bot_Búho', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Fácil', avatar: '🦉' },
-          { id: 'b6', nombre: 'Bot_Lobo', esBot: true, esAnfitrion: false, listo: true, dificultad: 'Fácil', avatar: '🐺' }
+          { id: 'u11', nombre: 'Principiante1', esBot: false, esAnfitrion: true, avatar: '🐣' },
+          { id: 'u12', nombre: 'NuevoJugador', esBot: false, esAnfitrion: false, avatar: '🎲' },
+          { id: 'b5', nombre: 'Bot_Búho', esBot: true, esAnfitrion: false, dificultad: 'Fácil', avatar: '🦉' },
+          { id: 'b6', nombre: 'Bot_Lobo', esBot: true, esAnfitrion: false, dificultad: 'Fácil', avatar: '🐺' }
         ]
       }
     ];

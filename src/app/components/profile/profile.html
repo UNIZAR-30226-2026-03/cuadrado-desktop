@@ -55,6 +55,18 @@
             }
           </div>
         }
+
+        <div class="cubitos-badge">
+          <svg class="cubitos-badge__icon" width="18" height="18" viewBox="0 0 24 24"
+               fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round">
+            <path d="M4 8 L12 4 L20 8 L12 12 Z" />
+            <path d="M4 8 L4 16 L12 20 L12 12" />
+            <path d="M20 8 L20 16 L12 20" />
+            <path d="M12 4 L12 12" opacity="0.4" />
+          </svg>
+          <span class="cubitos-badge__value">{{ (usuario?.monedas ?? 0) | number }}</span>
+          <span class="cubitos-badge__label">cubitos</span>
+        </div>
       </section>
 
       @if (showAvatarSelector) {
@@ -106,6 +118,25 @@
           <span>Partidas ganadas</span>
           <strong>{{ usuario?.partidasGanadas ?? 0 }}</strong>
         </div>
+      </section>
+
+      <section class="ranking-preview">
+        <div class="ranking-preview__header">
+          <span class="ranking-preview__title">Clasificación</span>
+          <button class="ranking-preview__btn" (click)="irRanking()">Ver ranking →</button>
+        </div>
+
+        @if (rankingLoading()) {
+          <p class="profile-hint">Cargando clasificación...</p>
+        } @else if (myPosition(); as mp) {
+          <div class="ranking-preview__row">
+            <span class="ranking-preview__pos">#{{ mp.position }}</span>
+            <span class="ranking-preview__name">{{ mp.username }}</span>
+            <span class="ranking-preview__elo">{{ mp.eloRating }} ELO</span>
+          </div>
+        } @else {
+          <p class="profile-hint">Sin datos de clasificación</p>
+        }
       </section>
 
       <div class="profile-actions">
