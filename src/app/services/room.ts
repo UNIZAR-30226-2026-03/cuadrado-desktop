@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@angular/core';
+import { WebsocketService } from './websocket';
 
 // ═══ Interfaces ═══
 
@@ -47,6 +48,8 @@ const BOT_AVATARES: Record<string, string> = {
 
 @Injectable({ providedIn: 'root' })
 export class RoomService {
+  constructor(private ws: WebsocketService) {}
+
   private readonly SALA_KEY = 'cubo_sala_actual';
   private readonly SALAS_KEY = 'cubo_salas_publicas';
   private readonly ES_ANFITRION_KEY = 'cubo_es_anfitrion';
