@@ -40,9 +40,11 @@ export class Rooms implements OnInit {
   // Estado
   codigoInput = signal('');
   errorCodigo = signal('');
-  busqueda = signal('');
+  busqueda    = signal('');
   refrescando = signal(false);
-  salas = signal<SalaData[]>([]);
+  cargando    = signal(true);
+  errorCarga  = signal<string | null>(null);
+  salas       = signal<SalaData[]>([]);
 
   // Salas filtradas por búsqueda
   salasFiltradas = computed(() => {

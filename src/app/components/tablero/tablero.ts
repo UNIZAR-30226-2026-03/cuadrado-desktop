@@ -1,14 +1,37 @@
-import { Component, OnInit, OnDestroy, signal, computed } from '@angular/core';
+import { Component, OnInit, OnDestroy, signal, computed, effect, Injector } from '@angular/core';
 import { NgStyle } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
+import { GameService, NotificacionJuego } from '../../services/game';
+import { PoderCarta, EvIntercambioCartas, EvHacerRobarCarta } from '../../services/websocket';
 import { environment } from '../../environment';
+
+// Mapeo valor carta → poder backend (definido en game.manager.ts del backend)
+const PODER_POR_VALOR: Record<number, PoderCarta | null> = {
+  1: 'intercambiar-todas-cartas',
+  2: 'hacer-robar-carta',
+  3: 'proteger-carta',
+  4: null,   // saltar-turno: sin evento humano directo
+  5: null,
+  6: null,   // roba-y-sigue: backend automático
+  7: null,   // habilidad pasiva al descartar
+  8: null,   // habilidad pasiva al descartar
+  9: 'intercambiar-carta',
+  10: 'ver-carta',
+  11: 'ver-carta',
+  12: null,
+  13: null,
+};
+
+function poderDeValor(valor: number): PoderCarta | null {
+  return PODER_POR_VALOR[valor] ?? null;
+}
 
 // Tipos internos del tablero
 
-type Palo = 'corazones' | 'picas' | 'rombos' | 'treboles';
+type Palo = 'corazones' | 'picas' | 'rombos' | 'treboles' | 'joker';
 type Posicion = 'south' | 'north' | 'east' | 'west' | 'ne' | 'nw' | 'se' | 'sw';
 type FaseTurno = 'banner' | 'robando' | 'decidiendo' | 'idle' | 'shuffle' | 'fin';
 
@@ -30,6 +53,11 @@ interface JugadorMesa {
   cartaPendiente: CartaMesa | null;
   reverso?: string;  // nombre de la skin de dorso de carta equipada
   tapete?: string;   // nombre de la skin de tapete equipada
+}
+
+interface CartaReveladaModal {
+  propia: CartaMesa;
+  rival?: CartaMesa;
 }
 
 // Posiciones según número de jugadores: índice 0 = yo (sur)
@@ -65,6 +93,16 @@ export class Tablero implements OnInit, OnDestroy {
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
 
+  // Poderes: estado de selección de objetivo
+  esperandoObjetivo    = signal(false);
+  poderPendiente       = signal<PoderCarta | null>(null);
+  numCartaPendiente    = signal<number | null>(null);
+
+  // Feedback inbound (eventos servidor -> UI)
+  cartaReveladaModal = signal<CartaReveladaModal | null>(null);
+  notificacionToast  = signal<NotificacionJuego | null>(null);
+  ultimaAccion       = signal<{ jugador: string; accion: 'descartó' | 'intercambió' } | null>(null);
+
   // Computados
   jugadorActual   = computed(() => this.jugadores()[this.turnoIdx()] ?? null);
   esMiTurno       = computed(() => !!this.jugadorActual()?.esYo);
@@ -78,6 +116,9 @@ export class Tablero implements OnInit, OnDestroy {
   private discardPile: CartaMesa[] = [];
   private timerInterval: ReturnType<typeof setInterval> | null = null;
   private phaseTimeout:  ReturnType<typeof setTimeout>  | null = null;
+  private revealTimeout: ReturnType<typeof setTimeout> | null = null;
+  private toastTimeout:  ReturnType<typeof setTimeout> | null = null;
+  private accionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // URLs reales de las skins equipadas (obtenidas del backend)
   private localReversoUrl = signal<string | null>(null);
@@ -88,6 +129,8 @@ export class Tablero implements OnInit, OnDestroy {
     private auth:        AuthService,
     private roomService: RoomService,
     private http:        HttpClient,
+    private gameService: GameService,
+    private injector:    Injector,
   ) {}
 
   ngOnInit(): void {
@@ -96,6 +139,7 @@ export class Tablero implements OnInit, OnDestroy {
       this.router.navigate(['/lobby']);
       return;
     }
+    this.conectarEstadosInbound();
     this.inicializarJuego(sala.jugadores);
     this.cargarSkinsEquipadas();
   }
@@ -114,6 +158,198 @@ export class Tablero implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.limpiarTimers();
+    this.limpiarFeedbackVisual();
+  }
+
+  private conectarEstadosInbound(): void {
+    effect(() => {
+      const evento = this.gameService.cartaRevelada();
+      if (!evento) return;
+
+      this.cartaReveladaModal.set({
+        propia: this.normalizarCartaEvento(evento.carta),
+        rival: evento.cartaJugadorContrario
+          ? this.normalizarCartaEvento(evento.cartaJugadorContrario)
+          : undefined,
+      });
+
+      this.reprogramarCierreCartaRevelada();
+    }, { injector: this.injector });
+
+    effect(() => {
+      const evento = this.gameService.ultimoIntercambioCartas();
+      if (!evento) return;
+
+      this.aplicarIntercambioInbound(evento);
+      this.gameService.limpiarUltimoIntercambioCartas();
+    }, { injector: this.injector });
+
+    effect(() => {
+      const evento = this.gameService.ultimoRoboForzado();
+      if (!evento) return;
+
+      this.aplicarRoboForzadoInbound(evento);
+      this.gameService.limpiarUltimoRoboForzado();
+    }, { injector: this.injector });
+
+    effect(() => {
+      const notificacion = this.gameService.notificacion();
+      if (!notificacion) return;
+
+      this.notificacionToast.set(notificacion);
+      this.reprogramarCierreToast(notificacion.id);
+    }, { injector: this.injector });
+  }
+
+  private normalizarCartaEvento(carta: {
+    carta: number;
+    palo: string;
+    puntos: number;
+    protegida: boolean;
+  }): CartaMesa {
+    return {
+      valor: carta.carta,
+      palo: this.normalizarPalo(carta.palo),
+      visible: true,
+      seleccionada: false,
+    };
+  }
+
+  private normalizarPalo(palo: string): Palo {
+    if (
+      palo === 'corazones' ||
+      palo === 'picas' ||
+      palo === 'rombos' ||
+      palo === 'treboles' ||
+      palo === 'joker'
+    ) {
+      return palo;
+    }
+    return 'picas';
+  }
+
+  private aplicarIntercambioInbound(evento: EvIntercambioCartas): void {
+    const jugadores = [...this.jugadores()];
+    const idxRemitente = jugadores.findIndex((j) => j.id === evento.remitente);
+    const idxDestinatario = jugadores.findIndex((j) => j.id === evento.destinatario);
+    if (idxRemitente === -1 || idxDestinatario === -1) return;
+
+    const remitente = jugadores[idxRemitente];
+    const destinatario = jugadores[idxDestinatario];
+
+    if (
+      typeof evento.numCartaRemitente === 'number' &&
+      typeof evento.numCartaDestinatario === 'number' &&
+      evento.numCartaRemitente >= 0 &&
+      evento.numCartaDestinatario >= 0 &&
+      evento.numCartaRemitente < remitente.mano.length &&
+      evento.numCartaDestinatario < destinatario.mano.length
+    ) {
+      const manoRemitente = [...remitente.mano];
+      const manoDestinatario = [...destinatario.mano];
+      const cartaRemitente = manoRemitente[evento.numCartaRemitente];
+      const cartaDestinatario = manoDestinatario[evento.numCartaDestinatario];
+
+      manoRemitente[evento.numCartaRemitente] = cartaDestinatario;
+      manoDestinatario[evento.numCartaDestinatario] = cartaRemitente;
+
+      jugadores[idxRemitente] = { ...remitente, mano: manoRemitente };
+      jugadores[idxDestinatario] = { ...destinatario, mano: manoDestinatario };
+      this.jugadores.set(jugadores);
+      return;
+    }
+
+    // Intercambio total de manos (poder 1).
+    jugadores[idxRemitente] = {
+      ...remitente,
+      mano: destinatario.mano.map((carta) => ({ ...carta })),
+    };
+    jugadores[idxDestinatario] = {
+      ...destinatario,
+      mano: remitente.mano.map((carta) => ({ ...carta })),
+    };
+    this.jugadores.set(jugadores);
+  }
+
+  private aplicarRoboForzadoInbound(evento: EvHacerRobarCarta): void {
+    const jugadores = [...this.jugadores()];
+    const idxDestinatario = jugadores.findIndex((j) => j.id === evento.destinatario);
+    if (idxDestinatario === -1) return;
+
+    const jugador = jugadores[idxDestinatario];
+    const cartaRobada = this.extraerCartaParaRoboForzado();
+
+    jugadores[idxDestinatario] = {
+      ...jugador,
+      mano: [...jugador.mano, cartaRobada],
+    };
+
+    this.jugadores.set(jugadores);
+  }
+
+  private extraerCartaParaRoboForzado(): CartaMesa {
+    const carta = this.deck.pop();
+    if (carta) {
+      this.deckCount.set(this.deck.length);
+      return { ...carta, visible: false, seleccionada: false };
+    }
+
+    // Fallback visual cuando no tenemos carta local disponible.
+    return {
+      valor: 0,
+      palo: 'joker',
+      visible: false,
+      seleccionada: false,
+    };
+  }
+
+  cerrarOverlayCartaRevelada(): void {
+    this.cartaReveladaModal.set(null);
+    this.gameService.limpiarCartaRevelada();
+    if (this.revealTimeout) {
+      clearTimeout(this.revealTimeout);
+      this.revealTimeout = null;
+    }
+  }
+
+  private reprogramarCierreCartaRevelada(): void {
+    if (this.revealTimeout) {
+      clearTimeout(this.revealTimeout);
+    }
+    this.revealTimeout = setTimeout(() => {
+      this.cerrarOverlayCartaRevelada();
+    }, 6000);
+  }
+
+  private reprogramarCierreToast(notificacionId: number): void {
+    if (this.toastTimeout) {
+      clearTimeout(this.toastTimeout);
+    }
+    this.toastTimeout = setTimeout(() => {
+      this.notificacionToast.set(null);
+      this.gameService.limpiarNotificacion(notificacionId);
+    }, 3500);
+  }
+
+  private mostrarAccion(jugador: string, accion: 'descartó' | 'intercambió'): void {
+    if (this.accionTimeout) clearTimeout(this.accionTimeout);
+    this.ultimaAccion.set({ jugador, accion });
+    this.accionTimeout = setTimeout(() => this.ultimaAccion.set(null), 2000);
+  }
+
+  private limpiarFeedbackVisual(): void {
+    if (this.revealTimeout) {
+      clearTimeout(this.revealTimeout);
+      this.revealTimeout = null;
+    }
+    if (this.toastTimeout) {
+      clearTimeout(this.toastTimeout);
+      this.toastTimeout = null;
+    }
+    if (this.accionTimeout) {
+      clearTimeout(this.accionTimeout);
+      this.accionTimeout = null;
+    }
   }
 
   // Inicialización
@@ -280,6 +516,7 @@ export class Tablero implements OnInit, OnDestroy {
     all[idx] = { ...jugador, cartaPendiente: null };
     this.jugadores.set(all);
 
+    this.mostrarAccion(jugador.nombre, 'descartó');
     this.programarSiguienteTurno();
   }
 
@@ -313,6 +550,7 @@ export class Tablero implements OnInit, OnDestroy {
 
     this.modoIntercambio.set(false);
     this.pararTimer();
+    this.mostrarAccion(jugador.nombre, 'intercambió');
     this.programarSiguienteTurno();
   }
 
@@ -354,6 +592,7 @@ export class Tablero implements OnInit, OnDestroy {
     all[jugadorIdx] = { ...jugador, mano: nuevaMano, cartaPendiente: null };
     this.jugadores.set(all);
 
+    this.mostrarAccion(jugador.nombre, 'intercambió');
     this.programarSiguienteTurno();
   }
 
@@ -449,7 +688,7 @@ export class Tablero implements OnInit, OnDestroy {
 
   getPaloSimbolo(palo: Palo): string {
     const map: Record<Palo, string> = {
-      corazones: '♥', picas: '♠', rombos: '♦', treboles: '♣',
+      corazones: '♥', picas: '♠', rombos: '♦', treboles: '♣', joker: '🃏',
     };
     return map[palo];
   }
@@ -484,7 +723,107 @@ export class Tablero implements OnInit, OnDestroy {
 
   salirPartida(): void {
     this.limpiarTimers();
+    this.limpiarFeedbackVisual();
     this.router.navigate(['/lobby']);
+  }
+
+  /**
+   * Dispatcher click carta mano:
+   *  - modoIntercambio → flujo intercambio clásico
+   *  - si no, es mi turno y la carta tiene poder → activa poder
+   */
+  onClickCartaMano(jugadorIdx: number, cartaIdx: number): void {
+    if (this.modoIntercambio()) {
+      this.seleccionarCartaMano(jugadorIdx, cartaIdx);
+      return;
+    }
+    if (!this.esMiTurno()) return;
+
+    const jugador = this.jugadores()[jugadorIdx];
+    if (!jugador?.esYo) return;
+
+    const carta = jugador.mano[cartaIdx];
+    if (carta && poderDeValor(carta.valor)) {
+      this.activarPoderCarta(jugadorIdx, cartaIdx);
+    }
+  }
+
+  // ─── Poderes de carta ────────────────────────────────────────────────────
+
+  /**
+   * Entrada: el jugador hace click en una de sus cartas.
+   * - Si el valor no tiene poder: no hace nada (solo intercambio normal).
+   * - Si el poder es directo: dispara GameService al instante.
+   * - Si requiere objetivo: entra en modo `esperandoObjetivo`.
+   */
+  activarPoderCarta(jugadorIdx: number, cartaIdx: number): void {
+    const jugador = this.jugadores()[jugadorIdx];
+    if (!jugador?.esYo) return;
+
+    const carta = jugador.mano[cartaIdx];
+    if (!carta) return;
+
+    const poder = poderDeValor(carta.valor);
+    if (!poder) return;
+
+    // Directo: poderes sin objetivo rival
+    const directo: PoderCarta[] = [
+      'proteger-carta',
+      'calcular-puntos',
+      'jugador-menos-puntuacion',
+      'desactivar-proxima-habilidad',
+      'solicitar-carta-sobre-otra',
+      'poner-carta-sobre-otra',
+    ];
+
+    if (poder === 'ver-carta') {
+      // Caso especial: 10 = ver-carta propia (directo); 11 = ver-carta rival (objetivo)
+      if (carta.valor === 10) {
+        this.gameService.usarPoderCarta('ver-carta', { numCarta: cartaIdx });
+        return;
+      }
+      // valor 11: pide objetivo
+      this.numCartaPendiente.set(cartaIdx);
+      this.poderPendiente.set('ver-carta');
+      this.esperandoObjetivo.set(true);
+      return;
+    }
+
+    if (directo.includes(poder)) {
+      this.gameService.usarPoderCarta(poder, { numCarta: cartaIdx });
+      return;
+    }
+
+    // Resto: requiere objetivo rival
+    this.numCartaPendiente.set(cartaIdx);
+    this.poderPendiente.set(poder);
+    this.esperandoObjetivo.set(true);
+  }
+
+  /**
+   * Click en avatar de rival estando en `esperandoObjetivo`: ejecuta el poder
+   * pendiente contra ese rival.
+   */
+  seleccionarObjetivoRival(rivalId: string): void {
+    if (!this.esperandoObjetivo()) return;
+
+    const poder = this.poderPendiente();
+    const numCarta = this.numCartaPendiente();
+    if (!poder) { this.cancelarObjetivoPoder(); return; }
+
+    this.gameService.usarPoderCarta(poder, {
+      rivalId,
+      numCarta: numCarta ?? undefined,
+      numCartaRemitente: numCarta ?? undefined,
+    });
+
+    this.cancelarObjetivoPoder();
+  }
+
+  cancelarObjetivoPoder(): void {
+    this.esperandoObjetivo.set(false);
+    this.poderPendiente.set(null);
+    this.numCartaPendiente.set(null);
   }
 
   private limpiarTimers(): void {

@@ -19,11 +19,34 @@
     <button class="tablero__exit-btn" (click)="salirPartida()">← Salir</button>
   </header>
 
+  @if (notificacionToast(); as toast) {
+    <div class="tablero__toast" [class.tablero__toast--error]="toast.tipo === 'error'">
+      {{ toast.mensaje }}
+    </div>
+  }
+
+  @if (ultimaAccion(); as accion) {
+    <div class="tablero__accion-label"
+         [class.tablero__accion-label--intercambio]="accion.accion === 'intercambió'">
+      <strong>{{ accion.jugador }}</strong>&nbsp;{{ accion.accion }}
+    </div>
+  }
+
   <!-- ── Banner de turno (2 segundos) ─────────────────────────────────── -->
   @if (fase() === 'banner') {
     <div class="tablero__banner">
       <div class="tablero__banner-box">
         Turno de&nbsp;<strong>{{ jugadorActual()!.nombre }}</strong>
+      </div>
+    </div>
+  }
+
+  <!-- ── Banner: esperando objetivo de poder ──────────────────────────── -->
+  @if (esperandoObjetivo()) {
+    <div class="tablero__banner">
+      <div class="tablero__banner-box tablero__banner-box--objetivo">
+        Elige un rival para aplicar el poder
+        <button class="btn-neon" (click)="cancelarObjetivoPoder()">Cancelar</button>
       </div>
     </div>
   }
@@ -44,6 +67,44 @@
         <h2 class="tablero__fin-titulo">Partida finalizada</h2>
         <p class="tablero__fin-msg">{{ mensajeFin() }}</p>
         <button class="btn-neon" (click)="salirPartida()">Volver al lobby</button>
+      </div>
+    </div>
+  }
+
+  @if (cartaReveladaModal(); as revelada) {
+    <div class="tablero__revelada-overlay">
+      <div class="tablero__revelada-box glass-card">
+        <h3 class="tablero__revelada-titulo">Carta revelada</h3>
+
+        <div class="tablero__revelada-cartas">
+          <div class="tablero__revelada-bloque">
+            <span class="tablero__revelada-label">
+              {{ revelada.rival ? 'Tu carta' : 'Carta descubierta' }}
+            </span>
+            <div class="tablero__carta tablero__carta--cara"
+                 [class.tablero__carta--roja]="esRoja(revelada.propia.palo)">
+              <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(revelada.propia.valor) }}</span>
+              <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(revelada.propia.palo) }}</span>
+              <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(revelada.propia.palo) }}</span>
+              <span class="tablero__cv tablero__cv--br">{{ getValorCarta(revelada.propia.valor) }}</span>
+            </div>
+          </div>
+
+          @if (revelada.rival; as cartaRival) {
+            <div class="tablero__revelada-bloque">
+              <span class="tablero__revelada-label">Carta rival</span>
+              <div class="tablero__carta tablero__carta--cara"
+                   [class.tablero__carta--roja]="esRoja(cartaRival.palo)">
+                <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(cartaRival.valor) }}</span>
+                <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(cartaRival.palo) }}</span>
+                <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(cartaRival.palo) }}</span>
+                <span class="tablero__cv tablero__cv--br">{{ getValorCarta(cartaRival.valor) }}</span>
+              </div>
+            </div>
+          }
+        </div>
+
+        <button class="btn-neon" (click)="cerrarOverlayCartaRevelada()">Cerrar</button>
       </div>
     </div>
   }
@@ -95,8 +156,10 @@
         class="tablero__jugador tablero__jugador--{{ jugador.posicion }}"
         [class.tablero__jugador--activo]="i === turnoIdx()">
 
-        <!-- Etiqueta (avatar + nombre) -->
-        <div class="tablero__etiqueta">
+        <!-- Etiqueta (avatar + nombre) — clicable si esperandoObjetivo y es rival -->
+        <div class="tablero__etiqueta"
+             [class.tablero__etiqueta--objetivo]="esperandoObjetivo() && !jugador.esYo"
+             (click)="!jugador.esYo && esperandoObjetivo() && seleccionarObjetivoRival(jugador.id)">
           <span class="tablero__avatar">{{ jugador.avatar }}</span>
           <span class="tablero__nombre">{{ jugador.nombre }}</span>
           @if (i === turnoIdx() && fase() === 'decidiendo' && jugador.esBot) {
@@ -128,7 +191,7 @@
                   [class.tablero__carta--yo]="jugador.esYo"
                   [class.tablero__carta--seleccionable]="modoIntercambio() && jugador.esYo"
                   [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
-                  (click)="seleccionarCartaMano(i, ci)">
+                  (click)="onClickCartaMano(i, ci)">
                   @if (carta.visible) {
                     <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(carta.valor) }}</span>
                     <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(carta.palo) }}</span>

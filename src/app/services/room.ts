@@ -3,6 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@angular/core';
+import { WebsocketService, PublicRoomSummaryBackend } from './websocket';
 
 // ═══ Interfaces ═══
 
@@ -47,6 +48,8 @@ const BOT_AVATARES: Record<string, string> = {
 
 @Injectable({ providedIn: 'root' })
 export class RoomService {
+  constructor(private ws: WebsocketService) {}
+
   private readonly SALA_KEY = 'cubo_sala_actual';
   private readonly SALAS_KEY = 'cubo_salas_publicas';
   private readonly ES_ANFITRION_KEY = 'cubo_es_anfitrion';
@@ -141,6 +144,39 @@ export class RoomService {
     const actual = this.obtenerSala();
     if (actual && actual.id === codigo) return actual;
     return null;
+  }
+
+  limpiarCacheLocal(): void {
+    localStorage.removeItem(this.SALAS_KEY);
+  }
+
+  async listarSalasDesdeBackend(token: string): Promise<SalaData[]> {
+    const rooms = await this.ws.listarSalasPublicas(token);
+    this.limpiarCacheLocal();
+    return rooms.map((r) => this.mapearSalaBackend(r));
+  }
+
+  private mapearSalaBackend(r: PublicRoomSummaryBackend): SalaData {
+    const estaLlena = r.playersCount >= r.rules.maxPlayers;
+    return {
+      id: r.code,
+      nombre: r.name,
+      anfitrion: '',
+      publica: true,
+      estado: estaLlena ? 'llena' : 'esperando',
+      jugadores: Array.from({ length: r.playersCount }, (_, i) => ({
+        id: `slot_${i}`,
+        nombre: `Jugador ${i + 1}`,
+        esBot: false,
+        esAnfitrion: i === 0,
+        listo: false,
+        avatar: '👤',
+      })),
+      dificultadBots: 'Normal',
+      creadaEn: r.createdAt,
+      numBarajas: (r.rules.deckCount === 2 ? 2 : 1) as 1 | 2,
+      reglasActivas: [],
+    };
   }
 
   // ═══ Datos simulados (6 salas de ejemplo) ═══

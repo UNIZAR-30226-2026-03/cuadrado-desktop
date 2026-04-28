@@ -26,11 +26,22 @@
       </div>
     </div>
 
-    @if (salasFiltradas().length > 0) {
+    @if (cargando()) {
+      <div class="empty-state" @fadeIn>
+        <span class="empty-state__icon">⏳</span>
+        <p class="empty-state__text">Buscando salas...</p>
+      </div>
+    } @else if (errorCarga()) {
+      <div class="empty-state" @fadeIn>
+        <span class="empty-state__icon">⚠️</span>
+        <p class="empty-state__text">{{ errorCarga() }}</p>
+        <button class="btn-neon btn--sm" (click)="cargarSalas()">Reintentar</button>
+      </div>
+    } @else if (salasFiltradas().length > 0) {
       <div class="rooms-list" @cardStagger>
         @for (sala of salasFiltradas(); track sala.id) {
           <div class="room-row glass-card" [class.disabled]="!puedeUnirse(sala)">
-            <span class="room-row__host">{{ sala.anfitrion }}</span>
+            <span class="room-row__host">{{ sala.nombre }}</span>
             <span class="room-row__players">{{ sala.jugadores.length }}/8</span>
             <span class="room-row__rules">
               @if (sala.reglasActivas.length > 0) {
