@@ -84,6 +84,8 @@ export interface RoomRules {
   turnTimeSeconds: number;
   isPrivate: boolean;
   fillWithBots: boolean;
+  enabledPowers?: string[];
+  deckCount?: number;
 }
 
 export interface RoomStatePlayer {

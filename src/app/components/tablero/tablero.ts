@@ -6,7 +6,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
 import { GameService } from '../../services/game';
-import { WebsocketService, EvTurnoIniciado } from '../../services/websocket';
+import { WebsocketService, EvTurnoIniciado, EvDescartarPendiente, EvDecisionRequerida, EvCartaRobada } from '../../services/websocket';
 import { environment } from '../../environment';
 
 // Tipos internos del tablero
@@ -125,6 +125,17 @@ export class Tablero implements OnInit, OnDestroy {
 
     this.subs.push(
       this.ws.turnoIniciado$.subscribe((ev: EvTurnoIniciado) => {
+        // Limpiar cartaPendiente de todos al transicionar de turno
+        const sinPendientes = this.jugadores().map(j =>
+          j.cartaPendiente ? { ...j, cartaPendiente: null } : j
+        );
+        this.jugadores.set(sinPendientes);
+        // Decrementar contador de cubo si está activo
+        if (this.cuboActivado()) {
+          this.cuboInfo.update(info =>
+            info ? { ...info, turnosRestantes: Math.max(0, info.turnosRestantes - 1) } : info
+          );
+        }
         const idx = this.turnoOrder.indexOf(ev.userId);
         this.turnoIdx.set(idx >= 0 ? idx : 0);
         this.limpiarTimers();
@@ -148,6 +159,36 @@ export class Tablero implements OnInit, OnDestroy {
       }),
       this.ws.roomClosed$.subscribe(() => {
         this.finalizarPartida('La partida ha terminado porque un jugador abandonó.');
+      }),
+      this.ws.descartePendiente$.subscribe((ev: EvDescartarPendiente) => {
+        const palo = this.normalizarPalo(ev.carta.palo);
+        if (palo) {
+          this.discardTop.set({ valor: ev.carta.carta, palo, visible: true, seleccionada: false });
+        }
+      }),
+      // Sincronizar la carta robada real del backend con cartaPendiente del jugador local
+      this.ws.decisionRequerida$.subscribe((ev: EvDecisionRequerida) => {
+        if (!ev.game) return;
+        const palo = this.normalizarPalo(ev.game.palo);
+        if (!palo) return;
+        const all = [...this.jugadores()];
+        const idx = this.idxActualEnArray();
+        if (all[idx]?.esYo) {
+          all[idx] = { ...all[idx], cartaPendiente: { valor: ev.game.carta, palo, visible: true, seleccionada: false } };
+          this.jugadores.set(all);
+        }
+      }),
+      // Mostrar reverso de carta cuando un jugador remoto roba
+      this.ws.cartaRobada$.subscribe((ev: EvCartaRobada) => {
+        this.deckCount.set(ev.cartasRestantes);
+        const userId = this.turnoOrder[ev.jugadorRobado];
+        if (!userId) return;
+        const all = [...this.jugadores()];
+        const robadorIdx = all.findIndex(j => j.nombre === userId);
+        if (robadorIdx >= 0 && !all[robadorIdx].esYo && !all[robadorIdx].esBot) {
+          all[robadorIdx] = { ...all[robadorIdx], cartaPendiente: { valor: 1, palo: 'corazones', visible: false, seleccionada: false } };
+          this.jugadores.set(all);
+        }
       }),
     );
   }
@@ -248,8 +289,12 @@ export class Tablero implements OnInit, OnDestroy {
       this.robarSegundos.set(3);
       this.iniciarTimerRobo();
     } else {
-      // Bot / otro jugador: robo automático tras banner de 2 segundos
-      this.phaseTimeout = setTimeout(() => this.ejecutarRobo(), 2000);
+      const enLinea = !!this.gameService.gameId();
+      if (!enLinea) {
+        // Modo local: simular robo del jugador no-local (humano o bot)
+        this.phaseTimeout = setTimeout(() => this.ejecutarRobo(), 2000);
+      }
+      // Modo online: el backend gestiona todos los jugadores no locales (humanos y bots)
     }
   }
 
@@ -269,7 +314,7 @@ export class Tablero implements OnInit, OnDestroy {
     this.deckCount.set(this.deck.length);
 
     const all = [...this.jugadores()];
-    const idx = this.turnoIdx();
+    const idx = this.idxActualEnArray();
     const jugador = all[idx];
 
     // La carta sólo es visible para el jugador que la roba (no para bots visualmente)
@@ -279,12 +324,17 @@ export class Tablero implements OnInit, OnDestroy {
     };
     this.jugadores.set(all);
 
+    // En modo online, notificar al backend del robo para que avance su estado interno
+    // y acepte después el descarte/intercambio sin esperar el temporizador del servidor
+    const gameId = this.gameService.gameId();
+    if (gameId && jugador.esYo) this.ws.robarCarta(gameId);
+
     // Breve pausa de animación antes de pasar a fase de decisión
     this.phaseTimeout = setTimeout(() => {
       this.fase.set('decidiendo');
       if (jugador.esBot) {
         this.botDecide();
-      } else {
+      } else if (jugador.esYo) {
         this.iniciarTimer();
       }
     }, 800);
@@ -386,17 +436,24 @@ export class Tablero implements OnInit, OnDestroy {
     this.pararTimer();
 
     const all     = [...this.jugadores()];
-    const idx     = this.turnoIdx();
+    const idx     = this.idxActualEnArray();
     const jugador = all[idx];
     const carta   = jugador.cartaPendiente;
     if (!carta) return;
 
-    // La carta robada va a la pila de descartes boca arriba (visible para todos)
+    // Mostrar carta descartada inmediatamente (en online es la carta real via decisionRequerida$)
     const cartaDescartada = { ...carta, visible: true };
     this.discardTop.set(cartaDescartada);
-    this.discardPile.push(cartaDescartada);
+
+    const gameId = this.gameService.gameId();
+    if (!gameId) {
+      this.discardPile.push(cartaDescartada);
+    }
+
     all[idx] = { ...jugador, cartaPendiente: null };
     this.jugadores.set(all);
+
+    if (gameId) this.ws.descartarPendiente(gameId);
 
     this.programarSiguienteTurno();
   }
@@ -416,10 +473,14 @@ export class Tablero implements OnInit, OnDestroy {
     const jugador = all[jugadorIdx];
     if (!jugador?.esYo || !jugador.cartaPendiente) return;
 
-    // La carta de la mano va al descarte boca arriba
-    const cartaVieja = { ...jugador.mano[cartaIdx], visible: true };
-    this.discardTop.set(cartaVieja);
-    this.discardPile.push(cartaVieja);
+    const gameId = this.gameService.gameId();
+    if (!gameId) {
+      // Modo local: la carta de la mano va al descarte boca arriba
+      const cartaVieja = { ...jugador.mano[cartaIdx], visible: true };
+      this.discardTop.set(cartaVieja);
+      this.discardPile.push(cartaVieja);
+    }
+    // Modo online: discardTop lo actualiza descartePendiente$ con la carta real del backend
 
     // La carta pendiente ocupa su lugar en la mano (boca abajo)
     const nuevaMano = [...jugador.mano];
@@ -431,6 +492,9 @@ export class Tablero implements OnInit, OnDestroy {
 
     this.modoIntercambio.set(false);
     this.pararTimer();
+
+    if (gameId) this.ws.cartaPorPendiente(gameId, cartaIdx);
+
     this.programarSiguienteTurno();
   }
 
@@ -449,7 +513,7 @@ export class Tablero implements OnInit, OnDestroy {
       if (Math.random() < 0.45) {
         // 45 %: intercambia con una carta aleatoria de su mano
         const cartaIdx = Math.floor(Math.random() * CARTAS_POR_JUGADOR);
-        this.botIntercambiar(this.turnoIdx(), cartaIdx);
+        this.botIntercambiar(this.idxActualEnArray(), cartaIdx);
       } else {
         // 55 %: descarta la carta robada
         this.accionDescartar();
@@ -618,6 +682,23 @@ export class Tablero implements OnInit, OnDestroy {
     this.limpiarTimers();
     this.gameService.salirDePartida();
     this.router.navigate(['/lobby']);
+  }
+
+  private normalizarPalo(palo: string): Palo | null {
+    const map: Record<string, Palo> = {
+      corazones: 'corazones', hearts: 'corazones',
+      picas: 'picas', spades: 'picas',
+      rombos: 'rombos', diamonds: 'rombos',
+      treboles: 'treboles', clubs: 'treboles',
+    };
+    return map[palo?.toLowerCase()] ?? null;
+  }
+
+  private idxActualEnArray(): number {
+    const actual = this.jugadorActual();
+    if (!actual) return 0;
+    const idx = this.jugadores().findIndex(j => j.nombre === actual.nombre);
+    return idx >= 0 ? idx : 0;
   }
 
   private limpiarTimers(): void {

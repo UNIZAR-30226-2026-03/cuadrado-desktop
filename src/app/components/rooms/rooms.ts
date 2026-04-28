@@ -13,6 +13,18 @@ import { RoomService, SalaData } from '../../services/room';
 import { WebsocketService, PublicRoomSummary } from '../../services/websocket';
 import { TopBar } from '../shared/top-bar/top-bar';
 
+const CARTAS_VALIDAS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
+const NUMERO_A_CARTA: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+
+function normalizarPoderes(poderes: (string | number)[]): string[] {
+  return poderes.map(p => {
+    if (typeof p === 'string' && CARTAS_VALIDAS.has(p)) return p;
+    const n = typeof p === 'number' ? p : parseInt(p as string, 10);
+    if (n >= 2 && n <= 10) return String(n);
+    return NUMERO_A_CARTA[n] ?? null;
+  }).filter((c): c is string => c !== null);
+}
+
 @Component({
   selector: 'app-rooms',
   standalone: true,
@@ -36,14 +48,15 @@ import { TopBar } from '../shared/top-bar/top-bar';
 })
 export class Rooms implements OnInit, OnDestroy {
   // Estado
-  codigoInput   = signal('');
-  errorCodigo   = signal('');
-  errorJoin     = signal('');
-  busqueda      = signal('');
-  refrescando   = signal(false);
-  uniendoCodigo = signal(false);
-  salas         = signal<SalaData[]>([]);
-  cargandoInicial = signal(true);
+  codigoInput      = signal('');
+  errorCodigo      = signal('');
+  errorJoin        = signal('');
+  busqueda         = signal('');
+  refrescando      = signal(false);
+  uniendoCodigo    = signal(false);
+  salas            = signal<SalaData[]>([]);
+  cargandoInicial  = signal(true);
+  salaSeleccionada = signal<SalaData | null>(null);
 
   readonly skeletonRows = [1, 2, 3, 4];
 
@@ -150,7 +163,9 @@ export class Rooms implements OnInit, OnDestroy {
       creadaEn: new Date(r.createdAt).getTime(),
       numBarajas: (r.rules.deckCount === 2 ? 2 : 1) as 1 | 2,
       maxJugadores: r.rules.maxPlayers,
-      reglasActivas: r.rules.enabledPowers ?? [],
+      reglasActivas: r.rules.enabledPowers?.length
+        ? normalizarPoderes(r.rules.enabledPowers as (string | number)[])
+        : [],
     };
   }
 
@@ -200,7 +215,10 @@ export class Rooms implements OnInit, OnDestroy {
         return;
       }
 
-      this.guardarSalaInvitado(resp.roomCode ?? codigo);
+      const salaOrigen = this.salaSeleccionada()?.id === codigo
+        ? this.salaSeleccionada()!
+        : undefined;
+      this.guardarSalaInvitado(resp.roomCode ?? codigo, salaOrigen);
       this.router.navigate(['/waiting-room']);
     } catch {
       this.errorCodigo.set('No se pudo conectar con el servidor');
@@ -233,18 +251,18 @@ export class Rooms implements OnInit, OnDestroy {
       return;
     }
 
-    this.guardarSalaInvitado(resultado.roomCode ?? sala.id);
+    this.guardarSalaInvitado(resultado.roomCode ?? sala.id, sala);
     this.router.navigate(['/waiting-room']);
   }
 
-  // Persiste una SalaData mínima para el jugador invitado
-  private guardarSalaInvitado(codigo: string): void {
+  // Persiste SalaData para el jugador invitado, preservando datos de la sala origen
+  private guardarSalaInvitado(codigo: string, salaOrigen?: SalaData): void {
     const usuario = this.auth.usuario();
     const nombreUsuario = usuario?.nombre || 'Jugador';
     const sala: SalaData = {
       id: codigo,
-      nombre: `Sala ${codigo}`,
-      anfitrion: '',
+      nombre: salaOrigen?.nombre ?? `Sala ${codigo}`,
+      anfitrion: salaOrigen?.anfitrion ?? '',
       publica: true,
       estado: 'esperando',
       jugadores: [{
@@ -256,9 +274,9 @@ export class Rooms implements OnInit, OnDestroy {
       }],
       dificultadBots: 'Normal',
       creadaEn: Date.now(),
-      numBarajas: 1,
-      maxJugadores: 8,
-      reglasActivas: [],
+      numBarajas: salaOrigen?.numBarajas ?? 1,
+      maxJugadores: salaOrigen?.maxJugadores ?? 8,
+      reglasActivas: salaOrigen?.reglasActivas ?? [],
     };
     this.roomService.guardarSala(sala);
     this.roomService.setEsAnfitrion(false);
@@ -267,6 +285,12 @@ export class Rooms implements OnInit, OnDestroy {
   private mostrarErrorJoin(msg: string): void {
     this.errorJoin.set(msg);
     setTimeout(() => this.errorJoin.set(''), 3500);
+  }
+
+  // ═══ Selección de sala (preview) ═══
+  seleccionarSala(sala: SalaData): void {
+    const actual = this.salaSeleccionada();
+    this.salaSeleccionada.set(actual?.id === sala.id ? null : sala);
   }
 
   // ═══ Búsqueda ═══

@@ -105,6 +105,8 @@ export class CreateRoom implements OnInit {
           turnTimeSeconds: this.turnTime(),
           isPrivate: !this.esPublica(),
           fillWithBots: false,
+          enabledPowers: reglasActivas,
+          deckCount: this.numBarajas(),
         });
         if (resp.success && resp.roomCode) {
           codigo = resp.roomCode;

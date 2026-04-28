@@ -15,6 +15,20 @@ interface PowerCard {
   description: string;
 }
 
+// El backend puede devolver los poderes como índices numéricos (1=A, 2-10=2-10, 11=J, 12=Q, 13=K)
+// o directamente como nombres de carta. Esta función normaliza ambos formatos.
+const CARTAS_VALIDAS_WR = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
+const NUMERO_A_CARTA_WR: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
+
+function normalizarPoderes(poderes: (string | number)[]): string[] {
+  return poderes.map(p => {
+    if (typeof p === 'string' && CARTAS_VALIDAS_WR.has(p)) return p;
+    const n = typeof p === 'number' ? p : parseInt(p as string, 10);
+    if (n >= 2 && n <= 10) return String(n);
+    return NUMERO_A_CARTA_WR[n] ?? null;
+  }).filter((c): c is string => c !== null);
+}
+
 const POWER_DESCRIPTIONS: Record<string, string> = {
   'A':  'Intercambia todas tus cartas por todas las cartas de otro jugador.',
   '2':  'Elige a un jugador para que robe una carta extra y la añada a sus cartas.',
@@ -182,12 +196,20 @@ export class WaitingRoom implements OnInit, OnDestroy {
       estado = 'llena';
     }
 
+    const numBarajas: 1 | 2 = state.rules?.deckCount === 2 ? 2
+      : state.rules?.deckCount === 1 ? 1
+      : sala.numBarajas;
+
     this.sala.set({
       ...sala,
       anfitrion: nuevoAnfitrion,
       jugadores: nuevosJugadores,
       maxJugadores,
+      numBarajas,
       estado,
+      reglasActivas: state.rules?.enabledPowers?.length
+        ? normalizarPoderes(state.rules.enabledPowers as (string | number)[])
+        : sala.reglasActivas,
     });
 
     // Persistir en localStorage para que tablero.ts lo pueda leer

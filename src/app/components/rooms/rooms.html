@@ -50,11 +50,13 @@
     } @else if (salasFiltradas().length > 0) {
       <div class="rooms-list" @cardStagger>
         @for (sala of salasFiltradas(); track sala.id) {
-          <div class="room-row glass-card">
+          <div class="room-row glass-card"
+               [class.room-row--selected]="salaSeleccionada()?.id === sala.id"
+               (click)="seleccionarSala(sala)">
             <span class="room-row__host">{{ sala.anfitrion || sala.nombre }}</span>
             <span class="room-row__players">{{ sala.jugadores.length }}/{{ sala.maxJugadores }}</span>
             <span class="room-row__rules">
-              @if (sala.reglasActivas.length > 0) {
+              @if (sala.reglasActivas && sala.reglasActivas.length > 0) {
                 Reglas: {{ sala.reglasActivas.join(', ') }}
               } @else {
                 Sin reglas
@@ -63,8 +65,37 @@
             <span class="room-row__decks">Nº de barajas: {{ sala.numBarajas }}</span>
             <button class="btn-neon btn--sm room-row__join"
                     type="button"
-                    (click)="unirseDesdeCard(sala)">
+                    (click)="$event.stopPropagation(); unirseDesdeCard(sala)">
               Unirse
+            </button>
+          </div>
+        }
+
+        @if (salaSeleccionada(); as preview) {
+          <div class="room-preview glass-card" @fadeIn>
+            <div class="room-preview__header">
+              <h3 class="room-preview__name">{{ preview.nombre }}</h3>
+              <button class="btn-ghost room-preview__close" (click)="$event.stopPropagation(); salaSeleccionada.set(null)">✕</button>
+            </div>
+            <div class="room-preview__meta">
+              <span>{{ preview.jugadores.length }}/{{ preview.maxJugadores }} jugadores</span>
+              <span class="room-preview__sep">·</span>
+              <span>{{ preview.numBarajas }} {{ preview.numBarajas === 1 ? 'baraja' : 'barajas' }}</span>
+            </div>
+            <div class="room-preview__rules">
+              @if (preview.reglasActivas && preview.reglasActivas.length > 0) {
+                <span class="room-preview__rules-label">Reglas activas:</span>
+                <div class="rule-pills">
+                  @for (regla of preview.reglasActivas; track regla) {
+                    <span class="rule-pill">{{ regla }}</span>
+                  }
+                </div>
+              } @else {
+                <span class="room-preview__no-rules">Sin reglas especiales</span>
+              }
+            </div>
+            <button class="btn-neon room-preview__join-btn" (click)="unirseDesdeCard(preview)">
+              Unirse a esta sala
             </button>
           </div>
         }
