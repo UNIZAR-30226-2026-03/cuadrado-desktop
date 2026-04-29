@@ -15,6 +15,8 @@ interface CardPower {
   enabled: boolean;
 }
 
+const PODERES_VALIDOS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J']);
+
 @Component({
   selector: 'app-create-room',
   standalone: true,
@@ -73,7 +75,9 @@ export class CreateRoom implements OnInit {
   }
 
   togglePower(index: number): void {
-    this.cardPowers[index].enabled = !this.cardPowers[index].enabled;
+    const power = this.cardPowers[index];
+    if (!PODERES_VALIDOS.has(power.card)) return;
+    power.enabled = !power.enabled;
   }
 
   async crearSala(): Promise<void> {
@@ -90,7 +94,7 @@ export class CreateRoom implements OnInit {
     };
 
     const reglasActivas = this.cardPowers
-      .filter(p => p.enabled)
+      .filter(p => p.enabled && PODERES_VALIDOS.has(p.card))
       .map(p => p.card);
 
     let codigo = this.roomService.generarCodigo();

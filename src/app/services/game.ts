@@ -7,6 +7,8 @@ import {
   EvIntercambioCartas,
   EvHacerRobarCarta,
   EvHabilidadDenegada,
+  EvPoder8Estado,
+  EvRevanchaEstado,
 } from './websocket';
 
 // Clasificación según si el poder necesita objetivo rival
@@ -38,6 +40,8 @@ export class GameService {
   private _ultimoIntercambioCartas = signal<EvIntercambioCartas | null>(null);
   private _ultimoRoboForzado = signal<EvHacerRobarCarta | null>(null);
   private _notificacion = signal<NotificacionJuego | null>(null);
+  private _poder8Estado = signal<EvPoder8Estado | null>(null);
+  private _revancha = signal<EvRevanchaEstado | null>(null);
   private secuenciaNotificacion = 0;
 
   gameId = this._gameId.asReadonly();
@@ -46,6 +50,8 @@ export class GameService {
   ultimoIntercambioCartas = this._ultimoIntercambioCartas.asReadonly();
   ultimoRoboForzado = this._ultimoRoboForzado.asReadonly();
   notificacion = this._notificacion.asReadonly();
+  poder8Estado = this._poder8Estado.asReadonly();
+  revancha = this._revancha.asReadonly();
   estaConectado = computed(() => this.ws.estaConectado());
 
   constructor(private ws: WebsocketService) {
@@ -72,9 +78,41 @@ export class GameService {
       this.publicarNotificacion('error', this.formatearHabilidadDenegada(ev));
     });
 
+    // Carta protegida bloqueó la acción: avisar pero NO bloquear el flujo.
+    this.ws.accionProtegidaCancelada$.subscribe((ev) => {
+      const accion = (ev.accion ?? 'accion').split('-').join(' ');
+      this.publicarNotificacion(
+        'error',
+        `Acción "${accion}" cancelada: la carta del rival está protegida.`,
+      );
+    });
+
+    this.ws.poder8Estado$.subscribe((ev) => {
+      this._poder8Estado.set(ev);
+    });
+
+    this.ws.revanchaEstado$.subscribe((ev) => {
+      this._revancha.set(ev);
+    });
+
     this.ws.error$.subscribe((mensaje) => {
       this.publicarNotificacion('error', mensaje);
     });
+  }
+
+  resolverJ(intercambiar: boolean): void {
+    const id = this._gameId();
+    if (id) this.ws.resolverJ(id, intercambiar);
+  }
+
+  saltarTurnoJugador(adversarioId: string): void {
+    const id = this._gameId();
+    if (id) this.ws.saltarTurnoJugador(id, adversarioId);
+  }
+
+  volverAJugar(): void {
+    const id = this._gameId();
+    if (id) this.ws.volverAJugar(id);
   }
 
   unirseAPartida(token: string, roomCode: string): void {
@@ -155,6 +193,8 @@ export class GameService {
     this._ultimoIntercambioCartas.set(null);
     this._ultimoRoboForzado.set(null);
     this._notificacion.set(null);
+    this._poder8Estado.set(null);
+    this._revancha.set(null);
   }
 
   private publicarNotificacion(

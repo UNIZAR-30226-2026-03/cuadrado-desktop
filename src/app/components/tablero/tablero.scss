@@ -245,6 +245,79 @@ $carta-gap:     5px;
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+//  SKILL PANEL — poder activado al descartar (esquina inferior derecha)
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__skill-panel {
+  position: fixed;
+  bottom: 1.5rem;
+  right: 1.5rem;
+  z-index: 55;
+  animation: skill-panel-in 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.tablero__skill-panel-box {
+  min-width: 220px;
+  max-width: min(300px, calc(100vw - 24px));
+  padding: 16px 18px;
+  border-radius: 14px;
+  background: rgba(11, 23, 51, 0.97);
+  border: 1.5px solid rgba(251, 191, 36, 0.65);
+  box-shadow:
+    0 0 36px rgba(251, 191, 36, 0.2),
+    0 8px 32px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(16px);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.tablero__skill-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.tablero__skill-panel-valor {
+  font-family: var(--font-display);
+  font-size: 34px;
+  font-weight: 900;
+  color: #fbbf24;
+  text-shadow: 0 0 16px rgba(251, 191, 36, 0.55);
+  line-height: 1;
+  min-width: 38px;
+  text-align: center;
+}
+
+.tablero__skill-panel-nombre {
+  margin: 0 0 3px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: #fbbf24;
+  text-shadow: 0 0 10px rgba(251, 191, 36, 0.4);
+}
+
+.tablero__skill-panel-desc {
+  margin: 0;
+  font-size: 11px;
+  color: var(--text-70);
+  line-height: 1.4;
+}
+
+.tablero__skill-panel-instruccion {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--neon-cyan);
+  letter-spacing: 0.02em;
+  padding: 6px 10px;
+  background: rgba(0, 229, 255, 0.07);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 229, 255, 0.18);
+  text-align: center;
+}
+
 .tablero__toast {
   position: fixed;
   top: 64px;
@@ -321,6 +394,80 @@ $carta-gap:     5px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--text-70);
+}
+
+.tablero__revelada-prompt {
+  margin: 4px 0 8px;
+  font-size: 14px;
+  color: var(--text-90, #f0f0f0);
+  text-align: center;
+}
+
+.tablero__revelada-acciones {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.btn-neon--ghost {
+  filter: grayscale(0.4);
+  opacity: 0.85;
+}
+
+.tablero__poderes-almacenados {
+  position: fixed;
+  top: 80px;
+  right: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  z-index: 40;
+  min-width: 90px;
+  align-items: stretch;
+}
+
+.tablero__poderes-titulo {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-70, #c0c0c0);
+  text-align: center;
+}
+
+.tablero__poder-chip {
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #f0f0f0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease, transform 0.15s ease;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &:not(:disabled):hover {
+    filter: brightness(1.2);
+    transform: translateY(-1px);
+  }
+}
+
+.tablero__poder-chip--info {
+  cursor: default;
+  background: rgba(120, 80, 0, 0.35);
+  border-color: rgba(255, 200, 80, 0.35);
+}
+
+.tablero__fin-acciones {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -666,6 +813,21 @@ $carta-gap:     5px;
   backdrop-filter: blur(4px);
 }
 
+.tablero__etiqueta--objetivo {
+  cursor: pointer;
+  border-color: rgba(251, 191, 36, 0.65);
+  color: #fbbf24;
+  box-shadow: 0 0 12px rgba(251, 191, 36, 0.3);
+  animation: glow-pulso-objetivo 1s ease-in-out infinite alternate;
+  transition: transform 150ms, box-shadow 150ms;
+
+  &:hover {
+    transform: scale(1.08);
+    box-shadow: 0 0 22px rgba(251, 191, 36, 0.6);
+    border-color: rgba(251, 191, 36, 0.9);
+  }
+}
+
 .tablero__avatar { font-size: 16px; line-height: 1; }
 
 .tablero__nombre {
@@ -911,6 +1073,16 @@ $carta-gap:     5px;
 @keyframes cubo-chip-urgent {
   0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);   transform: scale(1); }
   50%       { box-shadow: 0 0 0 5px rgba(239, 68, 68, 0.3); transform: scale(1.04); }
+}
+
+@keyframes skill-panel-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.88); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes glow-pulso-objetivo {
+  from { box-shadow: 0 0 8px rgba(251, 191, 36, 0.2); }
+  to   { box-shadow: 0 0 20px rgba(251, 191, 36, 0.55); }
 }
 
 @keyframes accion-pop {

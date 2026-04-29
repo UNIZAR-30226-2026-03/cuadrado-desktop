@@ -25,8 +25,9 @@ export interface EvCartaRobada {
 
 export interface EvDecisionRequerida {
   gameId: string;
-  // La carta robada solo se envía al jugador que robó.
-  // NOTA: en el backend la propiedad se llama "game", no "carta".
+  // Backend `dev` envía `carta`. Versiones previas enviaban `game`.
+  // Aceptamos ambos por compatibilidad: usar `ev.carta ?? ev.game`.
+  carta?: { carta: number; palo: string; puntos: number; protegida: boolean };
   game?: { carta: number; palo: string; puntos: number; protegida: boolean };
 }
 
@@ -41,6 +42,45 @@ export interface EvIntercambioCartas {
   destinatario: string;
   numCartaRemitente?: number;
   numCartaDestinatario?: number;
+  cardCountRemitente?: number;
+  cardCountDestinatario?: number;
+}
+
+// Emitido cuando el jugador descarta un 6: backend devuelve la carta
+// robada que queda pendiente (WAIT_DECISION) hasta nueva acción del jugador.
+export interface EvCartaRobadaPorDescartar6 {
+  gameId: string;
+  cartaRobada: { carta: number; palo: string; puntos: number; protegida: boolean };
+  reshuffle?: { huboRebarajado: boolean; cantidadCartasMazo?: number; cantidadCartasDescartadas?: number };
+}
+
+// Una habilidad fue cancelada porque la carta objetivo estaba protegida.
+// No debe bloquear el flujo: solo informar y continuar.
+export interface EvAccionProtegidaCancelada {
+  gameId: string;
+  accion: string;
+  actorId: string;
+  propietarioId: string;
+  proteccionesConsumidas?: number;
+  message?: string;
+}
+
+// Estado del poder 8 diferido: bloqueo de la próxima habilidad.
+export interface EvPoder8Estado {
+  gameId: string;
+  pendientes: number;
+  pendientesDiferidos: number;
+  activadorId: string | null;
+}
+
+// Estado de revancha (game:revancha-estado).
+export interface EvRevanchaEstado {
+  gameId: string;
+  estado: 'waiting-host' | 'room-ready' | string;
+  hostId: string;
+  jugadoresListos: string[];
+  roomCode?: string;
+  roomName?: string;
 }
 
 export interface EvTurnoExpirado {
@@ -179,6 +219,19 @@ export interface EvPonerCartaSobreOtra {
   aceptada: boolean;
 }
 
+// Encadenamiento del poder 7: backend confirma acierto y el jugador puede
+// volver a colocar otra carta del mismo valor.
+export interface EvPonerOtraCartaSobreOtra {
+  gameId: string;
+}
+
+// Notificación a todos del cambio de cartas en mano tras carta-sobre-otra.
+export interface EvAccionCartaSobreOtra {
+  partidaId: string;
+  usuarioImplicado: string;
+  numCartasMano: number;
+}
+
 export interface EvIntercambioRival {
   gameId: string;
   usuarioIniciador: string;
@@ -241,6 +294,16 @@ export class WebsocketService {
   ponerCartaSobreOtra$ = new Subject<EvPonerCartaSobreOtra>();
   intercambioRival$    = new Subject<EvIntercambioRival>();
 
+  // Streams nuevos backend dev
+  cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
+  accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
+  poder8Estado$             = new Subject<EvPoder8Estado>();
+  revanchaEstado$           = new Subject<EvRevanchaEstado>();
+
+  // Encadenamiento + broadcast del poder 7
+  ponerOtraCartaSobreOtra$  = new Subject<EvPonerOtraCartaSobreOtra>();
+  accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
+
   conectar(token: string, roomCode?: string): void {
     if (this.socket?.connected) return;
 
@@ -257,6 +320,16 @@ export class WebsocketService {
     this.socket.on('disconnect', () => this.estaConectado.set(false));
     this.socket.on('exception',  (err: { error?: { message?: string } }) =>
       this.error$.next(err?.error?.message ?? 'Error WebSocket'));
+
+    // Panel debug dev: logueo de todos los eventos entrantes con su payload.
+    // Solo se activa fuera de producción. Útil para auditar nuevos eventos
+    // del backend (poder8-estado, accion-protegida-cancelada, revancha-estado, ...).
+    if (!environment.production) {
+      this.socket.onAny((event: string, ...args: unknown[]) => {
+        // eslint-disable-next-line no-console
+        console.debug('[ws-in]', event, args.length === 1 ? args[0] : args);
+      });
+    }
 
     // Eventos de sala
     this.socket.on('room:update', (data: EvRoomUpdate) => this.roomUpdate$.next(data));
@@ -284,6 +357,16 @@ export class WebsocketService {
     this.socket.on('game:jugador-menos-puntuacion-calculado', (d: EvJugadorMenosPuntuacion) => this.jugadorMenosPuntuacion$.next(d));
     this.socket.on('game:poner-carta-sobre-otra',   (d: EvPonerCartaSobreOtra)  => this.ponerCartaSobreOtra$.next(d));
     this.socket.on('game:intercambio-rival',        (d: EvIntercambioRival)     => this.intercambioRival$.next(d));
+
+    // Eventos nuevos backend dev (no deben bloquear flujo si llegan)
+    this.socket.on('game:carta-robada-por-descartar-6', (d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
+    this.socket.on('game:accion-protegida-cancelada',   (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
+    this.socket.on('game:poder8-estado',                (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
+    this.socket.on('game:revancha-estado',              (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
+
+    // Poder 7 (carta sobre otra): chain en acierto y broadcast de cambio de mano
+    this.socket.on('game:poner-otra-carta-sobre-otra', (d: EvPonerOtraCartaSobreOtra) => this.ponerOtraCartaSobreOtra$.next(d));
+    this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)    => this.accionCartaSobreOtra$.next(d));
   }
 
   /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
@@ -430,6 +513,21 @@ export class WebsocketService {
 
   prepararIntercambioCarta(gameId: string, numCartaJugador: number, rivalId: string): void {
     this.emit('game:preparar-intercambio-carta', { gameId, numCartaJugador, rivalId });
+  }
+
+  /** Poder J: resolver decisión final tras ver carta propia + rival. */
+  resolverJ(gameId: string, intercambiar: boolean): void {
+    this.emit('game:resolver-j', { gameId, intercambiar });
+  }
+
+  /** Poder 4: saltar el siguiente turno del rival indicado. */
+  saltarTurnoJugador(gameId: string, adversarioId: string): void {
+    this.emit('game:saltar-turno-jugador', { gameId, adversarioId });
+  }
+
+  /** Solicitud de revancha al finalizar la partida. */
+  volverAJugar(gameId: string): void {
+    this.emit('game:volver-a-jugar', { gameId });
   }
 
   /** Dispatcher genérico: elige evento según poder. */

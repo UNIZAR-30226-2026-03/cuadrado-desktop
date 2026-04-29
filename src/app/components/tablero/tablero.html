@@ -41,12 +41,37 @@
     </div>
   }
 
-  <!-- ── Banner: esperando objetivo de poder ──────────────────────────── -->
-  @if (esperandoObjetivo()) {
-    <div class="tablero__banner">
-      <div class="tablero__banner-box tablero__banner-box--objetivo">
-        Elige un rival para aplicar el poder
-        <button class="btn-neon" (click)="cancelarObjetivoPoder()">Cancelar</button>
+  <!-- ── SkillPanel: poder activado al descartar carta del mazo ────────── -->
+  @if (pendingSkill(); as skill) {
+    <div class="tablero__skill-panel">
+      <div class="tablero__skill-panel-box">
+        <div class="tablero__skill-panel-header">
+          <span class="tablero__skill-panel-valor">{{ getValorCarta(skill.valorCarta) }}</span>
+          <div>
+            <p class="tablero__skill-panel-nombre">{{ getNombrePoder(skill.valorCarta) }}</p>
+            <p class="tablero__skill-panel-desc">{{ getDescripcionPoder(skill.valorCarta) }}</p>
+          </div>
+        </div>
+        @if (skill.fase === 'propia') {
+          <p class="tablero__skill-panel-instruccion">Selecciona una de tus cartas</p>
+        } @else if (skill.fase === 'cartaRival') {
+          <p class="tablero__skill-panel-instruccion">Selecciona una carta del rival</p>
+        } @else {
+          <p class="tablero__skill-panel-instruccion">Elige un rival para aplicar el poder</p>
+        }
+        <button class="tablero__btn tablero__btn--cancelar" (click)="cancelarObjetivoPoder()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Modo selección poder 7 (carta sobre otra) ────────────────────── -->
+  @if (seleccionPoder7Activa()) {
+    <div class="tablero__skill-panel">
+      <div class="tablero__skill-panel-box glass-card">
+        <p class="tablero__skill-panel-instruccion">
+          Elige una carta tuya con el mismo valor que la del descarte.
+        </p>
+        <button class="tablero__btn tablero__btn--cancelar" (click)="cancelarSeleccionPoder7()">Cancelar</button>
       </div>
     </div>
   }
@@ -86,8 +111,55 @@
       <div class="tablero__fin-box glass-card">
         <h2 class="tablero__fin-titulo">Partida finalizada</h2>
         <p class="tablero__fin-msg">{{ mensajeFin() }}</p>
-        <button class="btn-neon" (click)="salirPartida()">Volver al lobby</button>
+
+        @if (revanchaEstado() === 'waiting-host') {
+          <p class="tablero__fin-msg">Esperando al líder…</p>
+        }
+
+        <div class="tablero__fin-acciones">
+          <button class="btn-neon"
+                  [disabled]="revanchaSolicitada()"
+                  (click)="solicitarRevancha()">
+            @if (!revanchaSolicitada()) {
+              Volver a jugar
+            } @else if (revanchaEstado() === 'waiting-host') {
+              Esperando…
+            } @else {
+              Solicitando…
+            }
+          </button>
+          <button class="btn-neon btn-neon--ghost" (click)="salirPartida()">Volver al lobby</button>
+        </div>
       </div>
+    </div>
+  }
+
+  <!-- ── Panel de poderes almacenados (7 y 8) ──────────────────────────── -->
+  @if (contadorPoder7() > 0 || contadorPoder8() > 0 || poder8BloqueosPendientes() > 0) {
+    <div class="tablero__poderes-almacenados glass-card">
+      <span class="tablero__poderes-titulo">Poderes</span>
+      @if (contadorPoder7() > 0) {
+        <button class="tablero__poder-chip"
+                [disabled]="!esMiTurno()"
+                (click)="activarPoder7Almacenado()"
+                title="Poner carta sobre otra">
+          7 ×{{ contadorPoder7() }}
+        </button>
+      }
+      @if (contadorPoder8() > 0) {
+        <button class="tablero__poder-chip"
+                [disabled]="!esMiTurno()"
+                (click)="activarPoder8Almacenado()"
+                title="Bloquear próxima habilidad rival">
+          8 ×{{ contadorPoder8() }}
+        </button>
+      }
+      @if (poder8BloqueosPendientes() > 0) {
+        <span class="tablero__poder-chip tablero__poder-chip--info"
+              title="Habilidades a bloquear pendientes">
+          🛡 {{ poder8BloqueosPendientes() }}
+        </span>
+      }
     </div>
   }
 
@@ -124,7 +196,15 @@
           }
         </div>
 
-        <button class="btn-neon" (click)="cerrarOverlayCartaRevelada()">Cerrar</button>
+        @if (revelada.requiereDecisionJ) {
+          <p class="tablero__revelada-prompt">¿Intercambiar tu carta con la del rival?</p>
+          <div class="tablero__revelada-acciones">
+            <button class="btn-neon" (click)="decidirIntercambioJ(true)">Intercambiar</button>
+            <button class="btn-neon btn-neon--ghost" (click)="decidirIntercambioJ(false)">No intercambiar</button>
+          </div>
+        } @else {
+          <button class="btn-neon" (click)="cerrarOverlayCartaRevelada()">Cerrar</button>
+        }
       </div>
     </div>
   }
@@ -200,7 +280,7 @@
 
             <!-- Mano: rejilla 2×2 -->
             <div class="tablero__mano"
-                 [class.tablero__mano--seleccionable]="modoIntercambio() && jugador.esYo">
+                 [class.tablero__mano--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia') && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo">
               @for (carta of jugador.mano; track $index; let ci = $index) {
                 <div
                   class="tablero__carta"
@@ -209,7 +289,7 @@
                   [class.tablero__carta--cara]="carta.visible"
                   [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
                   [class.tablero__carta--yo]="jugador.esYo"
-                  [class.tablero__carta--seleccionable]="modoIntercambio() && jugador.esYo"
+                  [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia') && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
                   [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
                   (click)="onClickCartaMano(i, ci)">
                   @if (carta.visible) {
@@ -251,7 +331,7 @@
             <div class="tablero__acciones">
               <button class="tablero__btn tablero__btn--robar"
                       (click)="accionRobar()">
-                Robar ({{ robarSegundos() }}s)
+                Robar
               </button>
             </div>
             <button class="tablero__btn tablero__btn--cubo"

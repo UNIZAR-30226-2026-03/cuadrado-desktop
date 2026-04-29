@@ -68,6 +68,16 @@ interface JugadorMesa {
 interface CartaReveladaModal {
   propia: CartaMesa;
   rival?: CartaMesa;
+  // True cuando el evento corresponde a la J: el jugador debe decidir
+  // intercambiar antes de que el servidor avance el turno (game:resolver-j).
+  requiereDecisionJ?: boolean;
+}
+
+interface PendingSkill {
+  poder: PoderCarta;
+  valorCarta: number;
+  fase: 'propia' | 'rival' | 'cartaRival';
+  numCartaPropia: number | null;
 }
 
 // Posiciones según número de jugadores: índice 0 = yo (sur)
@@ -106,7 +116,6 @@ export class Tablero implements OnInit, OnDestroy {
   cuboInfo          = signal<{ solicitanteId: string; turnosRestantes: number } | null>(null);
   cuboBannerVisible = signal(false);
   robarDisponible   = signal(false);
-  robarSegundos    = signal(3);
 
   // Poderes: estado de selección de objetivo
   esperandoObjetivo    = signal(false);
@@ -117,6 +126,28 @@ export class Tablero implements OnInit, OnDestroy {
   cartaReveladaModal = signal<CartaReveladaModal | null>(null);
   notificacionToast  = signal<NotificacionJuego | null>(null);
   ultimaAccion       = signal<{ jugador: string; accion: 'descartó' | 'intercambió' } | null>(null);
+  pendingSkill       = signal<PendingSkill | null>(null);
+
+  // Poderes almacenables (7 y 8). El backend no emite un evento por jugador
+  // con su almacén; lo inferimos desde los descartes locales del jugador.
+  // Cada vez que el jugador local descarta un 7 u 8 se acumula aquí; al
+  // activarlos se decrementa.
+  poderesAlmacenados = signal<number[]>([]);
+  // Bloqueos diferidos del poder 8 que afectan a la próxima habilidad ejecutada.
+  poder8BloqueosPendientes = computed(() => this.gameService.poder8Estado()?.pendientesDiferidos ?? 0);
+  contadorPoder7 = computed(() => this.poderesAlmacenados().filter(p => p === 7).length);
+  contadorPoder8 = computed(() => this.poderesAlmacenados().filter(p => p === 8).length);
+  // Modo selección activo del poder 7: el jugador debe elegir una carta
+  // propia que coincida en valor con la última descartada. Se activa al
+  // recibir `game:poner-carta-sobre-otra { aceptada: true }` y se mantiene
+  // mientras el backend siga emitiendo `game:poner-otra-carta-sobre-otra`.
+  seleccionPoder7Activa = signal(false);
+
+  // Revancha (estadio 9). El estado real lo trae `gameService.revancha()`,
+  // pero llevamos un flag local para deshabilitar el botón tras emitir
+  // `game:volver-a-jugar` y mostrar feedback inmediato.
+  revanchaSolicitada = signal(false);
+  revanchaEstado = computed(() => this.gameService.revancha()?.estado ?? null);
 
   // Computados
   jugadorActual = computed(() => {
@@ -188,6 +219,7 @@ export class Tablero implements OnInit, OnDestroy {
         }
         const idx = this.turnoOrder.indexOf(ev.userId);
         this.turnoIdx.set(idx >= 0 ? idx : 0);
+        this.limpiarEstadoPoder();
         this.limpiarTimers();
         this.iniciarTurno();
       }),
@@ -216,17 +248,77 @@ export class Tablero implements OnInit, OnDestroy {
           this.discardTop.set({ valor: ev.carta.carta, palo, visible: true, seleccionada: false });
         }
       }),
-      // Sincronizar la carta robada real del backend con cartaPendiente del jugador local
+      // Sincronizar la carta robada real del backend con cartaPendiente del jugador local.
+      // Backend dev envía `carta`; versiones previas usaban `game`. Aceptamos ambos.
       this.ws.decisionRequerida$.subscribe((ev: EvDecisionRequerida) => {
-        if (!ev.game) return;
-        const palo = this.normalizarPalo(ev.game.palo);
+        const cartaInfo = ev.carta ?? ev.game;
+        if (!cartaInfo) return;
+        const palo = this.normalizarPalo(cartaInfo.palo);
         if (!palo) return;
         const all = [...this.jugadores()];
         const idx = this.idxActualEnArray();
         if (all[idx]?.esYo) {
-          all[idx] = { ...all[idx], cartaPendiente: { valor: ev.game.carta, palo, visible: true, seleccionada: false } };
+          all[idx] = { ...all[idx], cartaPendiente: { valor: cartaInfo.carta, palo, visible: true, seleccionada: false } };
           this.jugadores.set(all);
         }
+      }),
+      // Backend emite esto cuando el jugador descarta un 6 (roba-y-decide).
+      // La nueva carta queda como pendiente igual que en una decisión normal.
+      this.ws.cartaRobadaPorDescartar6$.subscribe((ev) => {
+        const palo = this.normalizarPalo(ev.cartaRobada.palo);
+        if (!palo) return;
+        const all = [...this.jugadores()];
+        const idx = this.idxActualEnArray();
+        if (all[idx]?.esYo) {
+          all[idx] = { ...all[idx], cartaPendiente: { valor: ev.cartaRobada.carta, palo, visible: true, seleccionada: false } };
+          this.jugadores.set(all);
+        }
+      }),
+      // Una carta protegida bloqueó una habilidad: NO bloquear el turno,
+      // solo notificar al usuario. El backend ya reanuda el flujo.
+      this.ws.accionProtegidaCancelada$.subscribe(() => {
+        // Notificación gestionada en GameService; aquí solo aseguramos que el
+        // tablero no quede en un estado de "esperando" tras la cancelación.
+      }),
+      // Poder 7 — paso 1: server confirma si acepta la solicitud y consume el
+      // chip almacenado (decremento aquí, tras confirmación).
+      this.ws.ponerCartaSobreOtra$.subscribe((ev) => {
+        if (!ev.aceptada) {
+          this.seleccionPoder7Activa.set(false);
+          return;
+        }
+        this.poderesAlmacenados.update(prev => {
+          const idx = prev.indexOf(7);
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next.splice(idx, 1);
+          return next;
+        });
+        this.seleccionPoder7Activa.set(true);
+      }),
+      // Poder 7 — paso 3 (chain): acertaste, sigue habilitado para encadenar.
+      this.ws.ponerOtraCartaSobreOtra$.subscribe(() => {
+        this.seleccionPoder7Activa.set(true);
+      }),
+      // Poder 7 — sincronizar tamaño de mano del jugador implicado tras un
+      // intento (acierto: -1 carta, fallo: +1 carta).
+      this.ws.accionCartaSobreOtra$.subscribe((ev) => {
+        const all = [...this.jugadores()];
+        const idx = all.findIndex(j => j.nombre === ev.usuarioImplicado);
+        if (idx < 0) return;
+        const jug = all[idx];
+        if (jug.mano.length === ev.numCartasMano) return;
+        if (jug.mano.length > ev.numCartasMano) {
+          // El jugador acertó: descartó una carta. La quitamos del final como
+          // aproximación visual (las cartas son anónimas para el resto).
+          all[idx] = { ...jug, mano: jug.mano.slice(0, ev.numCartasMano) };
+        } else {
+          // El jugador falló: roba una carta de penalización.
+          const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: jug.esYo, seleccionada: false };
+          const extra = ev.numCartasMano - jug.mano.length;
+          all[idx] = { ...jug, mano: [...jug.mano, ...Array.from({ length: extra }, () => ({ ...placeholder }))] };
+        }
+        this.jugadores.set(all);
       }),
       // Mostrar reverso de carta cuando un jugador remoto roba
       this.ws.cartaRobada$.subscribe((ev: EvCartaRobada) => {
@@ -267,14 +359,24 @@ export class Tablero implements OnInit, OnDestroy {
       const evento = this.gameService.cartaRevelada();
       if (!evento) return;
 
+      // Si llega carta propia + rival → es la J (poder 11): el backend deja
+      // el permiso pendiente esperando game:resolver-j. NO autocerrar el modal.
+      const esDecisionJ = !!evento.cartaJugadorContrario;
+
       this.cartaReveladaModal.set({
         propia: this.normalizarCartaEvento(evento.carta),
         rival: evento.cartaJugadorContrario
           ? this.normalizarCartaEvento(evento.cartaJugadorContrario)
           : undefined,
+        requiereDecisionJ: esDecisionJ,
       });
 
-      this.reprogramarCierreCartaRevelada();
+      if (!esDecisionJ) {
+        this.reprogramarCierreCartaRevelada();
+      } else if (this.revealTimeout) {
+        clearTimeout(this.revealTimeout);
+        this.revealTimeout = null;
+      }
     }, { injector: this.injector });
 
     effect(() => {
@@ -299,6 +401,21 @@ export class Tablero implements OnInit, OnDestroy {
 
       this.notificacionToast.set(notificacion);
       this.reprogramarCierreToast(notificacion.id);
+    }, { injector: this.injector });
+
+    // Revancha: cuando el server confirma `room-ready` con `roomCode`, la sala
+    // ya existe en backend (server hace leave/join automático). Persistimos
+    // un placeholder mínimo en RoomService para que la pantalla de espera
+    // arranque, y `room:update` rellenará el resto al llegar.
+    effect(() => {
+      const ev = this.gameService.revancha();
+      if (!ev) return;
+      if (ev.estado !== 'room-ready' || !ev.roomCode) return;
+
+      const yo = this.jugadores().find(j => j.esYo)?.nombre ?? '';
+      const soyHost = ev.hostId === yo;
+      this.persistirSalaRevancha(ev.roomCode, ev.roomName ?? 'Revancha', soyHost);
+      this.router.navigate(['/waiting-room']);
     }, { injector: this.injector });
   }
 
@@ -398,6 +515,56 @@ export class Tablero implements OnInit, OnDestroy {
       clearTimeout(this.revealTimeout);
       this.revealTimeout = null;
     }
+  }
+
+  /** Decisión final del poder J: intercambiar o no la carta vista. */
+  decidirIntercambioJ(intercambiar: boolean): void {
+    const modal = this.cartaReveladaModal();
+    if (!modal?.requiereDecisionJ) return;
+    this.gameService.resolverJ(intercambiar);
+    this.cerrarOverlayCartaRevelada();
+  }
+
+  /** Activa un poder 8 almacenado: bloquea la próxima habilidad rival. */
+  activarPoder8Almacenado(): void {
+    if (this.contadorPoder8() === 0) return;
+    if (!this.esMiTurno()) return;
+    const gameId = this.gameService.gameId();
+    if (!gameId) return;
+    this.ws.desactivarProximaHabilidad(gameId);
+    this.poderesAlmacenados.update(prev => {
+      const idx = prev.indexOf(8);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      next.splice(idx, 1);
+      return next;
+    });
+  }
+
+  /** Activa un poder 7 almacenado: solicita "poner carta sobre otra".
+   *  El decremento del chip se realiza al recibir confirmación
+   *  `game:poner-carta-sobre-otra { aceptada: true }` para no perderlo
+   *  si el server rechaza la solicitud.
+   */
+  activarPoder7Almacenado(): void {
+    if (this.contadorPoder7() === 0) return;
+    if (!this.esMiTurno()) return;
+    if (this.seleccionPoder7Activa()) return;
+    const gameId = this.gameService.gameId();
+    if (!gameId) return;
+    this.ws.solicitarCartaSobreOtra(gameId);
+  }
+
+  /** Cancela manualmente el modo selección del poder 7 (sin emitir al server). */
+  cancelarSeleccionPoder7(): void {
+    this.seleccionPoder7Activa.set(false);
+  }
+
+  /** Solicita revancha al backend (`game:volver-a-jugar`). */
+  solicitarRevancha(): void {
+    if (this.revanchaSolicitada()) return;
+    this.revanchaSolicitada.set(true);
+    this.gameService.volverAJugar();
   }
 
   private reprogramarCierreCartaRevelada(): void {
@@ -513,10 +680,7 @@ export class Tablero implements OnInit, OnDestroy {
     this.modoIntercambio.set(false);
 
     if (this.esMiTurno()) {
-      // Jugador local: mostrar botón Robar durante 3 segundos
       this.robarDisponible.set(true);
-      this.robarSegundos.set(3);
-      this.iniciarTimerRobo();
     } else {
       const enLinea = !!this.gameService.gameId();
       if (!enLinea) {
@@ -599,18 +763,6 @@ export class Tablero implements OnInit, OnDestroy {
     this.ejecutarRobo();
   }
 
-  private iniciarTimerRobo(): void {
-    this.robarInterval = setInterval(() => {
-      const t = this.robarSegundos() - 1;
-      this.robarSegundos.set(t);
-      if (t <= 0) {
-        this.pararTimerRobo();
-        this.robarDisponible.set(false);
-        this.ejecutarRobo();
-      }
-    }, 1000);
-  }
-
   private pararTimerRobo(): void {
     if (this.robarInterval) {
       clearInterval(this.robarInterval);
@@ -674,6 +826,13 @@ export class Tablero implements OnInit, OnDestroy {
     const cartaDescartada = { ...carta, visible: true };
     this.discardTop.set(cartaDescartada);
 
+    // Poderes almacenables: si el jugador local descarta un 7 u 8 se almacenan
+    // para activación manual posterior (poder 8: desactivar-proxima-habilidad;
+    // poder 7: solicitar-carta-sobre-otra → poner-carta-sobre-otra).
+    if (jugador.esYo && (carta.valor === 7 || carta.valor === 8)) {
+      this.poderesAlmacenados.update(prev => [...prev, carta.valor]);
+    }
+
     const gameId = this.gameService.gameId();
     if (!gameId) {
       this.discardPile.push(cartaDescartada);
@@ -685,7 +844,110 @@ export class Tablero implements OnInit, OnDestroy {
     if (gameId) this.ws.descartarPendiente(gameId);
 
     this.mostrarAccion(jugador.nombre, 'descartó');
+
+    // Activar poder si la carta descartada lo tiene (retiene el turno hasta que se complete)
+    const poder = poderDeValor(carta.valor);
+    if (poder && jugador.esYo) {
+      this.activarPoderDesdeDescarte(carta.valor, poder);
+      return;
+    }
+
     this.programarSiguienteTurno();
+  }
+
+  // Activa el SkillPanel con la UI correcta según el poder de la carta descartada
+  private activarPoderDesdeDescarte(valorCarta: number, poder: PoderCarta): void {
+    this.fase.set('idle');
+
+    if (poder === 'intercambiar-todas-cartas' || poder === 'hacer-robar-carta') {
+      // Solo necesitan selección de rival
+      this.pendingSkill.set({ poder, valorCarta, fase: 'rival', numCartaPropia: null });
+      this.poderPendiente.set(poder);
+      this.esperandoObjetivo.set(true);
+    } else {
+      // proteger-carta, intercambiar-carta, ver-carta: primero selección de carta propia
+      this.pendingSkill.set({ poder, valorCarta, fase: 'propia', numCartaPropia: null });
+    }
+  }
+
+  // Llamado cuando el jugador selecciona una de sus cartas durante el SkillPanel (fase 'propia')
+  seleccionarCartaPropiaParaPoder(cartaIdx: number): void {
+    const skill = this.pendingSkill();
+    if (!skill || skill.fase !== 'propia') return;
+
+    const { poder, valorCarta } = skill;
+
+    if (poder === 'proteger-carta') {
+      this.gameService.usarPoderCarta('proteger-carta', { numCarta: cartaIdx });
+      this.limpiarEstadoPoder();
+      return;
+    }
+
+    if (poder === 'ver-carta' && valorCarta === 10) {
+      this.gameService.usarPoderCarta('ver-carta', { numCarta: cartaIdx });
+      this.limpiarEstadoPoder();
+      return;
+    }
+
+    if (poder === 'ver-carta') {
+      // J (11): carta propia seleccionada → ahora seleccionar carta específica del rival
+      this.pendingSkill.update(s => s ? { ...s, fase: 'cartaRival', numCartaPropia: cartaIdx } : null);
+      this.numCartaPendiente.set(cartaIdx);
+      return;
+    }
+
+    if (poder === 'intercambiar-carta') {
+      // Intercambio ciego (9): carta propia → ahora seleccionar rival
+      this.pendingSkill.update(s => s ? { ...s, fase: 'rival', numCartaPropia: cartaIdx } : null);
+      this.numCartaPendiente.set(cartaIdx);
+      this.poderPendiente.set('preparar-intercambio-carta');
+      this.esperandoObjetivo.set(true);
+    }
+  }
+
+  private limpiarEstadoPoder(): void {
+    this.esperandoObjetivo.set(false);
+    this.poderPendiente.set(null);
+    this.numCartaPendiente.set(null);
+    this.pendingSkill.set(null);
+  }
+
+  seleccionarCartaRivalParaPoder(jugadorIdx: number, cartaIdx: number): void {
+    const skill = this.pendingSkill();
+    if (!skill || skill.fase !== 'cartaRival') return;
+    const rival = this.jugadores()[jugadorIdx];
+    if (!rival || rival.esYo) return;
+    const numCartaPropia = skill.numCartaPropia;
+    if (numCartaPropia === null) return;
+
+    this.gameService.usarPoderCarta('ver-carta', {
+      rivalId: rival.id,
+      numCarta: numCartaPropia,
+      numCartaRival: cartaIdx,
+    });
+    this.limpiarEstadoPoder();
+    if (!this.gameService.gameId()) this.programarSiguienteTurno();
+  }
+
+  getNombrePoder(valorCarta: number): string {
+    const nombres: Record<number, string> = {
+      1: 'Intercambio total', 2: 'Forzar robo',
+      3: 'Proteger carta',    9: 'Intercambio ciego',
+      10: 'Ver carta propia', 11: 'Ver + decidir',
+    };
+    return nombres[valorCarta] ?? 'Poder activado';
+  }
+
+  getDescripcionPoder(valorCarta: number): string {
+    const descs: Record<number, string> = {
+      1:  'Intercambia todas tus cartas con las de un rival.',
+      2:  'Obliga a un rival a robar una carta extra.',
+      3:  'Protege una de tus cartas de intercambios rivales.',
+      9:  'Tú y un rival intercambiáis una carta a ciegas.',
+      10: 'Mira una de tus propias cartas (5s).',
+      11: 'Mira una tuya y una de un rival; decide si las intercambiáis.',
+    };
+    return descs[valorCarta] ?? '';
   }
 
   /**
@@ -917,6 +1179,27 @@ export class Tablero implements OnInit, OnDestroy {
     this.router.navigate(['/lobby']);
   }
 
+  /** Persiste un SalaData mínimo para que /waiting-room pueda arrancar; el
+   *  contenido real llega vía `room:update` poco después.
+   */
+  private persistirSalaRevancha(roomCode: string, roomName: string, soyHost: boolean): void {
+    const placeholder = {
+      id: roomCode,
+      nombre: roomName,
+      anfitrion: soyHost ? (this.auth.usuario()?.nombre ?? '') : '',
+      publica: false,
+      estado: 'esperando' as const,
+      jugadores: [],
+      dificultadBots: 'Normal' as const,
+      creadaEn: Date.now(),
+      numBarajas: 1 as const,
+      maxJugadores: 2,
+      reglasActivas: [] as string[],
+    };
+    this.roomService.guardarSala(placeholder);
+    this.roomService.setEsAnfitrion(soyHost);
+  }
+
   private normalizarPalo(palo: string): Palo | null {
     const map: Record<string, Palo> = {
       corazones: 'corazones', hearts: 'corazones',
@@ -936,81 +1219,43 @@ export class Tablero implements OnInit, OnDestroy {
   }
 
   /**
-   * Dispatcher click carta mano:
-   *  - modoIntercambio → flujo intercambio clásico
-   *  - si no, es mi turno y la carta tiene poder → activa poder
+   * Click en carta de la mano:
+   *  - modoIntercambio → intercambia carta pendiente por esta
+   *  - pendingSkill fase 'propia' → selecciona carta para el poder activo
+   *  - otro caso → sin acción (poderes NUNCA se activan desde click en mano)
    */
   onClickCartaMano(jugadorIdx: number, cartaIdx: number): void {
+    // Modo selección poder 7: clic en carta propia → poner-carta-sobre-otra.
+    if (this.seleccionPoder7Activa()) {
+      const jugador = this.jugadores()[jugadorIdx];
+      if (!jugador?.esYo) return;
+      const gameId = this.gameService.gameId();
+      if (!gameId) return;
+      this.ws.ponerCartaSobreOtra(gameId, cartaIdx);
+      // El server resolverá: chain (acierto) o cierre + penalización (fallo).
+      // Desactivamos el modo de inmediato; si llega el chain se reactiva.
+      this.seleccionPoder7Activa.set(false);
+      return;
+    }
+
     if (this.modoIntercambio()) {
       this.seleccionarCartaMano(jugadorIdx, cartaIdx);
       return;
     }
-    if (!this.esMiTurno()) return;
-
-    const jugador = this.jugadores()[jugadorIdx];
-    if (!jugador?.esYo) return;
-
-    const carta = jugador.mano[cartaIdx];
-    if (carta && poderDeValor(carta.valor)) {
-      this.activarPoderCarta(jugadorIdx, cartaIdx);
+    const skill = this.pendingSkill();
+    if (skill?.fase === 'propia') {
+      const jugador = this.jugadores()[jugadorIdx];
+      if (jugador?.esYo) this.seleccionarCartaPropiaParaPoder(cartaIdx);
+    } else if (skill?.fase === 'cartaRival') {
+      const jugador = this.jugadores()[jugadorIdx];
+      if (jugador && !jugador.esYo) this.seleccionarCartaRivalParaPoder(jugadorIdx, cartaIdx);
     }
   }
 
   // ─── Poderes de carta ────────────────────────────────────────────────────
 
   /**
-   * Entrada: el jugador hace click en una de sus cartas.
-   * - Si el valor no tiene poder: no hace nada (solo intercambio normal).
-   * - Si el poder es directo: dispara GameService al instante.
-   * - Si requiere objetivo: entra en modo `esperandoObjetivo`.
-   */
-  activarPoderCarta(jugadorIdx: number, cartaIdx: number): void {
-    const jugador = this.jugadores()[jugadorIdx];
-    if (!jugador?.esYo) return;
-
-    const carta = jugador.mano[cartaIdx];
-    if (!carta) return;
-
-    const poder = poderDeValor(carta.valor);
-    if (!poder) return;
-
-    // Directo: poderes sin objetivo rival
-    const directo: PoderCarta[] = [
-      'proteger-carta',
-      'calcular-puntos',
-      'jugador-menos-puntuacion',
-      'desactivar-proxima-habilidad',
-      'solicitar-carta-sobre-otra',
-      'poner-carta-sobre-otra',
-    ];
-
-    if (poder === 'ver-carta') {
-      // Caso especial: 10 = ver-carta propia (directo); 11 = ver-carta rival (objetivo)
-      if (carta.valor === 10) {
-        this.gameService.usarPoderCarta('ver-carta', { numCarta: cartaIdx });
-        return;
-      }
-      // valor 11: pide objetivo
-      this.numCartaPendiente.set(cartaIdx);
-      this.poderPendiente.set('ver-carta');
-      this.esperandoObjetivo.set(true);
-      return;
-    }
-
-    if (directo.includes(poder)) {
-      this.gameService.usarPoderCarta(poder, { numCarta: cartaIdx });
-      return;
-    }
-
-    // Resto: requiere objetivo rival
-    this.numCartaPendiente.set(cartaIdx);
-    this.poderPendiente.set(poder);
-    this.esperandoObjetivo.set(true);
-  }
-
-  /**
-   * Click en avatar de rival estando en `esperandoObjetivo`: ejecuta el poder
-   * pendiente contra ese rival.
+   * Click en avatar de rival estando en fase 'rival' del SkillPanel.
    */
   seleccionarObjetivoRival(rivalId: string): void {
     if (!this.esperandoObjetivo()) return;
@@ -1025,13 +1270,14 @@ export class Tablero implements OnInit, OnDestroy {
       numCartaRemitente: numCarta ?? undefined,
     });
 
-    this.cancelarObjetivoPoder();
+    this.limpiarEstadoPoder();
+    // En online el backend avanza el turno vía turnoIniciado$; en local avanzar manualmente
+    if (!this.gameService.gameId()) this.programarSiguienteTurno();
   }
 
   cancelarObjetivoPoder(): void {
-    this.esperandoObjetivo.set(false);
-    this.poderPendiente.set(null);
-    this.numCartaPendiente.set(null);
+    this.limpiarEstadoPoder();
+    if (!this.gameService.gameId()) this.programarSiguienteTurno();
   }
 
   private limpiarTimers(): void {
