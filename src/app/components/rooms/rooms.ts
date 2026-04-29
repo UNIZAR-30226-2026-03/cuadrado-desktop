@@ -12,6 +12,7 @@ import { AuthService } from '../../services/auth';
 import { RoomService, SalaData } from '../../services/room';
 import { WebsocketService, PublicRoomSummary } from '../../services/websocket';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 
 const CARTAS_VALIDAS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K']);
 const NUMERO_A_CARTA: Record<number, string> = { 1: 'A', 11: 'J', 12: 'Q', 13: 'K' };
@@ -28,7 +29,7 @@ function normalizarPoderes(poderes: (string | number)[]): string[] {
 @Component({
   selector: 'app-rooms',
   standalone: true,
-  imports: [TopBar],
+  imports: [TopBar, SettingsPopupComponent],
   templateUrl: './rooms.html',
   styleUrl: './rooms.scss',
   animations: [
@@ -300,9 +301,8 @@ export class Rooms implements OnInit, OnDestroy {
   }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.
-  openSettingsFromTopBar(): void {
-    this.router.navigate(['/lobby']);
-  }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 
   volver(): void {
     this.router.navigate(['/lobby']);

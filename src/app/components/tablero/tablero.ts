@@ -6,6 +6,7 @@ import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, JugadorSala } from '../../services/room';
 import { GameService, NotificacionJuego } from '../../services/game';
+import { VoiceChatService } from '../../services/voice-chat';
 import {
   WebsocketService,
   EvTurnoIniciado,
@@ -161,6 +162,7 @@ export class Tablero implements OnInit, OnDestroy {
     private gameService: GameService,
     private ws:          WebsocketService,
     private injector:    Injector,
+    public  voiceChat:   VoiceChatService,
   ) {}
 
   ngOnInit(): void {
@@ -260,6 +262,8 @@ export class Tablero implements OnInit, OnDestroy {
     this.limpiarFeedbackVisual();
     this.subs.forEach(s => s.unsubscribe());
     this.gameService.salirDePartida();
+    this.voiceChat.leaveVoiceRoom();
+    this.voiceChat.stopLocalStream();
   }
 
   private conectarEstadosInbound(): void {
@@ -910,10 +914,22 @@ export class Tablero implements OnInit, OnDestroy {
     };
   }
 
+  isSpeaking(jugador: { nombre: string; esYo: boolean; esBot: boolean }): boolean {
+    if (jugador.esBot || !this.voiceChat.localStream()) return false;
+    if (jugador.esYo) return this.voiceChat.localSpeaking();
+    const map = this.ws.socketToUsername();
+    for (const [socketId, username] of map) {
+      if (username === jugador.nombre) return this.voiceChat.speakingPeers().has(socketId);
+    }
+    return false;
+  }
+
   salirPartida(): void {
     this.limpiarTimers();
     this.limpiarFeedbackVisual();
     this.gameService.salirDePartida();
+    this.voiceChat.leaveVoiceRoom();
+    this.voiceChat.stopLocalStream();
     this.router.navigate(['/lobby']);
   }
 

@@ -6,6 +6,7 @@ import {
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 import { environment } from '../../environment';
 
 interface Skin {
@@ -19,7 +20,7 @@ interface Skin {
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [TopBar],
+  imports: [TopBar, SettingsPopupComponent],
   templateUrl: './inventory.html',
   styleUrl: './inventory.scss',
   animations: [
@@ -147,9 +148,8 @@ export class Inventory implements OnInit {
   }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.
-  openSettingsFromTopBar(): void {
-    this.router.navigate(['/lobby']);
-  }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 
   isEquipped(skin: Skin): boolean {
     if (skin.type === 'Carta') return this.equippedCardName() === skin.name;

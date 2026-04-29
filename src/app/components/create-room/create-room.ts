@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth';
 import { RoomService, SalaData } from '../../services/room';
 import { WebsocketService } from '../../services/websocket';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 
 interface CardPower {
   card: string;
@@ -18,7 +19,7 @@ interface CardPower {
 @Component({
   selector: 'app-create-room',
   standalone: true,
-  imports: [TopBar],
+  imports: [TopBar, SettingsPopupComponent],
   templateUrl: './create-room.html',
   styleUrl: './create-room.scss',
   animations: [
@@ -136,9 +137,8 @@ export class CreateRoom implements OnInit {
   }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.
-  openSettingsFromTopBar(): void {
-    this.router.navigate(['/lobby']);
-  }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 
   volver(): void {
     this.router.navigate(['/lobby']);

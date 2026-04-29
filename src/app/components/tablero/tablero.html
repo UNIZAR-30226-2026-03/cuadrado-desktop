@@ -16,7 +16,17 @@
         </div>
       </div>
     </div>
-    <button class="tablero__exit-btn" (click)="salirPartida()">← Salir</button>
+    <div class="tablero__header-actions">
+      @if (voiceChat.localStream()) {
+        <button class="tablero__mute-btn"
+                (click)="voiceChat.toggleMute()"
+                [class.tablero__mute-btn--muted]="voiceChat.micMuted()"
+                [title]="voiceChat.micMuted() ? 'Activar micrófono' : 'Silenciar micrófono'">
+          {{ voiceChat.micMuted() ? '🔇' : '🎤' }}
+        </button>
+      }
+      <button class="tablero__exit-btn" (click)="salirPartida()">← Salir</button>
+    </div>
   </header>
 
   @if (notificacionToast(); as toast) {
@@ -182,6 +192,9 @@
              (click)="!jugador.esYo && esperandoObjetivo() && seleccionarObjetivoRival(jugador.id)">
           <span class="tablero__avatar">{{ jugador.avatar }}</span>
           <span class="tablero__nombre">{{ jugador.nombre }}</span>
+          @if (isSpeaking(jugador)) {
+            <span class="tablero__speaking" title="Hablando"></span>
+          }
           @if (i === turnoIdx() && fase() === 'decidiendo' && jugador.esBot) {
             <span class="tablero__pensando">···</span>
           }

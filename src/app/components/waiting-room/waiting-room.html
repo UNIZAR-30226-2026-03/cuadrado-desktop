@@ -36,7 +36,8 @@
       @for (jugador of s.jugadores; track jugador.id) {
         <div class="player-slot"
              [class.host]="jugador.esAnfitrion"
-             [class.bot]="jugador.esBot">
+             [class.bot]="jugador.esBot"
+             [class.speaking]="isSpeaking(jugador)">
 
           <div class="player-slot__avatar">
             <span class="avatar-emoji">{{ jugador.avatar }}</span>
@@ -93,6 +94,24 @@
     <button class="btn-ghost btn--sm" (click)="abrirPopupPoderes()">Cartas con poderes</button>
   </div>
 
+  <!-- Barra de estado del micrófono -->
+  @if (voiceChat.localStream()) {
+    <div class="voice-bar">
+      <span class="voice-bar__icon">{{ voiceChat.micMuted() ? '🔇' : '🎤' }}</span>
+      <span class="voice-bar__label">
+        {{ voiceChat.micMuted() ? 'Silenciado' : 'Micrófono activo' }}
+        @if (voiceChat.connectedPeers().length > 0) {
+          · {{ voiceChat.connectedPeers().length }} conectado{{ voiceChat.connectedPeers().length === 1 ? '' : 's' }}
+        }
+      </span>
+      <button class="voice-bar__mute-btn"
+              (click)="voiceChat.toggleMute()"
+              [title]="voiceChat.micMuted() ? 'Activar micrófono' : 'Silenciar'">
+        {{ voiceChat.micMuted() ? 'Activar' : 'Silenciar' }}
+      </button>
+    </div>
+  }
+
   <!-- Codigo de sala (esquina inferior derecha) -->
   <div class="room-code-corner" (click)="copiarCodigo()" title="Clic para copiar el código">
     <span class="room-code-corner__label">Código</span>
@@ -121,6 +140,11 @@
         <button class="btn-ghost btn--sm" (click)="cerrarPopupInicio()">Cancelar</button>
       </div>
     </div>
+  }
+
+  <!-- Popup: Ajustes (compartido) -->
+  @if (showVoiceSettingsPopup()) {
+    <app-settings-popup (closed)="closeVoiceSettings()"></app-settings-popup>
   }
 
   <!-- Popup: Cartas con poderes -->

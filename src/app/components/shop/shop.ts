@@ -8,6 +8,7 @@ import {
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 import { environment } from '../../environment';
 
 type Category = 'all' | 'Carta' | 'Tapete' | 'Avatar';
@@ -24,7 +25,7 @@ interface Skin {
 @Component({
   selector: 'app-shop',
   standalone: true,
-  imports: [DecimalPipe, FormsModule, TopBar],
+  imports: [DecimalPipe, FormsModule, TopBar, SettingsPopupComponent],
   templateUrl: './shop.html',
   styleUrl: './shop.scss',
   animations: [
@@ -159,9 +160,8 @@ export class Shop implements OnInit {
   goToInventory() { this.router.navigate(['/inventory']); }
 
   // Placeholder: el popup de ajustes se implementa en un paso posterior.
-  openSettingsFromTopBar(): void {
-    this.router.navigate(['/lobby']);
-  }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 
   private isDefaultSkin(skin: Skin): boolean {
     return skin.type === 'Carta' && skin.name.trim().toLowerCase() === 'default';

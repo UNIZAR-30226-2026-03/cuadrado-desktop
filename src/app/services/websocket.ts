@@ -214,6 +214,8 @@ export class WebsocketService {
   private socket: Socket | null = null;
 
   estaConectado = signal(false);
+  /** socketId → username (userId). Actualizado con cada room:update. */
+  socketToUsername = signal<ReadonlyMap<string, string>>(new Map());
 
   // Streams para eventos de juego
   inicioPartida$     = new Subject<EvInicioPartida>();
@@ -241,6 +243,14 @@ export class WebsocketService {
   ponerCartaSobreOtra$ = new Subject<EvPonerCartaSobreOtra>();
   intercambioRival$    = new Subject<EvIntercambioRival>();
 
+  // Señalización WebRTC (voz)
+  voicePeers$        = new Subject<string[]>();
+  voicePeerJoined$   = new Subject<{ peerId: string }>();
+  voicePeerLeft$     = new Subject<{ peerId: string }>();
+  voiceOffer$        = new Subject<{ from: string; offer: RTCSessionDescriptionInit }>();
+  voiceAnswer$       = new Subject<{ from: string; answer: RTCSessionDescriptionInit }>();
+  voiceIceCandidate$ = new Subject<{ from: string; candidate: RTCIceCandidateInit }>();
+
   conectar(token: string, roomCode?: string): void {
     if (this.socket?.connected) return;
 
@@ -259,7 +269,12 @@ export class WebsocketService {
       this.error$.next(err?.error?.message ?? 'Error WebSocket'));
 
     // Eventos de sala
-    this.socket.on('room:update', (data: EvRoomUpdate) => this.roomUpdate$.next(data));
+    this.socket.on('room:update', (data: EvRoomUpdate) => {
+      this.roomUpdate$.next(data);
+      const map = new Map<string, string>();
+      data.players.forEach(p => { if (p.socketId && p.userId) map.set(p.socketId, p.userId); });
+      this.socketToUsername.set(map);
+    });
     this.socket.on('room:closed', (data: EvRoomClosed) => this.roomClosed$.next(data));
 
     // Eventos de partida
@@ -284,6 +299,14 @@ export class WebsocketService {
     this.socket.on('game:jugador-menos-puntuacion-calculado', (d: EvJugadorMenosPuntuacion) => this.jugadorMenosPuntuacion$.next(d));
     this.socket.on('game:poner-carta-sobre-otra',   (d: EvPonerCartaSobreOtra)  => this.ponerCartaSobreOtra$.next(d));
     this.socket.on('game:intercambio-rival',        (d: EvIntercambioRival)     => this.intercambioRival$.next(d));
+
+    // Señalización WebRTC (voz)
+    this.socket.on('voice:peers',         (d: string[])                                          => this.voicePeers$.next(d));
+    this.socket.on('voice:peer-joined',   (d: { peerId: string })                                => this.voicePeerJoined$.next(d));
+    this.socket.on('voice:peer-left',     (d: { peerId: string })                                => this.voicePeerLeft$.next(d));
+    this.socket.on('voice:offer',         (d: { from: string; offer: RTCSessionDescriptionInit })         => this.voiceOffer$.next(d));
+    this.socket.on('voice:answer',        (d: { from: string; answer: RTCSessionDescriptionInit })        => this.voiceAnswer$.next(d));
+    this.socket.on('voice:ice-candidate', (d: { from: string; candidate: RTCIceCandidateInit }) => this.voiceIceCandidate$.next(d));
   }
 
   /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
@@ -482,5 +505,27 @@ export class WebsocketService {
       this.socket = null;
       this.estaConectado.set(false);
     }
+  }
+
+  // ── Señalización WebRTC (voz) ──────────────────────────────────────────────
+
+  joinVoiceRoom(roomId: string): void {
+    this.socket?.emit('voice:join', roomId);
+  }
+
+  leaveVoiceRoom(): void {
+    this.socket?.emit('voice:leave');
+  }
+
+  sendVoiceOffer(to: string, offer: RTCSessionDescriptionInit): void {
+    this.socket?.emit('voice:offer', { to, offer });
+  }
+
+  sendVoiceAnswer(to: string, answer: RTCSessionDescriptionInit): void {
+    this.socket?.emit('voice:answer', { to, answer });
+  }
+
+  sendIceCandidate(to: string, candidate: RTCIceCandidateInit): void {
+    this.socket?.emit('voice:ice-candidate', { to, candidate });
   }
 }

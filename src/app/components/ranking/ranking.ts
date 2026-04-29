@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { AuthService } from '../../services/auth';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 import { environment } from '../../environment';
 
 interface LeaderboardRow {
@@ -20,7 +21,7 @@ interface MyPosition {
 @Component({
   selector: 'app-ranking',
   standalone: true,
-  imports: [TopBar],
+  imports: [TopBar, SettingsPopupComponent],
   templateUrl: './ranking.html',
   styleUrl: './ranking.scss',
 })
@@ -83,5 +84,6 @@ export class Ranking implements OnInit {
   }
 
   volver(): void { this.router.navigate(['/lobby']); }
-  openSettingsFromTopBar(): void { this.router.navigate(['/lobby']); }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 }
