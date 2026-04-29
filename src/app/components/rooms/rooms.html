@@ -144,4 +144,8 @@
   <!-- Boton COMO JUGAR (esquina inferior izquierda) -->
   <button class="how-to-play-btn btn-ghost" (click)="irATutorial()">COMO JUGAR</button>
 
+
+  @if (showSettingsPopup) {
+    <app-settings-popup (closed)="showSettingsPopup = false"></app-settings-popup>
+  }
 </div>

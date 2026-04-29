@@ -8,6 +8,7 @@ import {
 } from '@angular/forms';
 import { AuthService } from '../../services/auth';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 import { environment } from '../../environment';
 
 interface MyRankingPosition {
@@ -27,7 +28,7 @@ interface Skin {
 @Component({
   selector: 'app-profile',
   standalone: true,
-  imports: [ReactiveFormsModule, FormsModule, TopBar, DecimalPipe],
+  imports: [ReactiveFormsModule, FormsModule, TopBar, DecimalPipe, SettingsPopupComponent],
   templateUrl: './profile.html',
   styleUrl: './profile.scss',
 })
@@ -90,7 +91,8 @@ export class Profile implements OnInit {
 
   volver(): void { this.router.navigate(['/lobby']); }
 
-  openSettingsFromTopBar(): void { this.router.navigate(['/lobby']); }
+  showSettingsPopup = false;
+  openSettingsFromTopBar(): void { this.showSettingsPopup = true; }
 
   onLogout(): void { this.auth.logout(); }
 

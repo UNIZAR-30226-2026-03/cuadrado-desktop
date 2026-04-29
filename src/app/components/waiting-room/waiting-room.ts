@@ -8,7 +8,9 @@ import { AuthService } from '../../services/auth';
 import { RoomService, SalaData, JugadorSala } from '../../services/room';
 import { WebsocketService, EvRoomUpdate } from '../../services/websocket';
 import { GameService } from '../../services/game';
+import { VoiceChatService } from '../../services/voice-chat';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 
 interface PowerCard {
   card: string;
@@ -48,7 +50,7 @@ const POWER_DESCRIPTIONS: Record<string, string> = {
 @Component({
   selector: 'app-waiting-room',
   standalone: true,
-  imports: [TopBar],
+  imports: [TopBar, SettingsPopupComponent],
   templateUrl: './waiting-room.html',
   styleUrl: './waiting-room.scss',
   animations: [
@@ -80,6 +82,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
   // Popups
   showStartPopup = signal(false);
   showPowersPopup = signal(false);
+  showVoiceSettingsPopup = signal(false);
   selectedPowerCard = signal<PowerCard | null>(null);
 
   private subs: Subscription[] = [];
@@ -123,6 +126,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
     private roomService: RoomService,
     private ws: WebsocketService,
     private gameService: GameService,
+    public voiceChat: VoiceChatService,
   ) {}
 
   ngOnInit(): void {
@@ -134,6 +138,13 @@ export class WaitingRoom implements OnInit, OnDestroy {
     this.sala.set(sala);
     this.soyAnfitrion.set(this.roomService.esAnfitrion());
     this.miNombre.set(this.auth.usuario()?.nombre || 'Jugador');
+
+    // Iniciar captura de micrófono y unirse al canal de voz de la sala
+    this.voiceChat.startLocalStream(this.voiceChat.selectedDeviceId()).then(() => {
+      if (this.ws.estaConectado()) {
+        this.voiceChat.joinVoiceRoom(sala.id);
+      }
+    });
 
     // Suscribirse a actualizaciones de sala en tiempo real
     this.subs.push(
@@ -158,6 +169,12 @@ export class WaitingRoom implements OnInit, OnDestroy {
     if (!this.partidaIniciada && this.ws.estaConectado()) {
       this.ws.leaveRoom();
     }
+    if (!this.partidaIniciada) {
+      // Sin partida: liberar voz y micrófono completamente
+      this.voiceChat.leaveVoiceRoom();
+      this.voiceChat.stopLocalStream();
+    }
+    // Con partida: el stream y las peer connections siguen vivos en el tablero
   }
 
   // ── Sincronización con backend ───────────────────────────────────────────────
@@ -290,9 +307,22 @@ export class WaitingRoom implements OnInit, OnDestroy {
     }
   }
 
-  // Placeholder: el popup de ajustes se implementa en un paso posterior.
   openSettingsFromTopBar(): void {
-    this.router.navigate(['/lobby']);
+    this.showVoiceSettingsPopup.set(true);
+  }
+
+  closeVoiceSettings(): void {
+    this.showVoiceSettingsPopup.set(false);
+  }
+
+  isSpeaking(jugador: JugadorSala): boolean {
+    if (jugador.esBot || !this.voiceChat.localStream()) return false;
+    if (jugador.nombre === this.miNombre()) return this.voiceChat.localSpeaking();
+    const map = this.ws.socketToUsername();
+    for (const [socketId, username] of map) {
+      if (username === jugador.nombre) return this.voiceChat.speakingPeers().has(socketId);
+    }
+    return false;
   }
 
   cancelarSala(): void {

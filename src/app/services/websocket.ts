@@ -267,6 +267,8 @@ export class WebsocketService {
   private socket: Socket | null = null;
 
   estaConectado = signal(false);
+  /** socketId → username (userId). Actualizado con cada room:update. */
+  socketToUsername = signal<ReadonlyMap<string, string>>(new Map());
 
   // Streams para eventos de juego
   inicioPartida$     = new Subject<EvInicioPartida>();
@@ -293,16 +295,6 @@ export class WebsocketService {
   jugadorMenosPuntuacion$ = new Subject<EvJugadorMenosPuntuacion>();
   ponerCartaSobreOtra$ = new Subject<EvPonerCartaSobreOtra>();
   intercambioRival$    = new Subject<EvIntercambioRival>();
-
-  // Streams nuevos backend dev
-  cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
-  accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
-  poder8Estado$             = new Subject<EvPoder8Estado>();
-  revanchaEstado$           = new Subject<EvRevanchaEstado>();
-
-  // Encadenamiento + broadcast del poder 7
-  ponerOtraCartaSobreOtra$  = new Subject<EvPonerOtraCartaSobreOtra>();
-  accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
 
   conectar(token: string, roomCode?: string): void {
     if (this.socket?.connected) return;
@@ -332,7 +324,12 @@ export class WebsocketService {
     }
 
     // Eventos de sala
-    this.socket.on('room:update', (data: EvRoomUpdate) => this.roomUpdate$.next(data));
+    this.socket.on('room:update', (data: EvRoomUpdate) => {
+      this.roomUpdate$.next(data);
+      const map = new Map<string, string>();
+      data.players.forEach(p => { if (p.socketId && p.userId) map.set(p.socketId, p.userId); });
+      this.socketToUsername.set(map);
+    });
     this.socket.on('room:closed', (data: EvRoomClosed) => this.roomClosed$.next(data));
 
     // Eventos de partida
@@ -357,16 +354,6 @@ export class WebsocketService {
     this.socket.on('game:jugador-menos-puntuacion-calculado', (d: EvJugadorMenosPuntuacion) => this.jugadorMenosPuntuacion$.next(d));
     this.socket.on('game:poner-carta-sobre-otra',   (d: EvPonerCartaSobreOtra)  => this.ponerCartaSobreOtra$.next(d));
     this.socket.on('game:intercambio-rival',        (d: EvIntercambioRival)     => this.intercambioRival$.next(d));
-
-    // Eventos nuevos backend dev (no deben bloquear flujo si llegan)
-    this.socket.on('game:carta-robada-por-descartar-6', (d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
-    this.socket.on('game:accion-protegida-cancelada',   (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
-    this.socket.on('game:poder8-estado',                (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
-    this.socket.on('game:revancha-estado',              (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
-
-    // Poder 7 (carta sobre otra): chain en acierto y broadcast de cambio de mano
-    this.socket.on('game:poner-otra-carta-sobre-otra', (d: EvPonerOtraCartaSobreOtra) => this.ponerOtraCartaSobreOtra$.next(d));
-    this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)    => this.accionCartaSobreOtra$.next(d));
   }
 
   /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
@@ -580,5 +567,27 @@ export class WebsocketService {
       this.socket = null;
       this.estaConectado.set(false);
     }
+  }
+
+  // ── Señalización WebRTC (voz) ──────────────────────────────────────────────
+
+  joinVoiceRoom(roomId: string): void {
+    this.socket?.emit('voice:join', roomId);
+  }
+
+  leaveVoiceRoom(): void {
+    this.socket?.emit('voice:leave');
+  }
+
+  sendVoiceOffer(to: string, offer: RTCSessionDescriptionInit): void {
+    this.socket?.emit('voice:offer', { to, offer });
+  }
+
+  sendVoiceAnswer(to: string, answer: RTCSessionDescriptionInit): void {
+    this.socket?.emit('voice:answer', { to, answer });
+  }
+
+  sendIceCandidate(to: string, candidate: RTCIceCandidateInit): void {
+    this.socket?.emit('voice:ice-candidate', { to, candidate });
   }
 }

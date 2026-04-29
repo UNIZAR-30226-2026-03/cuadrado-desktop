@@ -266,4 +266,8 @@
     }
   }
 
+
+  @if (showSettingsPopup) {
+    <app-settings-popup (closed)="showSettingsPopup = false"></app-settings-popup>
+  }
 </div>

@@ -97,6 +97,54 @@ $carta-gap:     5px;
   }
 }
 
+// ── Indicador de habla ──────────────────────────────────────────────────────
+.tablero__speaking {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--neon-cyan);
+  box-shadow: 0 0 6px rgba(0, 229, 255, 0.8);
+  animation: speaking-pulse 600ms ease-in-out infinite alternate;
+  flex-shrink: 0;
+}
+
+@keyframes speaking-pulse {
+  from { opacity: 0.5; transform: scale(0.8); }
+  to   { opacity: 1;   transform: scale(1.2); }
+}
+
+.tablero__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.tablero__mute-btn {
+  background: transparent;
+  border: 1px solid rgba(0, 229, 255, 0.25);
+  border-radius: 4px;
+  font-size: 16px;
+  padding: 2px 8px;
+  cursor: pointer;
+  transition: border-color 200ms, background 200ms;
+  line-height: 1.4;
+
+  &:hover {
+    border-color: rgba(0, 229, 255, 0.55);
+    background: rgba(0, 229, 255, 0.06);
+  }
+
+  &--muted {
+    border-color: rgba(255, 77, 109, 0.45);
+    background: rgba(255, 77, 109, 0.08);
+
+    &:hover {
+      border-color: rgba(255, 77, 109, 0.7);
+    }
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  BANNER de turno
 // ═══════════════════════════════════════════════════════════════════════════

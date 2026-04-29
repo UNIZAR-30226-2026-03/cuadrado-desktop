@@ -6,8 +6,10 @@ import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
+import { VoiceChatService } from '../../services/voice-chat';
 import { GameTable } from '../game-table/game-table';
 import { TopBar } from '../shared/top-bar/top-bar';
+import { SettingsPopupComponent } from '../shared/settings-popup/settings-popup';
 import { environment } from '../../environment';
 
 interface SpawnedCube {
@@ -24,7 +26,7 @@ const MAX_CUBES = 16;
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [FormsModule, GameTable, TopBar],
+  imports: [FormsModule, GameTable, TopBar, SettingsPopupComponent],
   templateUrl: './lobby.html',
   styleUrl: './lobby.scss',
   animations: [
@@ -52,12 +54,6 @@ export class Lobby implements OnInit, OnDestroy {
   showDeckPopup = false;
   showConfigPopup = false;
 
-  // Configuración
-  configMusic = 80;
-  configSfx = 80;
-  configVoice = 80;
-  configInputDevice = '';
-  audioInputDevices: MediaDeviceInfo[] = [];
 
   // Cubos 3D efímeros
   cubes = signal<SpawnedCube[]>([]);
@@ -70,6 +66,7 @@ export class Lobby implements OnInit, OnDestroy {
 
   constructor(
     protected auth: AuthService,
+    protected voiceChat: VoiceChatService,
     private router: Router,
     private http: HttpClient,
   ) {}
@@ -164,26 +161,7 @@ export class Lobby implements OnInit, OnDestroy {
   openConfigPopup(): void {
     this.showHamburgerMenu = false;
     this.showConfigPopup = true;
-    if (!this.configInputDevice) {
-      this.configInputDevice = 'default';
-    }
-    // Solicitar permiso de micrófono primero para obtener etiquetas de dispositivos
-    navigator.mediaDevices?.getUserMedia({ audio: true })
-      .then(stream => {
-        stream.getTracks().forEach(t => t.stop());
-        return navigator.mediaDevices.enumerateDevices();
-      })
-      .then(devices => {
-        this.audioInputDevices = devices
-          .filter(d => d.kind === 'audioinput' && d.deviceId !== 'default');
-      })
-      .catch(() => {
-        // Si se deniegan los permisos, enumerar sin etiquetas
-        navigator.mediaDevices?.enumerateDevices().then(devices => {
-          this.audioInputDevices = devices
-            .filter(d => d.kind === 'audioinput' && d.deviceId !== 'default');
-        }).catch(() => {});
-      });
+    this.voiceChat.requestPermissionAndLoadDevices();
   }
 
   closeConfigPopup(): void {

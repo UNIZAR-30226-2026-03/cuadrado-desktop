@@ -1,0 +1,55 @@
+<div class="config-popup-overlay" (click)="close()">
+  <div class="config-popup glass-card" (click)="$event.stopPropagation()">
+    <div class="config-popup__header">
+      <button class="btn-ghost config-popup__back" (click)="close()">← Volver</button>
+      <h3 class="config-popup__title">Configuración</h3>
+    </div>
+
+    <!-- Sonido -->
+    <section class="config-section">
+      <h4 class="config-section__title">Sonido</h4>
+      <div class="config-slider-row">
+        <span class="config-slider-label">Música</span>
+        <input class="config-slider" type="range" min="0" max="100"
+               [value]="voiceChat.musicVolume()"
+               (input)="voiceChat.setMusicVolume(+$any($event.target).value)" />
+        <span class="config-slider-pct">{{ voiceChat.musicVolume() }}%</span>
+      </div>
+      <div class="config-slider-row">
+        <span class="config-slider-label">Efectos</span>
+        <input class="config-slider" type="range" min="0" max="100"
+               [value]="voiceChat.sfxVolume()"
+               (input)="voiceChat.setSfxVolume(+$any($event.target).value)" />
+        <span class="config-slider-pct">{{ voiceChat.sfxVolume() }}%</span>
+      </div>
+    </section>
+
+    <!-- Chat de voz -->
+    <section class="config-section">
+      <h4 class="config-section__title">Chat de voz</h4>
+      @if (voiceChat.micPermission() === 'denied') {
+        <p class="config-permission-warn">
+          ⚠️ Permiso de micrófono denegado. Revisa los ajustes del navegador.
+        </p>
+      }
+      <div class="config-slider-row">
+        <span class="config-slider-label">Volumen</span>
+        <input class="config-slider" type="range" min="0" max="100"
+               [value]="voiceChat.outputVolume()"
+               (input)="voiceChat.setOutputVolume(+$any($event.target).value)" />
+        <span class="config-slider-pct">{{ voiceChat.outputVolume() }}%</span>
+      </div>
+      <div class="config-device-row">
+        <span class="config-slider-label">Entrada</span>
+        <select class="config-select"
+                [value]="voiceChat.selectedDeviceId()"
+                (change)="voiceChat.selectDevice($any($event.target).value)">
+          <option value="default">Por defecto (micrófono del sistema)</option>
+          @for (device of voiceChat.audioInputDevices(); track device.deviceId) {
+            <option [value]="device.deviceId">{{ device.label || 'Micrófono ' + ($index + 1) }}</option>
+          }
+        </select>
+      </div>
+    </section>
+  </div>
+</div>
