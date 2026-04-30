@@ -237,6 +237,14 @@ export interface EvIntercambioRival {
   usuarioIniciador: string;
 }
 
+// ── Tipos señalización WebRTC (voz) ──────────────────────────────────────────
+
+export interface EvVoicePeerJoined   { peerId: string }
+export interface EvVoicePeerLeft     { peerId: string }
+export interface EvVoiceOffer        { from: string; offer: RTCSessionDescriptionInit }
+export interface EvVoiceAnswer       { from: string; answer: RTCSessionDescriptionInit }
+export interface EvVoiceIceCandidate { from: string; candidate: RTCIceCandidateInit }
+
 // ── Tipos poderes frontend → backend ─────────────────────────────────────────
 
 export type PoderCarta =
@@ -293,8 +301,22 @@ export class WebsocketService {
   habilidadDenegada$   = new Subject<EvHabilidadDenegada>();
   puntosCalculados$    = new Subject<EvPuntosCalculados>();
   jugadorMenosPuntuacion$ = new Subject<EvJugadorMenosPuntuacion>();
-  ponerCartaSobreOtra$ = new Subject<EvPonerCartaSobreOtra>();
-  intercambioRival$    = new Subject<EvIntercambioRival>();
+  ponerCartaSobreOtra$      = new Subject<EvPonerCartaSobreOtra>();
+  intercambioRival$         = new Subject<EvIntercambioRival>();
+  accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
+  poder8Estado$             = new Subject<EvPoder8Estado>();
+  revanchaEstado$           = new Subject<EvRevanchaEstado>();
+  cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
+  ponerOtraCartaSobreOtra$  = new Subject<EvPonerOtraCartaSobreOtra>();
+  accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
+
+  // Streams señalización WebRTC
+  voicePeers$        = new Subject<string[]>();
+  voicePeerJoined$   = new Subject<EvVoicePeerJoined>();
+  voicePeerLeft$     = new Subject<EvVoicePeerLeft>();
+  voiceOffer$        = new Subject<EvVoiceOffer>();
+  voiceAnswer$       = new Subject<EvVoiceAnswer>();
+  voiceIceCandidate$ = new Subject<EvVoiceIceCandidate>();
 
   conectar(token: string, roomCode?: string): void {
     if (this.socket?.connected) return;
@@ -352,8 +374,22 @@ export class WebsocketService {
     this.socket.on('game:habilidad-denegada',       (d: EvHabilidadDenegada)    => this.habilidadDenegada$.next(d));
     this.socket.on('game:puntos-calculados',        (d: EvPuntosCalculados)     => this.puntosCalculados$.next(d));
     this.socket.on('game:jugador-menos-puntuacion-calculado', (d: EvJugadorMenosPuntuacion) => this.jugadorMenosPuntuacion$.next(d));
-    this.socket.on('game:poner-carta-sobre-otra',   (d: EvPonerCartaSobreOtra)  => this.ponerCartaSobreOtra$.next(d));
-    this.socket.on('game:intercambio-rival',        (d: EvIntercambioRival)     => this.intercambioRival$.next(d));
+    this.socket.on('game:poner-carta-sobre-otra',      (d: EvPonerCartaSobreOtra)      => this.ponerCartaSobreOtra$.next(d));
+    this.socket.on('game:intercambio-rival',           (d: EvIntercambioRival)         => this.intercambioRival$.next(d));
+    this.socket.on('game:accion-protegida-cancelada',  (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
+    this.socket.on('game:poder8-estado',               (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
+    this.socket.on('game:revancha-estado',             (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
+    this.socket.on('game:carta-robada-por-descartar-6',(d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
+    this.socket.on('game:poner-otra-carta-sobre-otra', (d: EvPonerOtraCartaSobreOtra)  => this.ponerOtraCartaSobreOtra$.next(d));
+    this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)     => this.accionCartaSobreOtra$.next(d));
+
+    // Señalización WebRTC
+    this.socket.on('voice:peers',         (peers: string[])          => this.voicePeers$.next(peers));
+    this.socket.on('voice:peer-joined',   (d: EvVoicePeerJoined)     => this.voicePeerJoined$.next(d));
+    this.socket.on('voice:peer-left',     (d: EvVoicePeerLeft)       => this.voicePeerLeft$.next(d));
+    this.socket.on('voice:offer',         (d: EvVoiceOffer)          => this.voiceOffer$.next(d));
+    this.socket.on('voice:answer',        (d: EvVoiceAnswer)         => this.voiceAnswer$.next(d));
+    this.socket.on('voice:ice-candidate', (d: EvVoiceIceCandidate)   => this.voiceIceCandidate$.next(d));
   }
 
   /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
