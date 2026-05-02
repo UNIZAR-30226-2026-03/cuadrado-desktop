@@ -54,9 +54,11 @@ export class CreateRoom implements OnInit {
     { card: '9',  image: '🂩', description: 'Ofrece un intercambio a otro jugador: ambos elegís una carta a ciegas.', enabled: false },
     { card: '10', image: '🂪', description: 'Ve una de tus propias cartas.', enabled: true },
     { card: 'J',  image: '🂫', description: 'Ve una de tus cartas y una de otro jugador; decide si las intercambias (con ese mismo jugador).', enabled: true },
-    { card: 'Q',  image: '🂭', description: 'Sin poder especial. (12 puntos)', enabled: false },
-    { card: 'K',  image: '🂮', description: 'K roja = 0 puntos · K negra = 20 puntos.', enabled: false },
   ];
+
+  get todosSeleccionados(): boolean {
+    return this.cardPowers.length > 0 && this.cardPowers.every(p => p.enabled);
+  }
 
   constructor(
     private router: Router,
@@ -79,6 +81,13 @@ export class CreateRoom implements OnInit {
     const power = this.cardPowers[index];
     if (!PODERES_VALIDOS.has(power.card)) return;
     power.enabled = !power.enabled;
+  }
+
+  toggleSeleccionarTodos(): void {
+    const activar = !this.todosSeleccionados;
+    this.cardPowers.forEach(p => {
+      if (PODERES_VALIDOS.has(p.card)) p.enabled = activar;
+    });
   }
 
   async crearSala(): Promise<void> {

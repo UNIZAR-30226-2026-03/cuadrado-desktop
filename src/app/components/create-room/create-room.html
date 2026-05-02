@@ -64,7 +64,15 @@
 
       <!-- Lista de poderes de cartas -->
       <div class="config-field">
-        <label class="config-label">Poderes de cartas</label>
+        <div class="powers-header">
+          <label class="config-label">Poderes de cartas</label>
+          <button type="button"
+                  class="select-all-btn"
+                  [class.select-all-btn--active]="todosSeleccionados"
+                  (click)="toggleSeleccionarTodos()">
+            {{ todosSeleccionados ? 'Deseleccionar todos' : 'Seleccionar todos' }}
+          </button>
+        </div>
         <div class="powers-list">
           @for (power of cardPowers; track power.card; let i = $index) {
             <div class="power-item" [class.power-item--active]="power.enabled" (click)="togglePower(i)">

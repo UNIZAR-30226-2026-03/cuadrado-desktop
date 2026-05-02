@@ -110,6 +110,10 @@ export class Tablero implements OnInit, OnDestroy {
   fase             = signal<FaseTurno>('idle');
   timerSegundos    = signal(TURNO_SEGUNDOS);
   modoIntercambio  = signal(false);
+  // Banner del turno: visible durante todo el turno; arranca centrado y a
+  // 1s se desplaza al lateral para no bloquear el centro de la mesa.
+  mostrarBannerTurno = signal(false);
+  bannerLateral      = signal(false);
   discardTop       = signal<CartaMesa | null>(null);
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
@@ -126,7 +130,6 @@ export class Tablero implements OnInit, OnDestroy {
   // Feedback inbound (eventos servidor -> UI)
   cartaReveladaModal = signal<CartaReveladaModal | null>(null);
   notificacionToast  = signal<NotificacionJuego | null>(null);
-  ultimaAccion       = signal<{ jugador: string; accion: 'descartó' | 'intercambió' } | null>(null);
   pendingSkill       = signal<PendingSkill | null>(null);
 
   // Poderes almacenables (7 y 8). El backend no emite un evento por jugador
@@ -144,11 +147,29 @@ export class Tablero implements OnInit, OnDestroy {
   // mientras el backend siga emitiendo `game:poner-otra-carta-sobre-otra`.
   seleccionPoder7Activa = signal(false);
 
+  // Flash de animación: set de keys "jugadorId:cartaIdx" o "jugadorId:pendiente"
+  // que determina qué cartas deben mostrar el borde iluminado en ese instante.
+  flashKeys = signal<ReadonlySet<string>>(new Set<string>());
+
+  // Flash de aterrizaje: señal que activa la animación de entrada en la pila de descartes.
+  discardArrivalFlash = signal(false);
+
+  // Anuncio temporal de acción ("¡X descarta!" / "¡X intercambia!").
+  // El campo seq garantiza nuevo valor de señal aunque nombre/accion sean iguales,
+  // forzando la recreación del DOM y el reinicio de la animación CSS.
+  discardAnuncio = signal<{ nombre: string; accion: 'descarta' | 'intercambia'; seq: number } | null>(null);
+  private discardAnuncioSeq = 0;
+
   // Revancha (estadio 9). El estado real lo trae `gameService.revancha()`,
   // pero llevamos un flag local para deshabilitar el botón tras emitir
   // `game:volver-a-jugar` y mostrar feedback inmediato.
   revanchaSolicitada = signal(false);
   revanchaEstado = computed(() => this.gameService.revancha()?.estado ?? null);
+  // Flag interno para indicarle a ngOnDestroy que la transición a la sala
+  // de espera es por revancha: NO debe desconectar el websocket ni cerrar el
+  // audio (la nueva sala los reusa). Sin esto, el waiting-room llega a una
+  // sala desconectada y nunca recibe room:update del backend.
+  private revanchaEnCurso = false;
 
   // Computados
   jugadorActual = computed(() => {
@@ -175,10 +196,12 @@ export class Tablero implements OnInit, OnDestroy {
   private robarInterval: ReturnType<typeof setInterval> | null = null;
   private phaseTimeout:  ReturnType<typeof setTimeout>  | null = null;
   private cuboBannerTimer: ReturnType<typeof setTimeout> | null = null;
+  private bannerLateralTimer: ReturnType<typeof setTimeout> | null = null;
+  private discardArrivalTimer: ReturnType<typeof setTimeout> | null = null;
+  private discardAnuncioTimer: ReturnType<typeof setTimeout> | null = null;
   private cuboTurnosLocal = 0; // contador de turnos restantes en modo local
   private revealTimeout: ReturnType<typeof setTimeout> | null = null;
   private toastTimeout:  ReturnType<typeof setTimeout> | null = null;
-  private accionTimeout: ReturnType<typeof setTimeout> | null = null;
 
   // URLs reales de las skins equipadas (obtenidas del backend)
   private localReversoUrl = signal<string | null>(null);
@@ -248,6 +271,20 @@ export class Tablero implements OnInit, OnDestroy {
         const palo = this.normalizarPalo(ev.carta.palo);
         if (palo) {
           this.discardTop.set({ valor: ev.carta.carta, palo, visible: true, seleccionada: false });
+        }
+        // Animación de aterrizaje en la pila para todos los clientes.
+        this.triggerDiscardArrival();
+        const actual = this.jugadorActual();
+        if (actual && !actual.esYo) {
+          // Solo para observadores: el jugador local ya muestra el banner correcto
+          // desde accionDescartar() o seleccionarCartaMano(), y el eco del WS
+          // no debe sobrescribirlo.
+          // esIntercambio es true cuando el backend incluya tipo/numCarta en el broadcast.
+          const esIntercambio = ev.tipo === 'intercambiar' || ev.numCarta !== undefined;
+          const targets = [`${actual.id}:pendiente`];
+          if (esIntercambio && ev.numCarta !== undefined) targets.push(`${actual.id}:${ev.numCarta}`);
+          this.triggerFlash(targets, esIntercambio ? 1000 : 500);
+          this.mostrarAnuncioAccion(actual.nombre, esIntercambio ? 'intercambia' : 'descarta');
         }
       }),
       // Sincronizar la carta robada real del backend con cartaPendiente del jugador local.
@@ -350,9 +387,19 @@ export class Tablero implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.discardAnuncioTimer) {
+      clearTimeout(this.discardAnuncioTimer);
+      this.discardAnuncioTimer = null;
+    }
     this.limpiarTimers();
     this.limpiarFeedbackVisual();
     this.subs.forEach(s => s.unsubscribe());
+    if (this.revanchaEnCurso) {
+      // Revancha: limpiar el estado de partida pero mantener viva la conexión
+      // websocket y el stream de audio para que el waiting-room los reutilice.
+      this.gameService.limpiarParaRevancha();
+      return;
+    }
     this.gameService.salirDePartida();
     this.voiceChat.leaveVoiceRoom();
     this.voiceChat.stopLocalStream();
@@ -419,6 +466,10 @@ export class Tablero implements OnInit, OnDestroy {
       const yo = this.jugadores().find(j => j.esYo)?.nombre ?? '';
       const soyHost = ev.hostId === yo;
       this.persistirSalaRevancha(ev.roomCode, ev.roomName ?? 'Revancha', soyHost);
+      // Marcar la transición como revancha ANTES de navegar para que el
+      // ngOnDestroy preserve la conexión websocket y el audio de cara a la
+      // nueva sala (el backend hace leave/join automático sobre el mismo socket).
+      this.revanchaEnCurso = true;
       this.router.navigate(['/waiting-room']);
     }, { injector: this.injector });
   }
@@ -454,6 +505,12 @@ export class Tablero implements OnInit, OnDestroy {
       evento.numCartaRemitente < remitente.mano.length &&
       evento.numCartaDestinatario < destinatario.mano.length
     ) {
+      // Flash en las dos cartas concretas que se van a intercambiar
+      this.triggerFlash([
+        `${remitente.id}:${evento.numCartaRemitente}`,
+        `${destinatario.id}:${evento.numCartaDestinatario}`,
+      ]);
+
       const manoRemitente = [...remitente.mano];
       const manoDestinatario = [...destinatario.mano];
       const cartaRemitente = manoRemitente[evento.numCartaRemitente];
@@ -468,7 +525,12 @@ export class Tablero implements OnInit, OnDestroy {
       return;
     }
 
-    // Intercambio total de manos (poder 1).
+    // Intercambio total de manos (poder AS): flash en todas las cartas de ambos
+    this.triggerFlash([
+      ...remitente.mano.map((_, i) => `${remitente.id}:${i}`),
+      ...destinatario.mano.map((_, i) => `${destinatario.id}:${i}`),
+    ]);
+
     jugadores[idxRemitente] = {
       ...remitente,
       mano: destinatario.mano.map((carta) => ({ ...carta })),
@@ -590,12 +652,6 @@ export class Tablero implements OnInit, OnDestroy {
     }, 3500);
   }
 
-  private mostrarAccion(jugador: string, accion: 'descartó' | 'intercambió'): void {
-    if (this.accionTimeout) clearTimeout(this.accionTimeout);
-    this.ultimaAccion.set({ jugador, accion });
-    this.accionTimeout = setTimeout(() => this.ultimaAccion.set(null), 2000);
-  }
-
   private limpiarFeedbackVisual(): void {
     if (this.revealTimeout) {
       clearTimeout(this.revealTimeout);
@@ -604,10 +660,6 @@ export class Tablero implements OnInit, OnDestroy {
     if (this.toastTimeout) {
       clearTimeout(this.toastTimeout);
       this.toastTimeout = null;
-    }
-    if (this.accionTimeout) {
-      clearTimeout(this.accionTimeout);
-      this.accionTimeout = null;
     }
   }
 
@@ -683,6 +735,19 @@ export class Tablero implements OnInit, OnDestroy {
     this.fase.set('banner');
     this.modoIntercambio.set(false);
 
+    // Banner del turno: aparece centrado y, transcurrido 1s, se desplaza
+    // al lateral para liberar el centro de la mesa (donde está el mazo).
+    this.mostrarBannerTurno.set(true);
+    this.bannerLateral.set(false);
+    if (this.bannerLateralTimer) clearTimeout(this.bannerLateralTimer);
+    this.bannerLateralTimer = setTimeout(() => this.bannerLateral.set(true), 1000);
+
+    // Temporizador visual sincronizado en TODOS los clientes (no sólo en el del
+    // jugador en turno): así la barra se decrementa en todas las pantallas.
+    // El descarte automático al expirar sólo se ejecuta en el cliente del
+    // jugador que tiene el turno (ver iniciarTimer).
+    this.iniciarTimer();
+
     if (this.esMiTurno()) {
       this.robarDisponible.set(true);
     } else {
@@ -726,13 +791,14 @@ export class Tablero implements OnInit, OnDestroy {
     const gameId = this.gameService.gameId();
     if (gameId && jugador.esYo) this.ws.robarCarta(gameId);
 
-    // Breve pausa de animación antes de pasar a fase de decisión
+    // Breve pausa de animación antes de pasar a fase de decisión.
+    // El temporizador ya fue iniciado en iniciarTurno() (corre para todos los
+    // jugadores), así que aquí sólo cambiamos de fase y delegamos a la lógica
+    // de bot si corresponde.
     this.phaseTimeout = setTimeout(() => {
       this.fase.set('decidiendo');
       if (jugador.esBot) {
         this.botDecide();
-      } else if (jugador.esYo) {
-        this.iniciarTimer();
       }
     }, 800);
   }
@@ -740,13 +806,18 @@ export class Tablero implements OnInit, OnDestroy {
   // Timer del jugador humano
 
   private iniciarTimer(): void {
+    this.pararTimer();
     this.timerSegundos.set(TURNO_SEGUNDOS);
     this.timerInterval = setInterval(() => {
       const t = this.timerSegundos() - 1;
       this.timerSegundos.set(t);
       if (t <= 0) {
         this.pararTimer();
-        this.accionDescartar(); // timeout → descarte automático
+        // Sólo el cliente del jugador en turno dispara el descarte automático
+        // (en el resto, el timer es puramente visual y el backend avanza el turno).
+        if (this.esMiTurno() && this.fase() === 'decidiendo') {
+          this.accionDescartar();
+        }
       }
     }, 1000);
   }
@@ -765,6 +836,12 @@ export class Tablero implements OnInit, OnDestroy {
     this.pararTimerRobo();
     this.robarDisponible.set(false);
     this.ejecutarRobo();
+  }
+
+  /** Clic en el mazo central. Equivale al antiguo botón "Robar". */
+  onClickMazo(): void {
+    if (!this.robarDisponible()) return;
+    this.accionRobar();
   }
 
   private pararTimerRobo(): void {
@@ -826,9 +903,13 @@ export class Tablero implements OnInit, OnDestroy {
     const carta   = jugador.cartaPendiente;
     if (!carta) return;
 
+    // Flash en el slot pendiente antes de enviarlo al descarte
+    this.triggerFlash([`${jugador.id}:pendiente`]);
+
     // Mostrar carta descartada inmediatamente (en online es la carta real via decisionRequerida$)
     const cartaDescartada = { ...carta, visible: true };
     this.discardTop.set(cartaDescartada);
+    this.triggerDiscardArrival();
 
     // Poderes almacenables: si el jugador local descarta un 7 u 8 se almacenan
     // para activación manual posterior (poder 8: desactivar-proxima-habilidad;
@@ -847,7 +928,7 @@ export class Tablero implements OnInit, OnDestroy {
 
     if (gameId) this.ws.descartarPendiente(gameId);
 
-    this.mostrarAccion(jugador.nombre, 'descartó');
+    this.mostrarAnuncioAccion(jugador.nombre, 'descarta');
 
     // Activar poder si la carta descartada lo tiene (retiene el turno hasta que se complete)
     const poder = poderDeValor(carta.valor);
@@ -969,6 +1050,9 @@ export class Tablero implements OnInit, OnDestroy {
     const jugador = all[jugadorIdx];
     if (!jugador?.esYo || !jugador.cartaPendiente) return;
 
+    // Flash en ambas cartas durante 1 s: la pendiente y la de la mano intercambiada
+    this.triggerFlash([`${jugador.id}:pendiente`, `${jugador.id}:${cartaIdx}`], 1000);
+
     const gameId = this.gameService.gameId();
     if (!gameId) {
       // Modo local: la carta de la mano va al descarte boca arriba
@@ -991,7 +1075,7 @@ export class Tablero implements OnInit, OnDestroy {
 
     if (gameId) this.ws.cartaPorPendiente(gameId, cartaIdx);
 
-    this.mostrarAccion(jugador.nombre, 'intercambió');
+    this.mostrarAnuncioAccion(jugador.nombre, 'intercambia');
     this.programarSiguienteTurno();
   }
 
@@ -1033,7 +1117,7 @@ export class Tablero implements OnInit, OnDestroy {
     all[jugadorIdx] = { ...jugador, mano: nuevaMano, cartaPendiente: null };
     this.jugadores.set(all);
 
-    this.mostrarAccion(jugador.nombre, 'intercambió');
+    this.mostrarAnuncioAccion(jugador.nombre, 'intercambia');
     this.programarSiguienteTurno();
   }
 
@@ -1129,6 +1213,8 @@ export class Tablero implements OnInit, OnDestroy {
   //   con { motivo, ranking, ganadorId, cartasJugadores, recompensas }
   private finalizarPartida(mensaje: string): void {
     this.limpiarTimers();
+    this.mostrarBannerTurno.set(false);
+    this.bannerLateral.set(false);
     this.fase.set('fin');
     this.mensajeFin.set(mensaje);
   }
@@ -1136,6 +1222,53 @@ export class Tablero implements OnInit, OnDestroy {
   // ══════════════════════════════════════════════════════════════════════════════
   // Helpers para el template
   // ══════════════════════════════════════════════════════════════════════════════
+
+  // ── Sistema de flash de animación ──────────────────────────────────────
+
+  /** Muestra el banner "¡X descarta!" o "¡X intercambia!" durante ~1.3 s. */
+  private mostrarAnuncioAccion(nombre: string, accion: 'descarta' | 'intercambia'): void {
+    if (this.discardAnuncioTimer) clearTimeout(this.discardAnuncioTimer);
+    this.discardAnuncio.set({ nombre, accion, seq: ++this.discardAnuncioSeq });
+    this.discardAnuncioTimer = setTimeout(() => {
+      this.discardAnuncio.set(null);
+      this.discardAnuncioTimer = null;
+    }, 1300);
+  }
+
+  /** Activa la animación de aterrizaje en la pila de descartes durante 700 ms. */
+  private triggerDiscardArrival(): void {
+    if (this.discardArrivalTimer) clearTimeout(this.discardArrivalTimer);
+    this.discardArrivalFlash.set(true);
+    this.discardArrivalTimer = setTimeout(() => {
+      this.discardArrivalFlash.set(false);
+      this.discardArrivalTimer = null;
+    }, 700);
+  }
+
+  /** Ilumina las cartas indicadas durante `duracion` ms (por defecto 500). */
+  private triggerFlash(keys: string[], duracion = 500): void {
+    if (keys.length === 0) return;
+    this.flashKeys.update(s => {
+      const next = new Set(s);
+      keys.forEach(k => next.add(k));
+      return next;
+    });
+    setTimeout(() => {
+      this.flashKeys.update(s => {
+        const next = new Set(s);
+        keys.forEach(k => next.delete(k));
+        return next;
+      });
+    }, duracion);
+  }
+
+  isFlashing(jugadorId: string, cartaIdx: number): boolean {
+    return this.flashKeys().has(`${jugadorId}:${cartaIdx}`);
+  }
+
+  isFlashingPendiente(jugadorId: string): boolean {
+    return this.flashKeys().has(`${jugadorId}:pendiente`);
+  }
 
   getValorCarta(valor: number): string {
     return ['A','2','3','4','5','6','7','8','9','10','J','Q','K'][valor - 1] ?? '?';
@@ -1307,6 +1440,14 @@ export class Tablero implements OnInit, OnDestroy {
     if (this.cuboBannerTimer) {
       clearTimeout(this.cuboBannerTimer);
       this.cuboBannerTimer = null;
+    }
+    if (this.bannerLateralTimer) {
+      clearTimeout(this.bannerLateralTimer);
+      this.bannerLateralTimer = null;
+    }
+    if (this.discardArrivalTimer) {
+      clearTimeout(this.discardArrivalTimer);
+      this.discardArrivalTimer = null;
     }
   }
 }

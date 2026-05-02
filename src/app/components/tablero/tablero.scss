@@ -151,15 +151,17 @@ $carta-gap:     5px;
 .tablero__banner {
   position: fixed;
   inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   z-index: 50;
   pointer-events: none;
   animation: banner-fade-in 300ms ease-out;
 }
 
 .tablero__banner-box {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
   background: rgba(11, 23, 51, 0.9);
   border: 1px solid rgba(0, 229, 255, 0.4);
   box-shadow: 0 0 40px rgba(0, 229, 255, 0.18), 0 8px 32px rgba(0, 0, 0, 0.7);
@@ -169,6 +171,12 @@ $carta-gap:     5px;
   font-family: var(--font-display);
   color: var(--text-100);
   letter-spacing: 0.04em;
+  transition: top 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              left 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              transform 600ms cubic-bezier(0.34, 1.56, 0.64, 1),
+              padding 500ms ease,
+              font-size 500ms ease,
+              opacity 400ms ease;
 
   strong {
     color: var(--neon-cyan);
@@ -203,6 +211,18 @@ $carta-gap:     5px;
 // ── El banner padre no debe animar dos veces cuando tiene --cubo
 .tablero__banner--cubo {
   animation: none; // anula banner-fade-in; el box ya tiene cubo-banner-lifecycle
+}
+
+// ── Banner lateral: tras 1s en el centro se desliza arriba a la izquierda
+//    para no cubrir el mazo ni el resto de la mesa.
+.tablero__banner--lateral .tablero__banner-box {
+  top: 64px;
+  left: 16px;
+  transform: translate(0, 0) scale(0.78);
+  padding: 8px 18px;
+  font-size: 13px;
+  opacity: 0.85;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
 }
 
 // ── Chip persistente de cuenta atrás del Cubo ────────────────────────────
@@ -389,6 +409,39 @@ $carta-gap:     5px;
     background: rgba(127, 29, 29, 0.92);
     box-shadow: 0 8px 28px rgba(127, 29, 29, 0.42);
   }
+}
+
+.tablero__descarte-anuncio {
+  position: fixed;
+  bottom: 28px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 72;
+  pointer-events: none;
+  white-space: nowrap;
+  padding: 9px 22px;
+  border-radius: 22px;
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffe8eb;
+  background: rgba(153, 27, 27, 0.93);
+  border: 1px solid rgba(239, 68, 68, 0.7);
+  box-shadow: 0 6px 24px rgba(153, 27, 27, 0.5);
+  animation: descarte-anuncio-fade 1.3s ease-out forwards;
+
+  &--intercambia {
+    color: #e0f4ff;
+    background: rgba(12, 74, 130, 0.93);
+    border-color: rgba(56, 189, 248, 0.7);
+    box-shadow: 0 6px 24px rgba(12, 74, 130, 0.55);
+  }
+}
+
+@keyframes descarte-anuncio-fade {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(10px); }
+  12%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  72%  { opacity: 1; transform: translateX(-50%) translateY(0); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-8px); }
 }
 
 .tablero__revelada-overlay {
@@ -604,6 +657,9 @@ $carta-gap:     5px;
   align-items: center;
   gap: 20px;
   z-index: 5;
+  // El padre (tablero__mesa) tiene pointer-events: none para ser decorativo.
+  // Restauramos explícitamente los eventos aquí para que el mazo sea clicable.
+  pointer-events: auto;
 }
 
 .tablero__pila {
@@ -611,8 +667,44 @@ $carta-gap:     5px;
   display: flex;
   align-items: center;
   justify-content: center;
+  // Garantiza un área clicable estable (los hijos del mazo son position:absolute,
+  // así que sin tamaño propio el contenedor podría colapsar a 0×0).
+  width: $carta-w;
+  height: $carta-h;
 
   &--vacia { opacity: 0.35; }
+
+  // Mazo "robable": pulsa y brilla cuando es turno del jugador local.
+  // Indicador visual sutil que invita a hacer clic.
+  &--robable {
+    cursor: pointer;
+    pointer-events: auto;
+    animation: tablero-deck-pulse 1.6s ease-in-out infinite;
+
+    .tablero__carta--dorso {
+      border-color: rgba(168, 85, 247, 0.8);
+      box-shadow: 0 0 18px rgba(168, 85, 247, 0.55),
+                  0 0 36px rgba(168, 85, 247, 0.25);
+      transition: box-shadow 200ms, transform 200ms, border-color 200ms;
+    }
+
+    &:hover .tablero__carta--dorso {
+      transform: translateY(-3px) scale(1.04);
+      box-shadow: 0 0 26px rgba(168, 85, 247, 0.75),
+                  0 0 52px rgba(168, 85, 247, 0.35);
+    }
+
+    &:focus-visible { outline: none; }
+    &:focus-visible .tablero__carta--dorso {
+      border-color: rgba(0, 229, 255, 0.85);
+      box-shadow: 0 0 26px rgba(0, 229, 255, 0.7);
+    }
+  }
+}
+
+@keyframes tablero-deck-pulse {
+  0%, 100% { filter: brightness(1); }
+  50%      { filter: brightness(1.18); }
 }
 
 // Capas de profundidad del mazo
@@ -639,6 +731,44 @@ $carta-gap:     5px;
   white-space: nowrap;
 }
 
+// ── Animación de flash (descartar / intercambiar) ──────────────────────────
+@keyframes carta-flash-border {
+  0%   { box-shadow: inherit; outline: none; }
+  25%  {
+    box-shadow: 0 0 0 3px rgba(255, 220, 50, 0.9),
+                0 0 18px rgba(255, 220, 50, 0.6),
+                0 0 36px rgba(255, 220, 50, 0.25);
+    outline: 2px solid rgba(255, 220, 50, 0.8);
+  }
+  75%  {
+    box-shadow: 0 0 0 3px rgba(255, 220, 50, 0.7),
+                0 0 14px rgba(255, 220, 50, 0.4);
+    outline: 2px solid rgba(255, 220, 50, 0.5);
+  }
+  100% { box-shadow: inherit; outline: none; }
+}
+
+@keyframes carta-discard-arrival {
+  0%   {
+    transform: translateY(-18px) scale(1.06);
+    box-shadow: 0 0 0 3px rgba(255, 220, 50, 0.9),
+                0 0 24px rgba(255, 220, 50, 0.65),
+                0 0 48px rgba(255, 220, 50, 0.25);
+    outline: 2px solid rgba(255, 220, 50, 0.8);
+  }
+  55%  {
+    transform: translateY(2px) scale(1.01);
+    box-shadow: 0 0 0 2px rgba(255, 220, 50, 0.5),
+                0 0 14px rgba(255, 220, 50, 0.35);
+    outline: 2px solid rgba(255, 220, 50, 0.4);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    box-shadow: inherit;
+    outline: none;
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 //  CARTA — Base y variantes
 // ═══════════════════════════════════════════════════════════════════════════
@@ -651,6 +781,18 @@ $carta-gap:     5px;
   transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
               box-shadow 200ms,
               border-color 200ms;
+
+  // ── Flash: borde dorado durante 500 ms (descartar / intercambiar) ──────
+  &--flash {
+    animation: carta-flash-border 0.5s ease-out forwards;
+    transition: none;
+  }
+
+  // ── Aterrizaje en pila de descartes: caída + glow dorado ────────────────
+  &--discard-arrival {
+    animation: carta-discard-arrival 0.6s ease-out forwards;
+    transition: none;
+  }
 
   // ── Dorso ──────────────────────────────────────────────────────────────
   &--dorso {

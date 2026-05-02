@@ -34,6 +34,12 @@ export interface EvDecisionRequerida {
 export interface EvDescartarPendiente {
   partidaId: string;
   carta: { carta: number; palo: string; puntos: number; protegida: boolean };
+  // Campos opcionales que el backend debe añadir al broadcast de carta-por-pendiente
+  // para que los observadores distingan descarte de intercambio:
+  //   tipo:     'descartar' | 'intercambiar'
+  //   numCarta: posición de la carta de mano intercambiada (0-3)
+  tipo?: 'descartar' | 'intercambiar';
+  numCarta?: number;
 }
 
 export interface EvIntercambioCartas {

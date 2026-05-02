@@ -35,16 +35,21 @@
     </div>
   }
 
-  @if (ultimaAccion(); as accion) {
-    <div class="tablero__accion-label"
-         [class.tablero__accion-label--intercambio]="accion.accion === 'intercambió'">
-      <strong>{{ accion.jugador }}</strong>&nbsp;{{ accion.accion }}
+  <!-- ── Anuncio de acción (descarta / intercambia) ───────────────────── -->
+  @if (discardAnuncio(); as anuncio) {
+    <div class="tablero__descarte-anuncio"
+         [class.tablero__descarte-anuncio--intercambia]="anuncio.accion === 'intercambia'">
+      @if (anuncio.accion === 'intercambia') {
+        ¡<strong>{{ anuncio.nombre }}</strong> intercambia!
+      } @else {
+        ¡<strong>{{ anuncio.nombre }}</strong> se descarta!
+      }
     </div>
   }
 
-  <!-- ── Banner de turno (2 segundos) ─────────────────────────────────── -->
-  @if (fase() === 'banner') {
-    <div class="tablero__banner">
+  <!-- ── Banner de turno: 1s centrado, luego se desliza al lateral ────── -->
+  @if (mostrarBannerTurno() && jugadorActual()) {
+    <div class="tablero__banner" [class.tablero__banner--lateral]="bannerLateral()">
       <div class="tablero__banner-box">
         Turno de&nbsp;<strong>{{ jugadorActual()!.nombre }}</strong>
       </div>
@@ -229,8 +234,14 @@
       <!-- Centro: mazo + descarte -->
       <div class="tablero__centro">
 
-        <!-- Mazo -->
-        <div class="tablero__pila tablero__pila--mazo" [class.tablero__pila--vacia]="deckCount() === 0">
+        <!-- Mazo (clicable cuando es turno del jugador local y puede robar) -->
+        <div class="tablero__pila tablero__pila--mazo"
+             [class.tablero__pila--vacia]="deckCount() === 0"
+             [class.tablero__pila--robable]="robarDisponible()"
+             [attr.role]="robarDisponible() ? 'button' : null"
+             [attr.tabindex]="robarDisponible() ? 0 : null"
+             [attr.title]="robarDisponible() ? 'Roba una carta' : null"
+             (click)="onClickMazo()">
           @if (deckCount() > 0) {
             <div class="tablero__pila-sombra tablero__pila-sombra--3"></div>
             <div class="tablero__pila-sombra tablero__pila-sombra--2"></div>
@@ -244,7 +255,8 @@
         <div class="tablero__pila tablero__pila--descarte">
           @if (discardTop(); as dt) {
             <div class="tablero__carta tablero__carta--cara tablero__carta--descarte-top"
-                 [class.tablero__carta--roja]="esRoja(dt.palo)">
+                 [class.tablero__carta--roja]="esRoja(dt.palo)"
+                 [class.tablero__carta--discard-arrival]="discardArrivalFlash()">
               <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(dt.valor) }}</span>
               <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(dt.palo) }}</span>
               <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(dt.palo) }}</span>
@@ -303,6 +315,7 @@
                   [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
                   [class.tablero__carta--yo]="jugador.esYo"
                   [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia') && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
+                  [class.tablero__carta--flash]="isFlashing(jugador.id, ci)"
                   [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
                   (click)="onClickCartaMano(i, ci)">
                   @if (carta.visible) {
@@ -323,6 +336,7 @@
                      [class.tablero__carta--skin]="!pending.visible && !!jugador.reverso"
                      [class.tablero__carta--cara]="pending.visible"
                      [class.tablero__carta--roja]="pending.visible && esRoja(pending.palo)"
+                     [class.tablero__carta--flash]="isFlashingPendiente(jugador.id)"
                      [ngStyle]="!pending.visible ? reversoStyle(jugador) : {}">
                   @if (pending.visible) {
                     <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(pending.valor) }}</span>
@@ -339,14 +353,9 @@
 
           </div><!-- /tablero__mano-area -->
 
-          <!-- Botones fase BANNER: Robar + Cubo -->
+          <!-- Botones fase BANNER: sólo Cubo (el robo se realiza haciendo
+               clic en el mazo central, que se ilumina cuando es tu turno) -->
           @if (jugador.esYo && esMiTurno() && robarDisponible()) {
-            <div class="tablero__acciones">
-              <button class="tablero__btn tablero__btn--robar"
-                      (click)="accionRobar()">
-                Robar
-              </button>
-            </div>
             <button class="tablero__btn tablero__btn--cubo"
                     [disabled]="cuboActivado()"
                     (click)="accionCubo()">

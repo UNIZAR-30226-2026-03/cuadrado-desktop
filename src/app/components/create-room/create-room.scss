@@ -230,6 +230,42 @@ $margin: 20px;
   }
 }
 
+// ── Cabecera de poderes (con botón Seleccionar todos) ───────────────────────
+.powers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.select-all-btn {
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  letter-spacing: 0.04em;
+  background: var(--glass);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  color: var(--text-80);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: all 200ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.2);
+  }
+
+  &--active {
+    color: var(--text-100);
+    border-color: rgba(0, 229, 255, 0.6);
+    background: rgba(0, 229, 255, 0.12);
+    box-shadow: 0 0 14px rgba(0, 229, 255, 0.25);
+  }
+}
+
 // ── Lista de poderes de cartas ──────────────────────────────────────────────
 .powers-list {
   display: flex;

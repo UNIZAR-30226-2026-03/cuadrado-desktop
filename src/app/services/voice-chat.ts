@@ -95,6 +95,10 @@ export class VoiceChatService {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
       this.localStream.set(stream);
       this.selectedDeviceId.set(deviceId);
+      // Sincronizar el estado real de las pistas con el flag micMuted: si el usuario
+      // entra con el servicio ya en "muteado", las nuevas pistas vienen enabled=true
+      // por defecto y la UI mostraría silenciado mientras el audio sí se transmite.
+      stream.getAudioTracks().forEach(t => (t.enabled = !this.micMuted()));
       this.setupLocalAnalyser(stream);
       this.ensureDetectionRunning();
       return stream;

@@ -197,6 +197,23 @@ export class GameService {
     this._revancha.set(null);
   }
 
+  /**
+   * Limpia el estado interno de la partida pero MANTIENE viva la conexión
+   * websocket. Se usa al iniciar una revancha: el backend reutiliza el socket
+   * para emitir room:update de la nueva sala y, si desconectáramos, esos
+   * eventos nunca llegarían y la sala de espera quedaría vacía.
+   */
+  limpiarParaRevancha(): void {
+    this._gameId.set(null);
+    this._turnoJugadores.set([]);
+    this._cartaRevelada.set(null);
+    this._ultimoIntercambioCartas.set(null);
+    this._ultimoRoboForzado.set(null);
+    this._notificacion.set(null);
+    this._poder8Estado.set(null);
+    this._revancha.set(null);
+  }
+
   private publicarNotificacion(
     tipo: NotificacionJuego['tipo'],
     mensaje: string,
