@@ -243,6 +243,16 @@ export interface EvIntercambioRival {
   usuarioIniciador: string;
 }
 
+// Carta revelada para todos (poder 5: espía rival con carta de cualquiera).
+export interface EvCartasReveladasTodos {
+  gameId: string;
+  cartas: Array<{
+    jugadorId: string;
+    indexCarta: number;
+    carta: { carta: number; palo: string; puntos: number; protegida: boolean };
+  }>;
+}
+
 // ── Tipos señalización WebRTC (voz) ──────────────────────────────────────────
 
 export interface EvVoicePeerJoined   { peerId: string }
@@ -255,10 +265,12 @@ export interface EvVoiceIceCandidate { from: string; candidate: RTCIceCandidateI
 
 export type PoderCarta =
   | 'ver-carta'
+  | 'ver-carta-rival'
   | 'intercambiar-carta'
   | 'intercambiar-todas-cartas'
   | 'hacer-robar-carta'
   | 'proteger-carta'
+  | 'saltar-turno-jugador'
   | 'calcular-puntos'
   | 'jugador-menos-puntuacion'
   | 'desactivar-proxima-habilidad'
@@ -300,21 +312,22 @@ export class WebsocketService {
   error$             = new Subject<string>();
 
   // Streams poderes
-  cartaRevelada$       = new Subject<EvCartaRevelada>();
-  cartaProtegida$      = new Subject<EvCartaProtegida>();
-  hacerRobarCarta$     = new Subject<EvHacerRobarCarta>();
-  turnoJugadorSaltado$ = new Subject<EvTurnoJugadorSaltado>();
-  habilidadDenegada$   = new Subject<EvHabilidadDenegada>();
-  puntosCalculados$    = new Subject<EvPuntosCalculados>();
-  jugadorMenosPuntuacion$ = new Subject<EvJugadorMenosPuntuacion>();
+  cartaRevelada$            = new Subject<EvCartaRevelada>();
+  cartasReveladasTodos$     = new Subject<EvCartasReveladasTodos>();
+  cartaProtegida$           = new Subject<EvCartaProtegida>();
+  hacerRobarCarta$          = new Subject<EvHacerRobarCarta>();
+  turnoJugadorSaltado$      = new Subject<EvTurnoJugadorSaltado>();
+  habilidadDenegada$        = new Subject<EvHabilidadDenegada>();
+  puntosCalculados$         = new Subject<EvPuntosCalculados>();
+  jugadorMenosPuntuacion$   = new Subject<EvJugadorMenosPuntuacion>();
   ponerCartaSobreOtra$      = new Subject<EvPonerCartaSobreOtra>();
+  ponerOtraCartaSobreOtra$  = new Subject<EvPonerOtraCartaSobreOtra>();
+  accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
   intercambioRival$         = new Subject<EvIntercambioRival>();
+  cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
   accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
   poder8Estado$             = new Subject<EvPoder8Estado>();
   revanchaEstado$           = new Subject<EvRevanchaEstado>();
-  cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
-  ponerOtraCartaSobreOtra$  = new Subject<EvPonerOtraCartaSobreOtra>();
-  accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
 
   // Streams señalización WebRTC
   voicePeers$        = new Subject<string[]>();
@@ -374,6 +387,7 @@ export class WebsocketService {
 
     // Listeners poderes
     this.socket.on('game:carta-revelada',           (d: EvCartaRevelada)        => this.cartaRevelada$.next(d));
+    this.socket.on('game:cartas-reveladas-todos',   (d: EvCartasReveladasTodos) => this.cartasReveladasTodos$.next(d));
     this.socket.on('game:carta-protegida',          (d: EvCartaProtegida)       => this.cartaProtegida$.next(d));
     this.socket.on('game:se-ha-hecho-robar-carta',  (d: EvHacerRobarCarta)      => this.hacerRobarCarta$.next(d));
     this.socket.on('game:turno-jugador-saltado',    (d: EvTurnoJugadorSaltado)  => this.turnoJugadorSaltado$.next(d));
@@ -381,13 +395,13 @@ export class WebsocketService {
     this.socket.on('game:puntos-calculados',        (d: EvPuntosCalculados)     => this.puntosCalculados$.next(d));
     this.socket.on('game:jugador-menos-puntuacion-calculado', (d: EvJugadorMenosPuntuacion) => this.jugadorMenosPuntuacion$.next(d));
     this.socket.on('game:poner-carta-sobre-otra',      (d: EvPonerCartaSobreOtra)      => this.ponerCartaSobreOtra$.next(d));
+    this.socket.on('game:poner-otra-carta-sobre-otra', (d: EvPonerOtraCartaSobreOtra)  => this.ponerOtraCartaSobreOtra$.next(d));
+    this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)     => this.accionCartaSobreOtra$.next(d));
     this.socket.on('game:intercambio-rival',           (d: EvIntercambioRival)         => this.intercambioRival$.next(d));
+    this.socket.on('game:carta-robada-por-descartar-6',(d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
     this.socket.on('game:accion-protegida-cancelada',  (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
     this.socket.on('game:poder8-estado',               (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
     this.socket.on('game:revancha-estado',             (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
-    this.socket.on('game:carta-robada-por-descartar-6',(d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
-    this.socket.on('game:poner-otra-carta-sobre-otra', (d: EvPonerOtraCartaSobreOtra)  => this.ponerOtraCartaSobreOtra$.next(d));
-    this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)     => this.accionCartaSobreOtra$.next(d));
 
     // Señalización WebRTC
     this.socket.on('voice:peers',         (peers: string[])          => this.voicePeers$.next(peers));
@@ -544,6 +558,17 @@ export class WebsocketService {
     this.emit('game:preparar-intercambio-carta', { gameId, numCartaJugador, rivalId });
   }
 
+  /** Poder 9 paso 2: el rival responde al intercambio interactivo eligiendo
+   *  a ciegas cuál de sus cartas entrega. */
+  intercambioCartaInteractivo(gameId: string, numCartaJugador: number, rivalId: string): void {
+    this.emit('game:intercambiar-carta-interactivo', { gameId, numCartaJugador, rivalId });
+  }
+
+  /** Poder 5: el solicitante elige un rival y una carta concreta a revelar. */
+  verCartaRival(gameId: string, rivalId: string, indexCartaRival: number): void {
+    this.emit('game:ver-carta-rival', { gameId, rivalId, indexCartaRival });
+  }
+
   /** Poder J: resolver decisión final tras ver carta propia + rival. */
   resolverJ(gameId: string, intercambiar: boolean): void {
     this.emit('game:resolver-j', { gameId, intercambiar });
@@ -599,6 +624,12 @@ export class WebsocketService {
         return;
       case 'preparar-intercambio-carta':
         this.prepararIntercambioCarta(gameId, opts.numCarta ?? 0, opts.rivalId!);
+        return;
+      case 'saltar-turno-jugador':
+        this.saltarTurnoJugador(gameId, opts.rivalId!);
+        return;
+      case 'ver-carta-rival':
+        this.verCartaRival(gameId, opts.rivalId!, opts.numCartaRival ?? 0);
         return;
     }
   }

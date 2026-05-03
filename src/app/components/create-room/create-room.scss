@@ -102,6 +102,32 @@ $margin: 20px;
   text-shadow: 0 0 10px rgba(0, 229, 255, 0.3);
 }
 
+.powers-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.powers-all-btn {
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-body);
+  background: rgba(0, 229, 255, 0.12);
+  border: 1px solid rgba(0, 229, 255, 0.45);
+  border-radius: 10px;
+  color: var(--text-100);
+  cursor: pointer;
+  transition: all 200ms;
+
+  &:hover {
+    color: var(--neon-cyan);
+    border-color: var(--glass-border-lit);
+    box-shadow: 0 0 12px rgba(0, 229, 255, 0.25);
+  }
+}
+
 // ── Info de barajas ─────────────────────────────────────────────────────────
 .deck-info {
   font-size: 16px;

@@ -178,6 +178,53 @@
     </div>
   }
 
+  <!-- ── Poder 9 (intercambio ciego): petición al rival ──────────────── -->
+  @if (intercambioCiegoRequerido(); as oferta) {
+    <div class="tablero__skill-panel">
+      <div class="tablero__skill-panel-box glass-card">
+        <p class="tablero__skill-panel-instruccion">
+          <strong>{{ oferta.usuarioIniciador }}</strong> te ofrece un intercambio ciego.
+          Elige una de tus cartas (no verás cuál recibes).
+        </p>
+      </div>
+    </div>
+  }
+
+  <!-- ── Bloqueo UI cuando me han saltado el turno (poder 4) ─────────── -->
+  @if (saltoTurnoBloqueo(); as salto) {
+    <div class="tablero__salto-overlay">
+      <div class="tablero__salto-box glass-card">
+        <p class="tablero__salto-mensaje">
+          <strong>{{ salto.remitenteNombre }}</strong> ha saltado tu turno
+        </p>
+      </div>
+    </div>
+  }
+
+  <!-- ── Modal cartas reveladas (poder 5: espía rival) ─────────────────── -->
+  @if (cartasReveladasTodosModal(); as cartas) {
+    <div class="tablero__revelada-overlay">
+      <div class="tablero__revelada-box glass-card">
+        <h3 class="tablero__revelada-titulo">Espía: cartas reveladas</h3>
+        <div class="tablero__revelada-cartas">
+          @for (c of cartas; track $index) {
+            <div class="tablero__revelada-bloque">
+              <span class="tablero__revelada-label">{{ c.jugadorId }}</span>
+              <div class="tablero__carta tablero__carta--cara"
+                   [class.tablero__carta--roja]="esRoja(c.palo)">
+                <span class="tablero__cv tablero__cv--tl">{{ getValorCarta(c.valor) }}</span>
+                <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(c.palo) }}</span>
+                <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(c.palo) }}</span>
+                <span class="tablero__cv tablero__cv--br">{{ getValorCarta(c.valor) }}</span>
+              </div>
+            </div>
+          }
+        </div>
+        <button class="btn-neon" (click)="cerrarModalCartasTodos()">Cerrar</button>
+      </div>
+    </div>
+  }
+
   @if (cartaReveladaModal(); as revelada) {
     <div class="tablero__revelada-overlay">
       <div class="tablero__revelada-box glass-card">
@@ -215,7 +262,7 @@
           <p class="tablero__revelada-prompt">¿Intercambiar tu carta con la del rival?</p>
           <div class="tablero__revelada-acciones">
             <button class="btn-neon" (click)="decidirIntercambioJ(true)">Intercambiar</button>
-            <button class="btn-neon btn-neon--ghost" (click)="decidirIntercambioJ(false)">No intercambiar</button>
+            <button class="btn-neon btn-neon--ghost" (click)="cancelarDecisionJ()">Cancelar</button>
           </div>
         } @else {
           <button class="btn-neon" (click)="cerrarOverlayCartaRevelada()">Cerrar</button>
@@ -323,6 +370,9 @@
                     <span class="tablero__cp tablero__cp--tl">{{ getPaloSimbolo(carta.palo) }}</span>
                     <span class="tablero__cp tablero__cp--center">{{ getPaloSimbolo(carta.palo) }}</span>
                     <span class="tablero__cv tablero__cv--br">{{ getValorCarta(carta.valor) }}</span>
+                  }
+                  @if (carta.protegida) {
+                    <span class="tablero__carta-escudo" title="Carta protegida">🛡️</span>
                   }
                 </div>
               }
