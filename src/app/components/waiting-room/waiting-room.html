@@ -131,11 +131,13 @@
             Jugar con presentes
           </button>
 
-          <button class="btn-neon modal__option-btn"
-                  [disabled]="maxBotsAgregables() === 0"
-                  (click)="rellenarConBots()">
-            Rellenar con bots
-          </button>
+          @if (sala()?.fillWithBots) {
+            <button class="btn-neon modal__option-btn"
+                    [disabled]="maxBotsAgregables() === 0"
+                    (click)="rellenarConBots()">
+              Rellenar con bots
+            </button>
+          }
         </div>
         <button class="btn-ghost btn--sm" (click)="cerrarPopupInicio()">Cancelar</button>
       </div>

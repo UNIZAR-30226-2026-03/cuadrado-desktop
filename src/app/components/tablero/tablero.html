@@ -350,9 +350,10 @@
               <div class="tablero__tapete" [ngStyle]="tapeteStyle(jugador)"></div>
             }
 
-            <!-- Mano: rejilla 2×2 -->
+            <!-- Mano: rejilla 2×2, crece en columnas si hay >4 cartas -->
             <div class="tablero__mano"
-                 [class.tablero__mano--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia') && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo">
+                 [class.tablero__mano--expandida]="jugador.mano.length > 4"
+                 [class.tablero__mano--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo">
               @for (carta of jugador.mano; track $index; let ci = $index) {
                 <div
                   class="tablero__carta"
@@ -361,7 +362,7 @@
                   [class.tablero__carta--cara]="carta.visible"
                   [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
                   [class.tablero__carta--yo]="jugador.esYo"
-                  [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia') && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
+                  [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
                   [class.tablero__carta--flash]="isFlashing(jugador.id, ci)"
                   [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
                   (click)="onClickCartaMano(i, ci)">

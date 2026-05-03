@@ -278,6 +278,7 @@ export class Rooms implements OnInit, OnDestroy {
       numBarajas: salaOrigen?.numBarajas ?? 1,
       maxJugadores: salaOrigen?.maxJugadores ?? 8,
       reglasActivas: salaOrigen?.reglasActivas ?? [],
+      fillWithBots: salaOrigen?.fillWithBots ?? false,
     };
     this.roomService.guardarSala(sala);
     this.roomService.setEsAnfitrion(false);

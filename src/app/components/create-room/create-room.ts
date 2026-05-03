@@ -36,6 +36,7 @@ const PODERES_VALIDOS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '1
 })
 export class CreateRoom implements OnInit {
   esPublica = signal(true);
+  fillWithBots = signal(false);
   numBarajas = signal<1 | 2>(1);
   maxJugadores = signal(4);
   turnTime = signal(30);
@@ -118,7 +119,7 @@ export class CreateRoom implements OnInit {
           maxPlayers: this.maxJugadores(),
           turnTimeSeconds: this.turnTime(),
           isPrivate: !this.esPublica(),
-          fillWithBots: false,
+          fillWithBots: this.fillWithBots(),
           enabledPowers: reglasActivas,
           deckCount: this.numBarajas(),
         });
@@ -142,6 +143,7 @@ export class CreateRoom implements OnInit {
       numBarajas: this.numBarajas(),
       maxJugadores: this.maxJugadores(),
       reglasActivas,
+      fillWithBots: this.fillWithBots(),
     };
 
     this.roomService.guardarSala(sala);

@@ -1091,6 +1091,13 @@ $carta-gap:     5px;
       inset 0 0 8px rgba(0, 229, 255, 0.1);
     animation: glow-pulso 1.2s ease-in-out infinite alternate;
   }
+
+  // >4 cartas (poder del 2): 2 filas fijas, columnas auto hacia la derecha
+  &--expandida {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 1fr;
+  }
 }
 
 // ── Slot pendiente ────────────────────────────────────────────────────────

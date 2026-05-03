@@ -16,6 +16,7 @@ import {
   PoderCarta,
   EvIntercambioCartas,
   EvHacerRobarCarta,
+  EvAccionProtegidaCancelada,
 } from '../../services/websocket';
 import { environment } from '../../environment';
 
@@ -111,6 +112,9 @@ export class Tablero implements OnInit, OnDestroy {
   fase             = signal<FaseTurno>('idle');
   timerSegundos    = signal(TURNO_SEGUNDOS);
   modoIntercambio  = signal(false);
+  // Carta elegida por el jugador local en el poder 9, guardada antes de
+  // que se limpie pendingSkill / intercambioCiegoRequerido.
+  poderNueveCartaLocal = signal<number | null>(null);
   // Banner del turno: visible durante todo el turno; arranca centrado y a
   // 1s se desplaza al lateral para no bloquear el centro de la mesa.
   mostrarBannerTurno = signal(false);
@@ -223,6 +227,7 @@ export class Tablero implements OnInit, OnDestroy {
   // URLs reales de las skins equipadas (obtenidas del backend)
   private localReversoUrl = signal<string | null>(null);
   private localTapeteUrl  = signal<string | null>(null);
+  private reglasActivas: string[] = [];
   private subs: Subscription[] = [];
 
   constructor(
@@ -242,6 +247,7 @@ export class Tablero implements OnInit, OnDestroy {
       this.router.navigate(['/lobby']);
       return;
     }
+    this.reglasActivas = sala.reglasActivas;
     this.conectarEstadosInbound();
     this.inicializarJuego(sala.jugadores);
     this.cargarSkinsEquipadas();
@@ -339,9 +345,15 @@ export class Tablero implements OnInit, OnDestroy {
       }),
       // Una carta protegida bloqueó una habilidad: NO bloquear el turno,
       // solo notificar al usuario. El backend ya reanuda el flujo.
-      this.ws.accionProtegidaCancelada$.subscribe(() => {
-        // Notificación gestionada en GameService; aquí solo aseguramos que el
-        // tablero no quede en un estado de "esperando" tras la cancelación.
+      this.ws.accionProtegidaCancelada$.subscribe((ev: EvAccionProtegidaCancelada) => {
+        // Quitar la marca de escudo del jugador cuya protección fue consumida.
+        const all = [...this.jugadores()];
+        const idx = all.findIndex(j => j.id === ev.propietarioId || j.nombre === ev.propietarioId);
+        if (idx >= 0) {
+          const mano = all[idx].mano.map(c => c.protegida ? { ...c, protegida: false } : c);
+          all[idx] = { ...all[idx], mano };
+          this.jugadores.set(all);
+        }
       }),
       // Poder 7 — paso 1: server confirma si acepta la solicitud y consume el
       // chip almacenado (decremento aquí, tras confirmación).
@@ -588,39 +600,55 @@ export class Tablero implements OnInit, OnDestroy {
     const remitente = jugadores[idxRemitente];
     const destinatario = jugadores[idxDestinatario];
 
-    if (
+    // Poder 9: swap de una carta concreta.
+    // La carta local del jugador se guardó en poderNueveCartaLocal al seleccionarla.
+    // El state update sí necesita los índices del backend; la animación no.
+    const cartaLocal = this.poderNueveCartaLocal();
+    this.poderNueveCartaLocal.set(null);
+
+    const yo = jugadores.find(j => j.esYo);
+    const soySujeto = yo?.id === remitente.id || yo?.id === destinatario.id;
+
+    const tieneIndicesBackend =
       typeof evento.numCartaRemitente === 'number' &&
       typeof evento.numCartaDestinatario === 'number' &&
       evento.numCartaRemitente >= 0 &&
       evento.numCartaDestinatario >= 0 &&
       evento.numCartaRemitente < remitente.mano.length &&
-      evento.numCartaDestinatario < destinatario.mano.length
-    ) {
-      // Flash en las dos cartas concretas que se van a intercambiar
-      this.triggerFlash([
-        `${remitente.id}:${evento.numCartaRemitente}`,
-        `${destinatario.id}:${evento.numCartaDestinatario}`,
-      ]);
+      evento.numCartaDestinatario < destinatario.mano.length;
 
-      const manoRemitente = [...remitente.mano];
-      const manoDestinatario = [...destinatario.mano];
-      const cartaRemitente = manoRemitente[evento.numCartaRemitente];
-      const cartaDestinatario = manoDestinatario[evento.numCartaDestinatario];
+    if (tieneIndicesBackend || (soySujeto && cartaLocal !== null)) {
+      // State update: solo si el backend envió los índices correctos
+      if (tieneIndicesBackend) {
+        const manoR = [...remitente.mano];
+        const manoD = [...destinatario.mano];
+        const tmp = manoR[evento.numCartaRemitente!];
+        manoR[evento.numCartaRemitente!] = manoD[evento.numCartaDestinatario!];
+        manoD[evento.numCartaDestinatario!] = tmp;
+        jugadores[idxRemitente]   = { ...remitente,   mano: manoR };
+        jugadores[idxDestinatario] = { ...destinatario, mano: manoD };
+        this.jugadores.set(jugadores);
+      }
 
-      manoRemitente[evento.numCartaRemitente] = cartaDestinatario;
-      manoDestinatario[evento.numCartaDestinatario] = cartaRemitente;
-
-      jugadores[idxRemitente] = { ...remitente, mano: manoRemitente };
-      jugadores[idxDestinatario] = { ...destinatario, mano: manoDestinatario };
-      this.jugadores.set(jugadores);
+      // Animación: flash de carta propia (estado local) → secuencia 0→N rival
+      const PROPIA_MS  = 400;
+      const SEQ_STEP_MS = 220;
+      if (yo?.id === remitente.id) {
+        if (cartaLocal !== null) this.triggerFlash([`${remitente.id}:${cartaLocal}`], PROPIA_MS);
+        setTimeout(() => this.triggerSequentialFlash(destinatario.id, destinatario.mano.length, SEQ_STEP_MS), PROPIA_MS);
+      } else if (yo?.id === destinatario.id) {
+        if (cartaLocal !== null) this.triggerFlash([`${destinatario.id}:${cartaLocal}`], PROPIA_MS);
+        setTimeout(() => this.triggerSequentialFlash(remitente.id, remitente.mano.length, SEQ_STEP_MS), PROPIA_MS);
+      } else {
+        // Observadores: ambas secuencias en paralelo
+        this.triggerSequentialFlash(remitente.id, remitente.mano.length, SEQ_STEP_MS);
+        this.triggerSequentialFlash(destinatario.id, destinatario.mano.length, SEQ_STEP_MS);
+      }
       return;
     }
 
-    // Intercambio total de manos (poder 1 / AS): se intercambia posición a
-    // posición saltando aquellas en las que cualquiera de los dos jugadores
-    // tenga una carta protegida. Las protegidas se quedan con su dueño.
-    // Flash en todas las cartas de ambos jugadores (las que se intercambien
-    // y las protegidas se ven con un breve borde iluminado igualmente).
+    // Poder AS: intercambio total de manos, saltando las posiciones en las
+    // que cualquiera de los dos jugadores tenga una carta protegida (poder 3).
     this.triggerFlash([
       ...remitente.mano.map((_, i) => `${remitente.id}:${i}`),
       ...destinatario.mano.map((_, i) => `${destinatario.id}:${i}`),
@@ -1046,7 +1074,8 @@ export class Tablero implements OnInit, OnDestroy {
     // Poderes almacenables: si el jugador local descarta un 7 u 8 se almacenan
     // para activación manual posterior (poder 8: desactivar-proxima-habilidad;
     // poder 7: solicitar-carta-sobre-otra → poner-carta-sobre-otra).
-    if (jugador.esYo && (carta.valor === 7 || carta.valor === 8)) {
+    if (jugador.esYo && (carta.valor === 7 || carta.valor === 8) &&
+        this.reglasActivas.includes(String(carta.valor))) {
       this.poderesAlmacenados.update(prev => [...prev, carta.valor]);
     }
 
@@ -1121,6 +1150,7 @@ export class Tablero implements OnInit, OnDestroy {
 
     if (poder === 'intercambiar-carta') {
       // Intercambio ciego (9): carta propia → ahora seleccionar rival
+      this.poderNueveCartaLocal.set(cartaIdx);
       this.pendingSkill.update(s => s ? { ...s, fase: 'rival', numCartaPropia: cartaIdx } : null);
       this.numCartaPendiente.set(cartaIdx);
       this.poderPendiente.set('preparar-intercambio-carta');
@@ -1422,6 +1452,13 @@ export class Tablero implements OnInit, OnDestroy {
     }, duracion);
   }
 
+  /** Ilumina las cartas 0…numCards-1 del jugador una a una, con stepMs entre cada paso. */
+  private triggerSequentialFlash(jugadorId: string, numCards: number, stepMs = 220): void {
+    for (let i = 0; i < numCards; i++) {
+      setTimeout(() => this.triggerFlash([`${jugadorId}:${i}`], stepMs), i * stepMs);
+    }
+  }
+
   isFlashing(jugadorId: string, cartaIdx: number): boolean {
     return this.flashKeys().has(`${jugadorId}:${cartaIdx}`);
   }
@@ -1542,6 +1579,7 @@ export class Tablero implements OnInit, OnDestroy {
       if (!jugador?.esYo) return;
       const gameId = this.gameService.gameId();
       if (!gameId) return;
+      this.poderNueveCartaLocal.set(cartaIdx);
       this.ws.intercambioCartaInteractivo(gameId, cartaIdx, ofrecido.usuarioIniciador);
       this.intercambioCiegoRequerido.set(null);
       return;

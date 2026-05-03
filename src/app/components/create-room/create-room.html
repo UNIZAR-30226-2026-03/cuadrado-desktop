@@ -34,6 +34,18 @@
         </div>
       </div>
 
+      <!-- Toggle rellenar con bots -->
+      <div class="config-field">
+        <label class="config-label">Relleno automático</label>
+        <div class="toggle-row">
+          <span class="toggle-option" [class.active]="!fillWithBots()">SIN BOTS</span>
+          <button class="toggle" [class.active]="fillWithBots()" (click)="fillWithBots.set(!fillWithBots())">
+            <span class="toggle__thumb"></span>
+          </button>
+          <span class="toggle-option" [class.active]="fillWithBots()">RELLENAR CON BOTS</span>
+        </div>
+      </div>
+
       <!-- Máximo de jugadores -->
       <div class="config-field">
         <label class="config-label">Máximo de jugadores</label>

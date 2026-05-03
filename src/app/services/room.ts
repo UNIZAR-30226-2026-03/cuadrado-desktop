@@ -30,6 +30,7 @@ export interface SalaData {
   numBarajas: 1 | 2;
   maxJugadores: number;
   reglasActivas: string[];  // e.g. ['A', '3', '7']
+  fillWithBots?: boolean;
 }
 
 // Nombres y avatares para bots
