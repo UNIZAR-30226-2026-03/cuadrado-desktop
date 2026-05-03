@@ -18,12 +18,35 @@
     </div>
     <div class="tablero__header-actions">
       @if (voiceChat.localStream()) {
-        <button class="tablero__mute-btn"
-                (click)="voiceChat.toggleMute()"
-                [class.tablero__mute-btn--muted]="voiceChat.micMuted()"
-                [title]="voiceChat.micMuted() ? 'Activar micrófono' : 'Silenciar micrófono'">
-          {{ voiceChat.micMuted() ? '🔇' : '🎤' }}
-        </button>
+        <div class="tablero__voice-bar">
+          <button class="tablero__mute-btn"
+                  (click)="voiceChat.toggleMute()"
+                  [class.tablero__mute-btn--muted]="voiceChat.micMuted()"
+                  [title]="voiceChat.micMuted() ? 'Activar micrófono' : 'Silenciar micrófono'">
+            {{ voiceChat.micMuted() ? '🔇' : '🎙️' }}
+          </button>
+          @for (peerId of voiceChat.connectedPeers(); track peerId) {
+            <div class="tablero__voice-peer"
+                 [title]="voiceChat.mutedPeers().has(peerId) ? 'Silenciado por ti · clic para activar' : 'Clic para silenciar'">
+              <span class="tablero__voice-peer-icon">
+                @if (voiceChat.mutedPeers().has(peerId)) {
+                  🔕
+                } @else if (voiceChat.selfMutedPeers().has(peerId)) {
+                  🔇
+                } @else if (voiceChat.speakingPeers().has(peerId)) {
+                  🔊
+                } @else {
+                  🎙️
+                }
+              </span>
+              <button class="tablero__voice-peer-mute"
+                      (click)="voiceChat.toggleMutePeer(peerId)"
+                      [title]="voiceChat.mutedPeers().has(peerId) ? 'Activar audio' : 'Silenciar para mí'">
+                {{ voiceChat.mutedPeers().has(peerId) ? 'Activar' : 'Silenciar' }}
+              </button>
+            </div>
+          }
+        </div>
       }
       <button class="tablero__exit-btn" (click)="salirPartida()">← Salir</button>
     </div>
@@ -126,6 +149,28 @@
       <div class="tablero__fin-box glass-card">
         <h2 class="tablero__fin-titulo">Partida finalizada</h2>
         <p class="tablero__fin-msg">{{ mensajeFin() }}</p>
+
+        @if (rankingConNombres(); as ranking) {
+          <div class="tablero__fin-ranking">
+            @for (entrada of ranking; track entrada.posicion) {
+              <div class="tablero__fin-ranking-fila"
+                   [class.tablero__fin-ranking-fila--yo]="entrada.esYo"
+                   [class.tablero__fin-ranking-fila--ganador]="entrada.posicion === 1">
+                <span class="tablero__fin-ranking-pos">
+                  @if (entrada.posicion === 1) { 1° }
+                  @else if (entrada.posicion === 2) { 2° }
+                  @else if (entrada.posicion === 3) { 3° }
+                  @else { {{ entrada.posicion }}° }
+                </span>
+                <span class="tablero__fin-ranking-nombre">{{ entrada.nombre }}</span>
+                <span class="tablero__fin-ranking-puntos">{{ entrada.puntaje }} pts</span>
+              </div>
+            }
+            @if (ranking.length > 0 && ranking[0].puntaje === ranking[1]?.puntaje) {
+              <p class="tablero__fin-empate">¡Empate!</p>
+            }
+          </div>
+        }
 
         @if (revanchaEstado() === 'waiting-host') {
           <p class="tablero__fin-msg">Esperando al líder…</p>

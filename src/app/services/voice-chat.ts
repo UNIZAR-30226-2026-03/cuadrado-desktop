@@ -27,6 +27,10 @@ export class VoiceChatService {
   readonly localSpeaking  = signal(false);
   readonly speakingPeers  = signal<ReadonlySet<string>>(new Set());
   readonly connectedPeers = signal<string[]>([]);
+  // Peers que yo he silenciado localmente (solo me afecta a mi)
+  readonly mutedPeers     = signal<ReadonlySet<string>>(new Set());
+  // Peers que se han silenciado a sí mismos (notificado via backend)
+  readonly selfMutedPeers = signal<ReadonlySet<string>>(new Set());
 
   // ── Internos ───────────────────────────────────────────────────────────────
   private peers       = new Map<string, RTCPeerConnection>();
@@ -132,12 +136,27 @@ export class VoiceChatService {
     const muted = !this.micMuted();
     stream.getAudioTracks().forEach(t => (t.enabled = !muted));
     this.micMuted.set(muted);
+    this.ws.sendVoiceMute(muted);
+  }
+
+  toggleMutePeer(peerId: string): void {
+    const current = new Set(this.mutedPeers());
+    if (current.has(peerId)) {
+      current.delete(peerId);
+    } else {
+      current.add(peerId);
+    }
+    this.mutedPeers.set(current);
+    const el = this.remoteAudio.get(peerId);
+    if (el) el.muted = current.has(peerId);
   }
 
   // ── Sala de voz (señalización WebRTC) ─────────────────────────────────────
 
   joinVoiceRoom(roomId: string): void {
     this.teardownSignaling();
+    this.selfMutedPeers.set(new Set());
+    this.mutedPeers.set(new Set());
     this.signalSubs = [
       this.ws.voicePeers$.subscribe(peers    => this.onPeers(peers)),
       this.ws.voicePeerJoined$.subscribe(e   => this.onPeerJoined(e.peerId)),
@@ -145,6 +164,7 @@ export class VoiceChatService {
       this.ws.voiceOffer$.subscribe(e        => this.onOffer(e.from, e.offer)),
       this.ws.voiceAnswer$.subscribe(e       => this.onAnswer(e.from, e.answer)),
       this.ws.voiceIceCandidate$.subscribe(e => this.onIceCandidate(e.from, e.candidate)),
+      this.ws.voiceMuteChanged$.subscribe(e  => this.onMuteChanged(e.peerId, e.muted)),
     ];
     this.ws.joinVoiceRoom(roomId);
   }
@@ -188,6 +208,14 @@ export class VoiceChatService {
 
   private onPeerLeft(peerId: string): void { this.closePeer(peerId); }
 
+  private onMuteChanged(peerId: string, muted: boolean): void {
+    this.selfMutedPeers.update(s => {
+      const n = new Set(s);
+      if (muted) n.add(peerId); else n.delete(peerId);
+      return n;
+    });
+  }
+
   // ── Gestión de peers ───────────────────────────────────────────────────────
 
   private createPeer(peerId: string): RTCPeerConnection {
@@ -222,6 +250,7 @@ export class VoiceChatService {
     }
     el.srcObject = stream;
     el.volume = this.outputVolume() / 100;
+    el.muted = this.mutedPeers().has(peerId);
     this.setupRemoteAnalyser(peerId, stream);
     this.ensureDetectionRunning();
   }
@@ -233,6 +262,8 @@ export class VoiceChatService {
     if (el) { el.srcObject = null; this.remoteAudio.delete(peerId); }
     this.remoteAnalysers.delete(peerId);
     this.speakingPeers.update(s => { const n = new Set(s); n.delete(peerId); return n; });
+    this.selfMutedPeers.update(s => { const n = new Set(s); n.delete(peerId); return n; });
+    this.mutedPeers.update(s => { const n = new Set(s); n.delete(peerId); return n; });
     this.connectedPeers.update(list => list.filter(id => id !== peerId));
     this.maybeStopDetection();
   }

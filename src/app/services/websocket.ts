@@ -260,6 +260,7 @@ export interface EvVoicePeerLeft     { peerId: string }
 export interface EvVoiceOffer        { from: string; offer: RTCSessionDescriptionInit }
 export interface EvVoiceAnswer       { from: string; answer: RTCSessionDescriptionInit }
 export interface EvVoiceIceCandidate { from: string; candidate: RTCIceCandidateInit }
+export interface EvVoiceMuteChanged  { peerId: string; muted: boolean }
 
 // ── Tipos poderes frontend → backend ─────────────────────────────────────────
 
@@ -336,6 +337,7 @@ export class WebsocketService {
   voiceOffer$        = new Subject<EvVoiceOffer>();
   voiceAnswer$       = new Subject<EvVoiceAnswer>();
   voiceIceCandidate$ = new Subject<EvVoiceIceCandidate>();
+  voiceMuteChanged$  = new Subject<EvVoiceMuteChanged>();
 
   conectar(token: string, roomCode?: string): void {
     if (this.socket?.connected) return;
@@ -410,6 +412,7 @@ export class WebsocketService {
     this.socket.on('voice:offer',         (d: EvVoiceOffer)          => this.voiceOffer$.next(d));
     this.socket.on('voice:answer',        (d: EvVoiceAnswer)         => this.voiceAnswer$.next(d));
     this.socket.on('voice:ice-candidate', (d: EvVoiceIceCandidate)   => this.voiceIceCandidate$.next(d));
+    this.socket.on('voice:mute-changed',  (d: EvVoiceMuteChanged)    => this.voiceMuteChanged$.next(d));
   }
 
   /** Conecta y espera hasta que el socket esté listo (máx. 5 s). */
@@ -662,5 +665,9 @@ export class WebsocketService {
 
   sendIceCandidate(to: string, candidate: RTCIceCandidateInit): void {
     this.socket?.emit('voice:ice-candidate', { to, candidate });
+  }
+
+  sendVoiceMute(muted: boolean): void {
+    this.socket?.emit('voice:mute', { muted });
   }
 }

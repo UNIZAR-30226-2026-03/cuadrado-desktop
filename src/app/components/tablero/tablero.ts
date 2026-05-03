@@ -111,6 +111,7 @@ export class Tablero implements OnInit, OnDestroy {
   turnoIdx         = signal(0);
   fase             = signal<FaseTurno>('idle');
   timerSegundos    = signal(TURNO_SEGUNDOS);
+  timerDuracion    = signal(TURNO_SEGUNDOS);
   modoIntercambio  = signal(false);
   // Carta elegida por el jugador local en el poder 9, guardada antes de
   // que se limpie pendingSkill / intercambioCiegoRequerido.
@@ -122,6 +123,8 @@ export class Tablero implements OnInit, OnDestroy {
   discardTop       = signal<CartaMesa | null>(null);
   deckCount        = signal(0);
   mensajeFin       = signal<string | null>(null);
+  rankingFinal     = signal<Array<{userId: string; puntaje: number; posicion?: number}> | null>(null);
+  ganadorIdFinal   = signal<string | null>(null);
   cuboActivado      = signal(false);
   cuboInfo          = signal<{ solicitanteId: string; turnosRestantes: number } | null>(null);
   cuboBannerVisible = signal(false);
@@ -202,7 +205,18 @@ export class Tablero implements OnInit, OnDestroy {
     return this.jugadores()[this.turnoIdx()] ?? null;
   });
   esMiTurno       = computed(() => !!this.jugadorActual()?.esYo);
-  timerPorcentaje = computed(() => (this.timerSegundos() / TURNO_SEGUNDOS) * 100);
+  timerPorcentaje = computed(() => (this.timerSegundos() / this.timerDuracion()) * 100);
+  rankingConNombres = computed(() => {
+    const ranking = this.rankingFinal();
+    if (!ranking) return null;
+    const jugadores = this.jugadores();
+    return ranking.map((entry, i) => ({
+      posicion: i + 1,
+      nombre: jugadores.find(j => j.id === entry.userId)?.nombre ?? entry.userId,
+      puntaje: entry.puntaje,
+      esYo: jugadores.find(j => j.id === entry.userId)?.esYo ?? false,
+    }));
+  });
   timerUrgente    = computed(() => this.timerSegundos() <= 5 && this.esMiTurno() && this.fase() === 'decidiendo');
 
   // Orden de turno sincronizado con el backend (userIds); vacío en modo local
@@ -269,7 +283,7 @@ export class Tablero implements OnInit, OnDestroy {
         this.turnoIdx.set(idx >= 0 ? idx : 0);
         this.limpiarEstadoPoder();
         this.limpiarTimers();
-        this.iniciarTurno();
+        this.iniciarTurno(ev.turnDeadlineAt);
       }),
       this.ws.cuboActivado$.subscribe(ev => {
         this.cuboActivado.set(true);
@@ -285,6 +299,12 @@ export class Tablero implements OnInit, OnDestroy {
           sinCartasMazo: 'El mazo se ha agotado.',
           unJugadorSinCartas: 'Un jugador se ha quedado sin cartas.',
         };
+        if (ev.ranking?.length) {
+          this.rankingFinal.set(ev.ranking);
+        }
+        if (ev.ganadorId) {
+          this.ganadorIdFinal.set(ev.ganadorId);
+        }
         this.finalizarPartida(motivos[ev.motivo] ?? 'La partida ha terminado.');
       }),
       this.ws.roomClosed$.subscribe(() => {
@@ -891,7 +911,7 @@ export class Tablero implements OnInit, OnDestroy {
   // Ciclo de turno
 
 
-  private iniciarTurno(): void {
+  private iniciarTurno(turnDeadlineAt?: number): void {
     this.fase.set('banner');
     this.modoIntercambio.set(false);
 
@@ -906,7 +926,7 @@ export class Tablero implements OnInit, OnDestroy {
     // jugador en turno): así la barra se decrementa en todas las pantallas.
     // El descarte automático al expirar sólo se ejecuta en el cliente del
     // jugador que tiene el turno (ver iniciarTimer).
-    this.iniciarTimer();
+    this.iniciarTimer(turnDeadlineAt);
 
     if (this.esMiTurno()) {
       this.robarDisponible.set(true);
@@ -965,9 +985,13 @@ export class Tablero implements OnInit, OnDestroy {
 
   // Timer del jugador humano
 
-  private iniciarTimer(): void {
+  private iniciarTimer(turnDeadlineAt?: number): void {
     this.pararTimer();
-    this.timerSegundos.set(TURNO_SEGUNDOS);
+    const segundos = turnDeadlineAt
+      ? Math.max(1, Math.round((turnDeadlineAt - Date.now()) / 1000))
+      : TURNO_SEGUNDOS;
+    this.timerDuracion.set(segundos);
+    this.timerSegundos.set(segundos);
     this.timerInterval = setInterval(() => {
       const t = this.timerSegundos() - 1;
       this.timerSegundos.set(t);
