@@ -146,40 +146,6 @@ app-game-table {
   }
 }
 
-// ── Menú hamburguesa (desplegable del TopBar) ───────────────────────────────
-.header-menu {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 16px;
-  min-width: 160px;
-  background: var(--glass);
-  border: 1px solid var(--glass-border);
-  border-radius: 12px;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
-  padding: 6px;
-  z-index: 5;
-
-  &__item {
-    width: 100%;
-    text-align: left;
-    background: transparent;
-    border: none;
-    color: var(--text-80);
-    padding: 10px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-family: var(--font-body);
-    font-size: 13px;
-    transition: all 220ms;
-
-    &:hover {
-      background: rgba(0, 229, 255, 0.1);
-      color: var(--neon-cyan);
-    }
-  }
-}
-
 // ── Deck selection popup ────────────────────────────────────────────────────
 .deck-popup-overlay {
   position: fixed;

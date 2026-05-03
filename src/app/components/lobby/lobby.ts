@@ -50,7 +50,6 @@ const MAX_CUBES = 16;
   ],
 })
 export class Lobby implements OnInit, OnDestroy {
-  showHamburgerMenu = false;
   showDeckPopup = false;
   showConfigPopup = false;
 
@@ -138,11 +137,9 @@ export class Lobby implements OnInit, OnDestroy {
 
   navegar(ruta: string): void { this.router.navigate([ruta]); }
   irPerfil(): void {
-    this.showHamburgerMenu = false;
     this.router.navigate(['/profile']);
   }
   onLogout(): void {
-    this.showHamburgerMenu = false;
     this.auth.logout();
   }
 
@@ -154,12 +151,7 @@ export class Lobby implements OnInit, OnDestroy {
     this.router.navigate(['/create-room'], { queryParams: { barajas: num } });
   }
 
-  toggleHamburgerMenu(): void {
-    this.showHamburgerMenu = !this.showHamburgerMenu;
-  }
-
   openConfigPopup(): void {
-    this.showHamburgerMenu = false;
     this.showConfigPopup = true;
     this.voiceChat.requestPermissionAndLoadDevices();
   }

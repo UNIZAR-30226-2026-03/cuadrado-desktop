@@ -2,13 +2,7 @@
 
   <!-- ═══ Top bar compartida ═══ -->
   <div class="lobby-top-bar-wrap" @headerSlide>
-    <app-top-bar (settings)="toggleHamburgerMenu()"></app-top-bar>
-    @if (showHamburgerMenu) {
-      <div class="header-menu">
-        <button class="header-menu__item" (click)="irPerfil()">Perfil</button>
-        <button class="header-menu__item" (click)="openConfigPopup()">Settings</button>
-      </div>
-    }
+    <app-top-bar (settings)="openConfigPopup()"></app-top-bar>
   </div>
 
   <!-- ═══ Cubos 3D efímeros ═══ -->
