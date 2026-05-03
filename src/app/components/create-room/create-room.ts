@@ -81,6 +81,12 @@ export class CreateRoom implements OnInit {
     power.enabled = !power.enabled;
   }
 
+  seleccionarTodosPoderes(): void {
+    this.cardPowers.forEach(power => {
+      if (PODERES_VALIDOS.has(power.card)) power.enabled = true;
+    });
+  }
+
   async crearSala(): Promise<void> {
     const usuario = this.auth.usuario();
     const token = this.auth.getToken();

@@ -4,9 +4,13 @@ import {
   PoderCarta,
   PoderOpts,
   EvCartaRevelada,
+  EvCartasReveladasTodos,
+  EvCartaProtegida,
   EvIntercambioCartas,
   EvHacerRobarCarta,
   EvHabilidadDenegada,
+  EvTurnoJugadorSaltado,
+  EvJugadorMenosPuntuacion,
   EvPoder8Estado,
   EvRevanchaEstado,
 } from './websocket';
@@ -17,6 +21,7 @@ export const PODERES_CON_OBJETIVO: ReadonlySet<PoderCarta> = new Set([
   'intercambiar-todas-cartas',
   'hacer-robar-carta',
   'preparar-intercambio-carta',
+  'saltar-turno-jugador',
 ]);
 
 // 'ver-carta' es mixto: directo si es carta propia, con objetivo si es carta rival.
@@ -37,22 +42,36 @@ export class GameService {
   private _gameId = signal<string | null>(null);
   private _turnoJugadores = signal<string[]>([]);
   private _cartaRevelada = signal<EvCartaRevelada | null>(null);
+  private _cartasReveladasTodos = signal<EvCartasReveladasTodos | null>(null);
   private _ultimoIntercambioCartas = signal<EvIntercambioCartas | null>(null);
   private _ultimoRoboForzado = signal<EvHacerRobarCarta | null>(null);
   private _notificacion = signal<NotificacionJuego | null>(null);
   private _poder8Estado = signal<EvPoder8Estado | null>(null);
   private _revancha = signal<EvRevanchaEstado | null>(null);
+  // Protecciones activas: clave `${jugadorId}:${cartaIndex}` → true mientras la carta siga en mano
+  private _cartasProtegidas = signal<ReadonlySet<string>>(new Set());
+  // Último salto de turno recibido (poder 4): el tablero lo consume para
+  // bloquear UI 2s cuando el destinatario soy yo.
+  private _ultimoSaltoTurno = signal<EvTurnoJugadorSaltado | null>(null);
   private secuenciaNotificacion = 0;
 
   gameId = this._gameId.asReadonly();
   turnoJugadores = this._turnoJugadores.asReadonly();
   cartaRevelada = this._cartaRevelada.asReadonly();
+  cartasReveladasTodos = this._cartasReveladasTodos.asReadonly();
   ultimoIntercambioCartas = this._ultimoIntercambioCartas.asReadonly();
   ultimoRoboForzado = this._ultimoRoboForzado.asReadonly();
   notificacion = this._notificacion.asReadonly();
   poder8Estado = this._poder8Estado.asReadonly();
   revancha = this._revancha.asReadonly();
+  cartasProtegidas = this._cartasProtegidas.asReadonly();
+  ultimoSaltoTurno = this._ultimoSaltoTurno.asReadonly();
   estaConectado = computed(() => this.ws.estaConectado());
+
+  /** Devuelve true si la carta `cartaIndex` del jugador `jugadorId` está protegida. */
+  estaProtegida(jugadorId: string, cartaIndex: number): boolean {
+    return this._cartasProtegidas().has(`${jugadorId}:${cartaIndex}`);
+  }
 
   constructor(private ws: WebsocketService) {
     this.ws.inicioPartida$.subscribe((ev) => {
@@ -95,9 +114,54 @@ export class GameService {
       this._revancha.set(ev);
     });
 
+    // Poder 3: registrar carta protegida.
+    this.ws.cartaProtegida$.subscribe((ev: EvCartaProtegida) => {
+      this._cartasProtegidas.update(prev => {
+        const next = new Set(prev);
+        next.add(`${ev.jugadorId}:${ev.cartaIndex}`);
+        return next;
+      });
+      this.publicarNotificacion('success', 'Tu carta ha sido protegida.');
+    });
+
+    // Poder 4: registrar último salto. El tablero consume y aplica espera 2s.
+    this.ws.turnoJugadorSaltado$.subscribe((ev: EvTurnoJugadorSaltado) => {
+      this._ultimoSaltoTurno.set(ev);
+    });
+
+    // Poder 5: revelar carta(s) de cualquier jugador.
+    this.ws.cartasReveladasTodos$.subscribe((ev) => {
+      this._cartasReveladasTodos.set(ev);
+    });
+
+    // Poder 7: radar — toast con el jugador con menos puntos.
+    this.ws.jugadorMenosPuntuacion$.subscribe((ev: EvJugadorMenosPuntuacion) => {
+      this.publicarNotificacion('success', `Radar: ${ev.jugadorId} tiene menos puntos.`);
+    });
+
     this.ws.error$.subscribe((mensaje) => {
       this.publicarNotificacion('error', mensaje);
     });
+  }
+
+  /** Limpia las protecciones de un jugador concreto al descartar/intercambiar
+   *  esa carta (las invalida el tablero). */
+  liberarProteccion(jugadorId: string, cartaIndex: number): void {
+    const key = `${jugadorId}:${cartaIndex}`;
+    if (!this._cartasProtegidas().has(key)) return;
+    this._cartasProtegidas.update(prev => {
+      const next = new Set(prev);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  limpiarUltimoSaltoTurno(): void {
+    this._ultimoSaltoTurno.set(null);
+  }
+
+  limpiarCartasReveladasTodos(): void {
+    this._cartasReveladasTodos.set(null);
   }
 
   resolverJ(intercambiar: boolean): void {
@@ -190,11 +254,14 @@ export class GameService {
     this._gameId.set(null);
     this._turnoJugadores.set([]);
     this._cartaRevelada.set(null);
+    this._cartasReveladasTodos.set(null);
     this._ultimoIntercambioCartas.set(null);
     this._ultimoRoboForzado.set(null);
     this._notificacion.set(null);
     this._poder8Estado.set(null);
     this._revancha.set(null);
+    this._cartasProtegidas.set(new Set());
+    this._ultimoSaltoTurno.set(null);
   }
 
   private publicarNotificacion(

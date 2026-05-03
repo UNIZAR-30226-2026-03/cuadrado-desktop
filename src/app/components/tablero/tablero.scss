@@ -1140,3 +1140,57 @@ $carta-gap:     5px;
   75%  { opacity: 1; transform: translateX(-50%) translateY(0)    scale(1);    }
   100% { opacity: 0; transform: translateX(-50%) translateY(-8px) scale(0.95); }
 }
+
+// ── Poder 3: escudo permanente sobre carta protegida ───────────────────────
+.tablero__carta {
+  position: relative;
+}
+
+.tablero__carta-escudo {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  font-size: 1.25rem;
+  filter: drop-shadow(0 0 4px rgba(96, 165, 250, 0.9));
+  pointer-events: none;
+  animation: escudo-pulse 2s ease-in-out infinite;
+  z-index: 5;
+}
+
+@keyframes escudo-pulse {
+  0%, 100% { transform: scale(1);   opacity: 0.95; }
+  50%      { transform: scale(1.1); opacity: 1;    }
+}
+
+// ── Poder 4: bloqueo UI tras "te han saltado el turno" (2s) ────────────────
+.tablero__salto-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: all;
+  backdrop-filter: blur(3px);
+  animation: salto-fade 0.25s ease-out;
+}
+
+.tablero__salto-box {
+  padding: 2rem 3rem;
+  border-radius: 1rem;
+  border: 2px solid rgba(251, 191, 36, 0.7);
+  box-shadow: 0 0 32px rgba(251, 191, 36, 0.5);
+}
+
+.tablero__salto-mensaje {
+  font-size: 1.25rem;
+  color: #fef3c7;
+  margin: 0;
+  text-align: center;
+}
+
+@keyframes salto-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
