@@ -227,6 +227,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
       reglasActivas: state.rules?.enabledPowers?.length
         ? normalizarPoderes(state.rules.enabledPowers as (string | number)[])
         : sala.reglasActivas,
+      fillWithBots: (state.rules as any)?.fillWithBots ?? sala.fillWithBots,
     });
 
     // Persistir en localStorage para que tablero.ts lo pueda leer

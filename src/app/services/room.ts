@@ -103,6 +103,7 @@ export class RoomService {
       reglasActivas: Array.isArray(raw?.reglasActivas)
         ? raw.reglasActivas.filter((r: unknown) => typeof r === 'string')
         : [],
+      fillWithBots: raw?.fillWithBots === true,
     };
   }
 
