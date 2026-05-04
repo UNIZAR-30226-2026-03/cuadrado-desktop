@@ -6,7 +6,7 @@ import {
 import { Subscription } from 'rxjs';
 import { AuthService } from '../../services/auth';
 import { RoomService, SalaData, JugadorSala } from '../../services/room';
-import { WebsocketService, EvRoomUpdate } from '../../services/websocket';
+import { WebsocketService, EvRoomUpdate, SavedGameSummary } from '../../services/websocket';
 import { GameService } from '../../services/game';
 import { VoiceChatService } from '../../services/voice-chat';
 import { TopBar } from '../shared/top-bar/top-bar';
@@ -78,6 +78,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
   soyAnfitrion = signal(false);
   miNombre = signal('');
   iniciandoPartida = signal(false);
+  partidaGuardada = signal<SavedGameSummary | null>(null);
   codigoCopiado = signal(false);
   // Popups
   showStartPopup = signal(false);
@@ -101,9 +102,26 @@ export class WaitingRoom implements OnInit, OnDestroy {
     return Math.max(0, s.maxJugadores - s.jugadores.length);
   });
 
+  // IDs de jugadores humanos que aún no se han reconectado en una reanudación
+  jugadoresFaltantes = computed((): string[] => {
+    const guardada = this.partidaGuardada();
+    if (!guardada) return [];
+    const sala = this.sala();
+    if (!sala) return [];
+    const humanosEsperados = guardada.players.filter(id => !id.startsWith('bot'));
+    const humanosConectados = new Set(
+      sala.jugadores.filter(j => !j.esBot).map(j => j.id)
+    );
+    return humanosEsperados.filter(id => !humanosConectados.has(id));
+  });
+
+  bloqueadoPorReanudacion = computed(() =>
+    this.partidaGuardada() !== null && this.jugadoresFaltantes().length > 0
+  );
+
   puedeIniciar = computed(() => {
     const s = this.sala();
-    return s != null && s.jugadores.length >= 1;
+    return s != null && s.jugadores.length >= 1 && !this.bloqueadoPorReanudacion();
   });
 
   puedeJugarConPresentes = computed(() => {
@@ -138,6 +156,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
     this.sala.set(sala);
     this.soyAnfitrion.set(this.roomService.esAnfitrion());
     this.miNombre.set(this.auth.usuario()?.nombre || 'Jugador');
+    this.partidaGuardada.set(this.roomService.obtenerResumenPartida());
 
     // Iniciar captura de micrófono y unirse al canal de voz de la sala
     this.voiceChat.startLocalStream(this.voiceChat.selectedDeviceId()).then(() => {
@@ -166,6 +185,7 @@ export class WaitingRoom implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.subs.forEach(s => s.unsubscribe());
+    this.roomService.limpiarResumenPartida();
     if (!this.partidaIniciada && this.ws.estaConectado()) {
       this.ws.leaveRoom();
     }
@@ -260,7 +280,12 @@ export class WaitingRoom implements OnInit, OnDestroy {
   // Popup de inicio
   abrirPopupInicio(): void {
     if (!this.puedeIniciar() || this.iniciandoPartida()) return;
-    this.showStartPopup.set(true);
+    if (this.partidaGuardada()) {
+      // Reanudación: el backend ya sabe qué configuración usar, lanzar directo
+      this.lanzarPartida();
+    } else {
+      this.showStartPopup.set(true);
+    }
   }
 
   cerrarPopupInicio(): void {

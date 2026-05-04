@@ -48,7 +48,7 @@
           }
         </div>
       }
-      <button class="tablero__exit-btn" (click)="salirPartida()">← Salir</button>
+      <button class="tablero__exit-btn" (click)="iniciarSalida()">← Salir</button>
     </div>
   </header>
 
@@ -514,6 +514,40 @@
       title="Lanza una carta con el mismo valor que la cima del descarte">
       ⚡ Descarte Rápido
     </button>
+  }
+
+  <!-- ── Banner: jugador sustituido por bot ───────────────────────────── -->
+  @if (bannerSustitucion()) {
+    <div class="tablero__bot-banner">
+      <span class="tablero__bot-banner__icon">🤖</span>
+      <span class="tablero__bot-banner__msg">{{ bannerSustitucion() }}</span>
+    </div>
+  }
+
+  <!-- ── Modal: Opciones de salida del host ─────────────────────────────── -->
+  @if (modalSalidaVisible()) {
+    <div class="tablero__salida-overlay" (click)="cerrarModalSalida()">
+      <div class="tablero__salida-card" (click)="$event.stopPropagation()">
+        <h2 class="tablero__salida-titulo">¿Salir de la partida?</h2>
+        <p class="tablero__salida-desc">
+          Eres el líder de la sala. Si sales, todos los jugadores serán expulsados.
+        </p>
+        <div class="tablero__salida-acciones">
+          <button class="tablero__salida-btn tablero__salida-btn--guardar"
+                  (click)="confirmarGuardarYSalir()">
+            💾 Guardar y salir
+          </button>
+          <button class="tablero__salida-btn tablero__salida-btn--sin-guardar"
+                  (click)="confirmarSalidaSinGuardar()">
+            Salir sin guardar
+          </button>
+          <button class="tablero__salida-btn tablero__salida-btn--cancelar"
+                  (click)="cerrarModalSalida()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
   }
 
 </div><!-- /tablero -->

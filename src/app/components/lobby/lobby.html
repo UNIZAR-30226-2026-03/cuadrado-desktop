@@ -57,13 +57,57 @@ Partida</span>
   @if (showDeckPopup) {
     <div class="deck-popup-overlay" (click)="closeDeckPopup()">
       <div class="deck-popup glass-card" (click)="$event.stopPropagation()">
-        <h3 class="deck-popup__title">Selecciona el número de barajas</h3>
-        <div class="deck-popup__options">
-          <button class="btn-neon deck-popup__btn" (click)="selectDecks(1)">1 BARAJA</button>
-          <button class="btn-neon deck-popup__btn" (click)="selectDecks(2)">2 BARAJAS</button>
-          <button class="btn-ghost deck-popup__btn deck-popup__btn--disabled" disabled>REANUDAR ÚLTIMA PARTIDA</button>
-        </div>
-        <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+
+        @if (vistaPopup() === 'deck') {
+          <!-- Vista: selector de barajas -->
+          <h3 class="deck-popup__title">Selecciona el número de barajas</h3>
+          <div class="deck-popup__options">
+            <button class="btn-neon deck-popup__btn" (click)="selectDecks(1)">1 BARAJA</button>
+            <button class="btn-neon deck-popup__btn" (click)="selectDecks(2)">2 BARAJAS</button>
+            <button class="btn-ghost deck-popup__btn" (click)="abrirVistaSaved()">REANUDAR PARTIDA</button>
+          </div>
+          <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+
+        } @else {
+          <!-- Vista: lista de partidas guardadas -->
+          <div class="deck-popup__saved-header">
+            <button class="deck-popup__back-btn" (click)="volverADecks()">← Volver</button>
+            <h3 class="deck-popup__title">Partidas guardadas</h3>
+          </div>
+
+          @if (cargandoPartidas()) {
+            <p class="deck-popup__saved-msg">Cargando partidas…</p>
+          } @else if (errorPartidas()) {
+            <p class="deck-popup__saved-msg deck-popup__saved-msg--error">{{ errorPartidas() }}</p>
+            <button class="btn-ghost deck-popup__btn" (click)="cargarPartidasGuardadas()">Reintentar</button>
+          } @else if (partidasGuardadas().length === 0) {
+            <p class="deck-popup__saved-msg">No tienes partidas guardadas.</p>
+          } @else {
+            <div class="deck-popup__saved-list">
+              @for (partida of partidasGuardadas(); track partida.gameId) {
+                <div class="deck-popup__saved-row">
+                  <div class="deck-popup__saved-info">
+                    <span class="deck-popup__saved-name">{{ partida.roomName }}</span>
+                    <span class="deck-popup__saved-date">{{ partida.updatedAt | date:'d MMM, HH:mm' }}</span>
+                    <span class="deck-popup__saved-players">{{ partida.players.length }} jugadores</span>
+                  </div>
+                  <button class="btn-neon deck-popup__saved-resume"
+                          [disabled]="!!cargandoReanudar()"
+                          (click)="reanudarPartida(partida)">
+                    @if (cargandoReanudar() === partida.gameId) {
+                      Cargando…
+                    } @else {
+                      Reanudar
+                    }
+                  </button>
+                </div>
+              }
+            </div>
+          }
+
+          <button class="btn-ghost deck-popup__cancel" (click)="closeDeckPopup()">Cancelar</button>
+        }
+
       </div>
     </div>
   }

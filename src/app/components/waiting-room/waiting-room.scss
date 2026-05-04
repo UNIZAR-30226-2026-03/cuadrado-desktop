@@ -264,6 +264,43 @@ $margin: 20px;
   }
 }
 
+// ── Reanudación: badge e indicador de jugadores faltantes ───────────────────
+.resume-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 20px;
+  background: rgba(0, 229, 255, 0.08);
+  border: 1px solid rgba(0, 229, 255, 0.3);
+  color: var(--neon-cyan, #00e5ff);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.resume-alert {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-radius: 10px;
+  background: rgba(251, 191, 36, 0.08);
+  border: 1px solid rgba(251, 191, 36, 0.35);
+  max-width: 420px;
+  text-align: center;
+
+  &__icon { font-size: 18px; flex-shrink: 0; }
+
+  &__text {
+    font-size: 13px;
+    color: var(--text-80);
+    line-height: 1.4;
+
+    strong { color: #fbbf24; }
+  }
+}
+
 // ── Controles centrales ─────────────────────────────────────────────────────
 .center-controls {
   display: flex;

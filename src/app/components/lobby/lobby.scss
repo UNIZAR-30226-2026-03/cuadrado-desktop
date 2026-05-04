@@ -211,6 +211,109 @@ app-game-table {
   to { opacity: 1; transform: scale(1) translateY(0); }
 }
 
+// ── Partidas guardadas (dentro del deck-popup) ──────────────────────────────
+.deck-popup {
+  &__saved-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+  }
+
+  &__back-btn {
+    background: transparent;
+    border: none;
+    color: var(--neon-cyan, #00e5ff);
+    font-size: 13px;
+    font-family: var(--font-body);
+    cursor: pointer;
+    padding: 4px 8px;
+    border-radius: 6px;
+    white-space: nowrap;
+    transition: background 160ms;
+    flex-shrink: 0;
+
+    &:hover { background: rgba(0, 229, 255, 0.08); }
+  }
+
+  &__saved-msg {
+    font-size: 13px;
+    color: var(--text-60, rgba(255,255,255,0.55));
+    text-align: center;
+    margin: 0;
+    padding: 8px 0;
+
+    &--error { color: #f87171; }
+  }
+
+  &__saved-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+    max-height: 260px;
+    overflow-y: auto;
+    padding-right: 4px;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 229, 255, 0.25);
+      border-radius: 2px;
+    }
+  }
+
+  &__saved-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 14px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(0, 229, 255, 0.12);
+    border-radius: 10px;
+    transition: border-color 160ms, background 160ms;
+
+    &:hover {
+      background: rgba(0, 229, 255, 0.05);
+      border-color: rgba(0, 229, 255, 0.28);
+    }
+  }
+
+  &__saved-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  &__saved-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: var(--text-100);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__saved-date {
+    font-size: 11px;
+    color: var(--text-50, rgba(255,255,255,0.45));
+  }
+
+  &__saved-players {
+    font-size: 11px;
+    color: var(--text-50, rgba(255,255,255,0.45));
+  }
+
+  &__saved-resume {
+    padding: 7px 16px !important;
+    font-size: 13px !important;
+    font-weight: 700 !important;
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 // ── Profile popup ───────────────────────────────────────────────────────────
 .profile-popup-overlay {
   position: fixed;

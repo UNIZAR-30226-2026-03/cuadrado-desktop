@@ -16,6 +16,18 @@
   <main class="create-room__main">
     <div class="config-panel glass-card" @panelEnter>
 
+      <!-- Nombre de la sala -->
+      <div class="config-field">
+        <label class="config-label" for="room-name-input">Nombre de la sala</label>
+        <input id="room-name-input"
+               class="room-name-input"
+               type="text"
+               maxlength="40"
+               placeholder="Nombre de la sala…"
+               [ngModel]="nombreSala()"
+               (ngModelChange)="nombreSala.set($event)" />
+      </div>
+
       <!-- Info barajas (solo lectura) -->
       <div class="config-field">
         <label class="config-label">Número de barajas</label>
@@ -110,7 +122,16 @@
 
   <!-- Boton crear partida centrado -->
   <div class="create-room__center-action">
-    <button class="btn-neon btn--lg" (click)="crearSala()">Crear Partida</button>
+    <button class="btn-neon btn--lg"
+            [class.loading]="creando()"
+            [disabled]="creando()"
+            (click)="crearSala()">
+      @if (creando()) {
+        <span class="spinner"></span> Creando…
+      } @else {
+        Crear Partida
+      }
+    </button>
   </div>
 
   <!-- Boton COMO JUGAR esquina inferior izquierda -->
@@ -120,4 +141,28 @@
   @if (showSettingsPopup) {
     <app-settings-popup (closed)="showSettingsPopup = false"></app-settings-popup>
   }
+
+  <!-- Modal: nombre de sala duplicado -->
+  @if (warningVisible()) {
+    <div class="cr-warning-overlay" (click)="cancelarWarning()">
+      <div class="cr-warning-card glass-card" (click)="$event.stopPropagation()">
+        <span class="cr-warning-icon">⚠️</span>
+        <h3 class="cr-warning-title">Nombre de sala en uso</h3>
+        <p class="cr-warning-desc">
+          Hay otra sala guardada con el nombre
+          <strong>"{{ nombreSala() }}"</strong>.
+          Si continúas, la partida guardada anterior será sustituida.
+        </p>
+        <div class="cr-warning-actions">
+          <button class="cr-warning-btn cr-warning-btn--continue" (click)="continuarConWarning()">
+            Continuar
+          </button>
+          <button class="cr-warning-btn cr-warning-btn--cancel" (click)="cancelarWarning()">
+            Cancelar
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
 </div>

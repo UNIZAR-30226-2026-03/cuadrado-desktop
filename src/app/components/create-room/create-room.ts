@@ -1,5 +1,6 @@
 import { Component, OnInit, signal } from '@angular/core';
 import { Router, ActivatedRoute } from '@angular/router';
+import { FormsModule } from '@angular/forms';
 import {
   trigger, transition, style, animate
 } from '@angular/animations';
@@ -21,7 +22,7 @@ const PODERES_VALIDOS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '1
 @Component({
   selector: 'app-create-room',
   standalone: true,
-  imports: [TopBar, SettingsPopupComponent],
+  imports: [FormsModule, TopBar, SettingsPopupComponent],
   templateUrl: './create-room.html',
   styleUrl: './create-room.scss',
   animations: [
@@ -40,6 +41,14 @@ export class CreateRoom implements OnInit {
   numBarajas = signal<1 | 2>(1);
   maxJugadores = signal(4);
   turnTime = signal(30);
+  nombreSala = signal('');
+  creando = signal(false);
+
+  // Warning modal: sala ya creada en backend, pendiente de confirmar
+  warningVisible = signal(false);
+  warningMessage = signal<string | null>(null);
+  private pendingRoomCode: string | null = null;
+  private pendingSalaData: SalaData | null = null;
 
   readonly turnTimeOptions = [15, 20, 30, 45, 60, 90] as const;
 
@@ -76,6 +85,8 @@ export class CreateRoom implements OnInit {
     } else {
       this.numBarajas.set(1);
     }
+    const usuario = this.auth.usuario();
+    this.nombreSala.set(`Sala de ${usuario?.nombre || 'Jugador'}`);
   }
 
   togglePower(index: number): void {
@@ -92,9 +103,10 @@ export class CreateRoom implements OnInit {
   }
 
   async crearSala(): Promise<void> {
+    if (this.creando()) return;
     const usuario = this.auth.usuario();
     const token = this.auth.getToken();
-    const nombreSala = `Sala de ${usuario?.nombre || 'Jugador'}`;
+    const nombreSala = this.nombreSala().trim() || `Sala de ${usuario?.nombre || 'Jugador'}`;
 
     const anfitrion = {
       id: `user_${usuario?.nombre || 'anon'}`,
@@ -109,8 +121,9 @@ export class CreateRoom implements OnInit {
       .map(p => p.card);
 
     let codigo = this.roomService.generarCodigo();
+    let warning: string | undefined;
 
-    // Si hay token, crear la sala también en el backend para sync multijugador
+    this.creando.set(true);
     if (token) {
       try {
         await this.ws.conectarYEsperar(token);
@@ -125,11 +138,13 @@ export class CreateRoom implements OnInit {
         });
         if (resp.success && resp.roomCode) {
           codigo = resp.roomCode;
+          warning = resp.warning;
         }
       } catch {
-        // Si el backend no está disponible, continuar con código local
+        // Backend no disponible: continuar con código local
       }
     }
+    this.creando.set(false);
 
     const sala: SalaData = {
       id: codigo,
@@ -146,6 +161,39 @@ export class CreateRoom implements OnInit {
       fillWithBots: this.fillWithBots(),
     };
 
+    if (warning) {
+      // Sala ya creada en backend — guardar pendientes y pedir confirmación
+      this.pendingRoomCode = codigo;
+      this.pendingSalaData = sala;
+      this.warningMessage.set(warning);
+      this.warningVisible.set(true);
+    } else {
+      this.confirmarCreacion(sala);
+    }
+  }
+
+  cancelarWarning(): void {
+    this.warningVisible.set(false);
+    this.warningMessage.set(null);
+    // La sala ya fue creada en el backend: salir de ella para limpiar
+    if (this.ws.estaConectado()) {
+      this.ws.leaveRoom();
+    }
+    this.pendingRoomCode = null;
+    this.pendingSalaData = null;
+  }
+
+  continuarConWarning(): void {
+    this.warningVisible.set(false);
+    this.warningMessage.set(null);
+    if (this.pendingSalaData) {
+      this.confirmarCreacion(this.pendingSalaData);
+    }
+    this.pendingRoomCode = null;
+    this.pendingSalaData = null;
+  }
+
+  private confirmarCreacion(sala: SalaData): void {
     this.roomService.guardarSala(sala);
     this.roomService.setEsAnfitrion(true);
     this.router.navigate(['/waiting-room']);

@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════════
 
 import { Injectable } from '@angular/core';
-import { WebsocketService } from './websocket';
+import { WebsocketService, SavedGameSummary } from './websocket';
 
 // ═══ Interfaces ═══
 
@@ -172,6 +172,21 @@ export class RoomService {
 
   esAnfitrion(): boolean {
     return JSON.parse(localStorage.getItem(this.ES_ANFITRION_KEY) || 'false');
+  }
+
+  // ═══ Partida guardada seleccionada (para validación en waiting-room) ═══
+  private resumenPartidaGuardada: SavedGameSummary | null = null;
+
+  guardarResumenPartida(resumen: SavedGameSummary): void {
+    this.resumenPartidaGuardada = resumen;
+  }
+
+  obtenerResumenPartida(): SavedGameSummary | null {
+    return this.resumenPartidaGuardada;
+  }
+
+  limpiarResumenPartida(): void {
+    this.resumenPartidaGuardada = null;
   }
 
   // ═══ Lista de salas públicas ═══

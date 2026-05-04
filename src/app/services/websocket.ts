@@ -161,6 +161,15 @@ export interface EvRoomUpdate {
 export interface EvRoomClosed {
   reason: string;
   roomCode: string;
+  savedRoomName?: string;
+}
+
+export interface SavedGameSummary {
+  gameId: string;
+  creatorId: string;
+  roomName: string;
+  updatedAt: string;
+  players: string[];
 }
 
 export interface PublicRoomSummary {
@@ -203,6 +212,14 @@ export interface EvTurnoJugadorSaltado {
   gameId: string;
   remitenteId: string;
   destinatarioId: string;
+}
+
+export interface EvPlayerControllerChanged {
+  gameId: string;
+  userId: string;
+  controlador: 'humano' | 'bot';
+  dificultadBot?: string;
+  nombreEnPartida?: string;
 }
 
 export interface EvHabilidadDenegada {
@@ -329,6 +346,7 @@ export class WebsocketService {
   accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
   poder8Estado$             = new Subject<EvPoder8Estado>();
   revanchaEstado$           = new Subject<EvRevanchaEstado>();
+  playerControllerChanged$  = new Subject<EvPlayerControllerChanged>();
 
   // Streams señalización WebRTC
   voicePeers$        = new Subject<string[]>();
@@ -404,6 +422,7 @@ export class WebsocketService {
     this.socket.on('game:accion-protegida-cancelada',  (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
     this.socket.on('game:poder8-estado',               (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
     this.socket.on('game:revancha-estado',             (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
+    this.socket.on('game:player-controller-changed',   (d: EvPlayerControllerChanged)  => this.playerControllerChanged$.next(d));
 
     // Señalización WebRTC
     this.socket.on('voice:peers',         (peers: string[])          => this.voicePeers$.next(peers));
@@ -429,10 +448,11 @@ export class WebsocketService {
 
   // ── Acciones de sala ───────────────────────────────────────────────────────
 
-  async createRoom(name: string, rules: RoomRules): Promise<{ success: boolean; roomCode?: string; roomName?: string }> {
+  async createRoom(name: string, rules?: RoomRules): Promise<{ success: boolean; roomCode?: string; roomName?: string; warning?: string; loadedFromSave?: boolean }> {
     if (!this.socket) return { success: false };
     try {
-      return await this.socket.timeout(6000).emitWithAck('rooms:create', { name, rules });
+      const payload = rules ? { name, rules } : { name };
+      return await this.socket.timeout(6000).emitWithAck('rooms:create', payload);
     } catch {
       return { success: false };
     }
@@ -470,6 +490,24 @@ export class WebsocketService {
     this.emit('rooms:leave', {});
   }
 
+  guardarYCerrarPartida(gameId: string): void {
+    this.emit('game:guardar-y-cerrar', { gameId });
+  }
+
+  abandonarPartida(gameId: string, dificultadBot: 'facil' | 'media' | 'dificil' = 'media'): void {
+    this.emit('game:abandonar-partida', { gameId, dificultadBot });
+  }
+
+  async listarPartidasGuardadas(): Promise<SavedGameSummary[]> {
+    if (!this.socket) return [];
+    try {
+      const resp = await this.socket.timeout(5000).emitWithAck('game:listar-partidas-guardadas', {});
+      return resp?.success ? (resp.partidas ?? []) : [];
+    } catch {
+      return [];
+    }
+  }
+
   toggleReady(): void {
     this.emit('rooms:toggle-ready', {});
   }
@@ -484,8 +522,8 @@ export class WebsocketService {
     this.emit('rooms:start', { roomCode });
   }
 
-  iniciarPartida(savedGameId?: string): void {
-    this.emit('game:iniciar-partida', savedGameId ? { savedGameId } : {});
+  iniciarPartida(savedRoomName?: string): void {
+    this.emit('game:iniciar-partida', savedRoomName ? { savedRoomName } : {});
   }
 
   unirseASala(roomCode: string): void {

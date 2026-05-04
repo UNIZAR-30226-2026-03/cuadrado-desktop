@@ -1,4 +1,5 @@
 import { Component, OnInit, OnDestroy, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
 import { FormsModule } from '@angular/forms';
@@ -6,6 +7,8 @@ import {
   trigger, transition, style, animate, query, stagger
 } from '@angular/animations';
 import { AuthService } from '../../services/auth';
+import { RoomService, SalaData } from '../../services/room';
+import { WebsocketService, SavedGameSummary } from '../../services/websocket';
 import { VoiceChatService } from '../../services/voice-chat';
 import { GameTable } from '../game-table/game-table';
 import { TopBar } from '../shared/top-bar/top-bar';
@@ -26,7 +29,7 @@ const MAX_CUBES = 16;
 @Component({
   selector: 'app-lobby',
   standalone: true,
-  imports: [FormsModule, GameTable, TopBar, SettingsPopupComponent],
+  imports: [FormsModule, DatePipe, GameTable, TopBar, SettingsPopupComponent],
   templateUrl: './lobby.html',
   styleUrl: './lobby.scss',
   animations: [
@@ -53,6 +56,13 @@ export class Lobby implements OnInit, OnDestroy {
   showDeckPopup = false;
   showConfigPopup = false;
 
+  // Vista dentro del popup de creación: selector de barajas o lista de guardadas
+  vistaPopup = signal<'deck' | 'saved'>('deck');
+  partidasGuardadas = signal<SavedGameSummary[]>([]);
+  cargandoPartidas = signal(false);
+  errorPartidas = signal<string | null>(null);
+  cargandoReanudar = signal<string | null>(null); // gameId de la partida en curso
+
 
   // Cubos 3D efímeros
   cubes = signal<SpawnedCube[]>([]);
@@ -68,6 +78,8 @@ export class Lobby implements OnInit, OnDestroy {
     protected voiceChat: VoiceChatService,
     private router: Router,
     private http: HttpClient,
+    private ws: WebsocketService,
+    private roomService: RoomService,
   ) {}
 
   ngOnInit(): void {
@@ -143,12 +155,98 @@ export class Lobby implements OnInit, OnDestroy {
     this.auth.logout();
   }
 
-  openDeckPopup(): void { this.showDeckPopup = true; }
-  closeDeckPopup(): void { this.showDeckPopup = false; }
+  openDeckPopup(): void {
+    this.vistaPopup.set('deck');
+    this.errorPartidas.set(null);
+    this.showDeckPopup = true;
+  }
+
+  closeDeckPopup(): void {
+    this.showDeckPopup = false;
+    this.vistaPopup.set('deck');
+  }
 
   selectDecks(num: 1 | 2): void {
     this.showDeckPopup = false;
+    this.vistaPopup.set('deck');
     this.router.navigate(['/create-room'], { queryParams: { barajas: num } });
+  }
+
+  abrirVistaSaved(): void {
+    this.vistaPopup.set('saved');
+    this.errorPartidas.set(null);
+    this.cargarPartidasGuardadas();
+  }
+
+  volverADecks(): void {
+    this.vistaPopup.set('deck');
+    this.errorPartidas.set(null);
+  }
+
+  async cargarPartidasGuardadas(): Promise<void> {
+    if (this.cargandoPartidas()) return;
+    const token = this.auth.getToken();
+    if (!token) return;
+
+    this.cargandoPartidas.set(true);
+    this.errorPartidas.set(null);
+    try {
+      await this.ws.conectarYEsperar(token);
+      const partidas = await this.ws.listarPartidasGuardadas();
+      this.partidasGuardadas.set(partidas);
+    } catch {
+      this.errorPartidas.set('No se pudieron cargar las partidas guardadas.');
+    } finally {
+      this.cargandoPartidas.set(false);
+    }
+  }
+
+  async reanudarPartida(partida: SavedGameSummary): Promise<void> {
+    const token = this.auth.getToken();
+    const usuario = this.auth.usuario();
+    if (!token || !usuario) return;
+
+    this.cargandoReanudar.set(partida.gameId);
+    this.errorPartidas.set(null);
+    try {
+      await this.ws.conectarYEsperar(token);
+      await this.ws.leaveRoomAck();
+      // Sin rules → el backend detecta la partida guardada por nombre
+      const resp = await this.ws.createRoom(partida.roomName);
+      if (!resp.success || !resp.roomCode) {
+        throw new Error('No se pudo crear la sala de reanudación');
+      }
+
+      this.roomService.guardarResumenPartida(partida);
+
+      const sala: SalaData = {
+        id: resp.roomCode,
+        nombre: resp.roomName || partida.roomName,
+        anfitrion: usuario.nombre,
+        publica: false,
+        estado: 'esperando',
+        jugadores: [{
+          id: usuario.nombre,
+          nombre: usuario.nombre,
+          esBot: false,
+          esAnfitrion: true,
+          avatar: '👑',
+        }],
+        dificultadBots: 'Normal',
+        creadaEn: Date.now(),
+        numBarajas: 1,
+        maxJugadores: 8,
+        reglasActivas: [],
+      };
+      this.roomService.guardarSala(sala);
+      this.roomService.setEsAnfitrion(true);
+      this.closeDeckPopup();
+      this.router.navigate(['/waiting-room']);
+    } catch (err) {
+      this.errorPartidas.set(err instanceof Error ? err.message : 'No se pudo reanudar la partida.');
+    } finally {
+      this.cargandoReanudar.set(null);
+    }
   }
 
   openConfigPopup(): void {

@@ -80,10 +80,28 @@
   <!-- Controles centrales -->
   <div class="center-controls">
     @if (soyAnfitrion()) {
+
+      @if (bloqueadoPorReanudacion()) {
+        <div class="resume-alert">
+          <span class="resume-alert__icon">⏳</span>
+          <span class="resume-alert__text">
+            Faltan por reconectarse:
+            <strong>{{ jugadoresFaltantes().join(', ') }}</strong>
+          </span>
+        </div>
+      }
+
+      @if (partidaGuardada()) {
+        <span class="resume-badge">💾 Partida guardada</span>
+      }
+
       <button class="btn-neon btn--lg"
               [class.loading]="iniciandoPartida()"
               (click)="abrirPopupInicio()"
-              [disabled]="!puedeIniciar() || iniciandoPartida()">
+              [disabled]="!puedeIniciar() || iniciandoPartida()"
+              [title]="bloqueadoPorReanudacion()
+                ? 'Deben reconectarse: ' + jugadoresFaltantes().join(', ')
+                : ''">
         @if (iniciandoPartida()) {
           <span class="spinner"></span> Iniciando...
         } @else {

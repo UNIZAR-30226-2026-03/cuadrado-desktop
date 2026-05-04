@@ -17,6 +17,7 @@ import {
   EvIntercambioCartas,
   EvHacerRobarCarta,
   EvAccionProtegidaCancelada,
+  EvPlayerControllerChanged,
 } from '../../services/websocket';
 import { environment } from '../../environment';
 
@@ -176,6 +177,13 @@ export class Tablero implements OnInit, OnDestroy {
   discardAnuncio = signal<{ nombre: string; accion: 'descarta' | 'intercambia'; seq: number } | null>(null);
   private discardAnuncioSeq = 0;
 
+  // Modal de salida del host (Paso 1: Opciones de Salida)
+  modalSalidaVisible = signal(false);
+
+  // Banner de sustitución por bot (jugador no-host abandona)
+  bannerSustitucion = signal<string | null>(null);
+  private bannerSustitucionTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Revancha (estadio 9). El estado real lo trae `gameService.revancha()`,
   // pero llevamos un flag local para deshabilitar el botón tras emitir
   // `game:volver-a-jugar` y mostrar feedback inmediato.
@@ -224,6 +232,7 @@ export class Tablero implements OnInit, OnDestroy {
     }));
   });
   timerUrgente    = computed(() => this.timerSegundos() <= 5 && this.esMiTurno() && this.fase() === 'decidiendo');
+  soyAnfitrion    = computed(() => this.roomService.esAnfitrion());
 
   // Orden de turno sincronizado con el backend (userIds); vacío en modo local
   private turnoOrder: string[] = [];
@@ -313,8 +322,17 @@ export class Tablero implements OnInit, OnDestroy {
         }
         this.finalizarPartida(motivos[ev.motivo] ?? 'La partida ha terminado.');
       }),
-      this.ws.roomClosed$.subscribe(() => {
-        this.finalizarPartida('La partida ha terminado porque un jugador abandonó.');
+      this.ws.roomClosed$.subscribe((ev) => {
+        const msg = ev.savedRoomName
+          ? `La partida ha sido guardada. Puedes reanudarla desde el lobby.`
+          : 'La partida ha terminado porque el líder abandonó.';
+        this.finalizarPartida(msg);
+      }),
+      this.ws.playerControllerChanged$.subscribe((ev: EvPlayerControllerChanged) => {
+        if (ev.controlador === 'bot') {
+          const nombre = ev.nombreEnPartida ?? ev.userId;
+          this.mostrarBannerSustitucion(`${nombre} ha abandonado. Un bot tomará su lugar.`);
+        }
       }),
       this.ws.descartePendiente$.subscribe((ev: EvDescartarPendiente) => {
         const palo = this.normalizarPalo(ev.carta.palo);
@@ -1568,6 +1586,45 @@ export class Tablero implements OnInit, OnDestroy {
     return false;
   }
 
+  mostrarBannerSustitucion(msg: string): void {
+    if (this.bannerSustitucionTimer) clearTimeout(this.bannerSustitucionTimer);
+    this.bannerSustitucion.set(msg);
+    this.bannerSustitucionTimer = setTimeout(() => {
+      this.bannerSustitucion.set(null);
+      this.bannerSustitucionTimer = null;
+    }, 5000);
+  }
+
+  iniciarSalida(): void {
+    if (this.soyAnfitrion() && this.fase() !== 'fin') {
+      this.modalSalidaVisible.set(true);
+    } else {
+      const gameId = this.gameService.gameId();
+      if (gameId && this.estaEnPartidaOnline() && this.fase() !== 'fin') {
+        this.ws.abandonarPartida(gameId);
+      }
+      this.salirPartida();
+    }
+  }
+
+  cerrarModalSalida(): void {
+    this.modalSalidaVisible.set(false);
+  }
+
+  confirmarSalidaSinGuardar(): void {
+    this.modalSalidaVisible.set(false);
+    this.salirPartida();
+  }
+
+  confirmarGuardarYSalir(): void {
+    this.modalSalidaVisible.set(false);
+    const gameId = this.gameService.gameId();
+    if (gameId) {
+      this.ws.guardarYCerrarPartida(gameId);
+    }
+    this.salirPartida();
+  }
+
   salirPartida(): void {
     this.limpiarTimers();
     this.limpiarFeedbackVisual();
@@ -1733,6 +1790,10 @@ export class Tablero implements OnInit, OnDestroy {
     if (this.cartasTodosTimeout) {
       clearTimeout(this.cartasTodosTimeout);
       this.cartasTodosTimeout = null;
+    }
+    if (this.bannerSustitucionTimer) {
+      clearTimeout(this.bannerSustitucionTimer);
+      this.bannerSustitucionTimer = null;
     }
   }
 }
