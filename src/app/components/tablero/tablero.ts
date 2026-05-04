@@ -157,6 +157,11 @@ export class Tablero implements OnInit, OnDestroy {
   // recibir `game:poner-carta-sobre-otra { aceptada: true }` y se mantiene
   // mientras el backend siga emitiendo `game:poner-otra-carta-sobre-otra`.
   seleccionPoder7Activa = signal(false);
+  // Descarte Rápido: true desde que el jugador pulsa el botón hasta que el
+  // backend responde con `aceptada`. Si aceptada→true pasa a seleccionPoder7Activa.
+  modoDescarteRapidoActivo = signal(false);
+  // true mientras esperamos la respuesta de broadcast tras enviar poner-carta-sobre-otra.
+  private _descarteRapidoEnProceso = false;
 
   // Flash de animación: set de keys "jugadorId:cartaIdx" o "jugadorId:pendiente"
   // que determina qué cartas deben mostrar el borde iluminado en ese instante.
@@ -204,7 +209,8 @@ export class Tablero implements OnInit, OnDestroy {
     }
     return this.jugadores()[this.turnoIdx()] ?? null;
   });
-  esMiTurno       = computed(() => !!this.jugadorActual()?.esYo);
+  esMiTurno           = computed(() => !!this.jugadorActual()?.esYo);
+  estaEnPartidaOnline = computed(() => !!this.gameService.gameId());
   timerPorcentaje = computed(() => (this.timerSegundos() / this.timerDuracion()) * 100);
   rankingConNombres = computed(() => {
     const ranking = this.rankingFinal();
@@ -375,11 +381,12 @@ export class Tablero implements OnInit, OnDestroy {
           this.jugadores.set(all);
         }
       }),
-      // Poder 7 — paso 1: server confirma si acepta la solicitud y consume el
-      // chip almacenado (decremento aquí, tras confirmación).
+      // Descarte Rápido paso 1: server confirma si acepta la solicitud.
       this.ws.ponerCartaSobreOtra$.subscribe((ev) => {
+        this.modoDescarteRapidoActivo.set(false);
         if (!ev.aceptada) {
           this.seleccionPoder7Activa.set(false);
+          this.publicarToast('No es posible el descarte rápido en este momento.', 'error');
           return;
         }
         this.poderesAlmacenados.update(prev => {
@@ -391,24 +398,31 @@ export class Tablero implements OnInit, OnDestroy {
         });
         this.seleccionPoder7Activa.set(true);
       }),
-      // Poder 7 — paso 3 (chain): acertaste, sigue habilitado para encadenar.
+      // Descarte Rápido paso 3 (éxito/chain): servidor confirma acierto.
       this.ws.ponerOtraCartaSobreOtra$.subscribe(() => {
+        if (this._descarteRapidoEnProceso) {
+          this._descarteRapidoEnProceso = false;
+          this.publicarToast('¡Descarte interceptado con éxito!');
+        }
         this.seleccionPoder7Activa.set(true);
       }),
-      // Poder 7 — sincronizar tamaño de mano del jugador implicado tras un
-      // intento (acierto: -1 carta, fallo: +1 carta).
+      // Descarte Rápido — sincronizar tamaño de mano; detectar fallo si no llegó éxito antes.
       this.ws.accionCartaSobreOtra$.subscribe((ev) => {
+        if (this._descarteRapidoEnProceso) {
+          const yo = this.jugadores().find(j => j.esYo);
+          if (yo && (ev.usuarioImplicado === yo.nombre || ev.usuarioImplicado === yo.id)) {
+            this._descarteRapidoEnProceso = false;
+            this.publicarToast('¡Fallo en el descarte! Robas una carta de penalización.', 'error');
+          }
+        }
         const all = [...this.jugadores()];
         const idx = all.findIndex(j => j.nombre === ev.usuarioImplicado);
         if (idx < 0) return;
         const jug = all[idx];
         if (jug.mano.length === ev.numCartasMano) return;
         if (jug.mano.length > ev.numCartasMano) {
-          // El jugador acertó: descartó una carta. La quitamos del final como
-          // aproximación visual (las cartas son anónimas para el resto).
           all[idx] = { ...jug, mano: jug.mano.slice(0, ev.numCartasMano) };
         } else {
-          // El jugador falló: roba una carta de penalización.
           const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: jug.esYo, seleccionada: false };
           const extra = ev.numCartasMano - jug.mano.length;
           all[idx] = { ...jug, mano: [...jug.mano, ...Array.from({ length: extra }, () => ({ ...placeholder }))] };
@@ -762,8 +776,8 @@ export class Tablero implements OnInit, OnDestroy {
     this.publicarToast('Decisión cancelada. Selecciona nueva combinación si dispones del poder.');
   }
 
-  private publicarToast(mensaje: string): void {
-    this.notificacionToast.set({ id: Date.now(), tipo: 'success', mensaje });
+  private publicarToast(mensaje: string, tipo: NotificacionJuego['tipo'] = 'success'): void {
+    this.notificacionToast.set({ id: Date.now(), tipo, mensaje });
     this.reprogramarCierreToast(Date.now());
   }
 
@@ -804,6 +818,20 @@ export class Tablero implements OnInit, OnDestroy {
   /** Cancela manualmente el modo selección del poder 7 (sin emitir al server). */
   cancelarSeleccionPoder7(): void {
     this.seleccionPoder7Activa.set(false);
+  }
+
+  /** Inicia el flujo de Descarte Rápido: solicita permiso al backend y
+   *  activa el modo de espera. El servidor responderá con aceptada true/false. */
+  iniciarDescarteRapido(): void {
+    const gameId = this.gameService.gameId();
+    if (!gameId || this.fase() === 'fin') return;
+    if (this.modoDescarteRapidoActivo() || this.seleccionPoder7Activa()) return;
+    this.modoDescarteRapidoActivo.set(true);
+    this.ws.solicitarCartaSobreOtra(gameId);
+  }
+
+  cancelarDescarteRapido(): void {
+    this.modoDescarteRapidoActivo.set(false);
   }
 
   /** Solicita revancha al backend (`game:volver-a-jugar`). */
@@ -1609,14 +1637,15 @@ export class Tablero implements OnInit, OnDestroy {
       return;
     }
 
-    // Modo selección poder 7: clic en carta propia → poner-carta-sobre-otra.
+    // Descarte Rápido: clic en carta propia → poner-carta-sobre-otra.
     if (this.seleccionPoder7Activa()) {
       const jugador = this.jugadores()[jugadorIdx];
       if (!jugador?.esYo) return;
       const gameId = this.gameService.gameId();
       if (!gameId) return;
+      this._descarteRapidoEnProceso = true;
       this.ws.ponerCartaSobreOtra(gameId, cartaIdx);
-      // El server resolverá: chain (acierto) o cierre + penalización (fallo).
+      // El server resolverá: chain (acierto) o penalización (fallo).
       // Desactivamos el modo de inmediato; si llega el chain se reactiva.
       this.seleccionPoder7Activa.set(false);
       return;

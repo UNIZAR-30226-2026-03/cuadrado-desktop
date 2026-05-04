@@ -1429,3 +1429,61 @@ $carta-gap:     5px;
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  DESCARTE RÁPIDO — botón global flotante
+// ═══════════════════════════════════════════════════════════════════════════
+.tablero__descarte-rapido-btn {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  padding: 0.55rem 1.4rem;
+  border: 2px solid #f59e0b;
+  border-radius: 10px;
+  background: rgba(245, 158, 11, 0.12);
+  color: #fbbf24;
+  font-family: var(--font-body);
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition: background 180ms, box-shadow 180ms, opacity 180ms;
+  backdrop-filter: blur(6px);
+
+  &:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.28);
+    box-shadow: 0 0 16px rgba(251, 191, 36, 0.55);
+  }
+
+  &--activo {
+    background: rgba(245, 158, 11, 0.28);
+    box-shadow: 0 0 20px rgba(251, 191, 36, 0.6);
+    animation: descarte-rapido-pulse 1s ease-in-out infinite alternate;
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+}
+
+// Skill panel con borde ámbar para descarte rápido (distingue del panel de poderes)
+.tablero__skill-panel-box--descarte-rapido {
+  border-color: rgba(245, 158, 11, 0.75);
+  box-shadow:
+    0 0 28px rgba(245, 158, 11, 0.25),
+    0 8px 32px rgba(0, 0, 0, 0.75);
+
+  .tablero__skill-panel-instruccion {
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+    background: rgba(245, 158, 11, 0.08);
+  }
+}
+
+@keyframes descarte-rapido-pulse {
+  from { box-shadow: 0 0 12px rgba(251, 191, 36, 0.4); }
+  to   { box-shadow: 0 0 28px rgba(251, 191, 36, 0.8); }
+}

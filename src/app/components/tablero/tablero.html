@@ -102,12 +102,24 @@
     </div>
   }
 
-  <!-- ── Modo selección poder 7 (carta sobre otra) ────────────────────── -->
+  <!-- ── Descarte Rápido: esperando confirmación del servidor ─────────── -->
+  @if (modoDescarteRapidoActivo()) {
+    <div class="tablero__skill-panel">
+      <div class="tablero__skill-panel-box glass-card tablero__skill-panel-box--descarte-rapido">
+        <p class="tablero__skill-panel-instruccion">
+          ⚡ Selecciona la carta que quieres interceptar...
+        </p>
+        <button class="tablero__btn tablero__btn--cancelar" (click)="cancelarDescarteRapido()">Cancelar</button>
+      </div>
+    </div>
+  }
+
+  <!-- ── Descarte Rápido: aceptado, elige la carta ────────────────────── -->
   @if (seleccionPoder7Activa()) {
     <div class="tablero__skill-panel">
-      <div class="tablero__skill-panel-box glass-card">
+      <div class="tablero__skill-panel-box glass-card tablero__skill-panel-box--descarte-rapido">
         <p class="tablero__skill-panel-instruccion">
-          Elige una carta tuya con el mismo valor que la del descarte.
+          ⚡ Elige la carta con el mismo valor que la cima del descarte.
         </p>
         <button class="tablero__btn tablero__btn--cancelar" (click)="cancelarSeleccionPoder7()">Cancelar</button>
       </div>
@@ -398,7 +410,7 @@
             <!-- Mano: rejilla 2×2, crece en columnas si hay >4 cartas -->
             <div class="tablero__mano"
                  [class.tablero__mano--expandida]="jugador.mano.length > 4"
-                 [class.tablero__mano--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo">
+                 [class.tablero__mano--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido() || seleccionPoder7Activa()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo">
               @for (carta of jugador.mano; track $index; let ci = $index) {
                 <div
                   class="tablero__carta"
@@ -407,7 +419,7 @@
                   [class.tablero__carta--cara]="carta.visible"
                   [class.tablero__carta--roja]="carta.visible && esRoja(carta.palo)"
                   [class.tablero__carta--yo]="jugador.esYo"
-                  [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
+                  [class.tablero__carta--seleccionable]="(modoIntercambio() || pendingSkill()?.fase === 'propia' || intercambioCiegoRequerido() || seleccionPoder7Activa()) && jugador.esYo || pendingSkill()?.fase === 'cartaRival' && !jugador.esYo"
                   [class.tablero__carta--flash]="isFlashing(jugador.id, ci)"
                   [ngStyle]="!carta.visible ? reversoStyle(jugador) : {}"
                   (click)="onClickCartaMano(i, ci)">
@@ -491,4 +503,17 @@
     }
 
   </div><!-- /tablero__area -->
+
+  <!-- ── Botón global Descarte Rápido (siempre visible en partida online) -->
+  @if (estaEnPartidaOnline() && fase() !== 'fin') {
+    <button
+      class="tablero__descarte-rapido-btn"
+      [class.tablero__descarte-rapido-btn--activo]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
+      [disabled]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
+      (click)="iniciarDescarteRapido()"
+      title="Lanza una carta con el mismo valor que la cima del descarte">
+      ⚡ Descarte Rápido
+    </button>
+  }
+
 </div><!-- /tablero -->
