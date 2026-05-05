@@ -724,10 +724,16 @@ export class Tablero implements OnInit, OnDestroy {
         this.jugadores.set(jugadores);
       }
 
-      // Animación: flash de carta propia (estado local) → secuencia 0→N rival
-      const PROPIA_MS  = 400;
+      // Animación
+      const PROPIA_MS   = 400;
       const SEQ_STEP_MS = 220;
-      if (yo?.id === remitente.id) {
+      if (soySujeto && cartaLocal === null) {
+        // Poder J: iluminar solo las dos cartas concretas intercambiadas
+        const targets: string[] = [];
+        if (typeof evento.numCartaRemitente === 'number') targets.push(`${remitente.id}:${evento.numCartaRemitente}`);
+        if (typeof evento.numCartaDestinatario === 'number') targets.push(`${destinatario.id}:${evento.numCartaDestinatario}`);
+        if (targets.length > 0) this.triggerFlash(targets);
+      } else if (yo?.id === remitente.id) {
         if (cartaLocal !== null) this.triggerFlash([`${remitente.id}:${cartaLocal}`], PROPIA_MS);
         setTimeout(() => this.triggerSequentialFlash(destinatario.id, destinatario.mano.length, SEQ_STEP_MS), PROPIA_MS);
       } else if (yo?.id === destinatario.id) {
