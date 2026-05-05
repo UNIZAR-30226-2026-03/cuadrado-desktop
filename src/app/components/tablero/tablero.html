@@ -399,6 +399,18 @@
         <!-- Controles: cartas + botones de acción en fila -->
         <div class="tablero__jugador-controls">
 
+          <!-- Descarte Rápido: lado izquierdo (espejo del botón Cubo a la derecha) -->
+          @if (jugador.esYo && estaEnPartidaOnline() && fase() !== 'fin') {
+            <button
+              class="tablero__descarte-rapido-btn"
+              [class.tablero__descarte-rapido-btn--activo]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
+              [disabled]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
+              (click)="iniciarDescarteRapido()"
+              title="Descarte Rápido">
+              ⚡
+            </button>
+          }
+
           <!-- Zona de cartas: mano 2×2 + slot pendiente -->
           <div class="tablero__mano-area" [class.tablero__mano-area--yo]="jugador.esYo">
 
@@ -503,18 +515,6 @@
     }
 
   </div><!-- /tablero__area -->
-
-  <!-- ── Botón global Descarte Rápido (siempre visible en partida online) -->
-  @if (estaEnPartidaOnline() && fase() !== 'fin') {
-    <button
-      class="tablero__descarte-rapido-btn"
-      [class.tablero__descarte-rapido-btn--activo]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
-      [disabled]="modoDescarteRapidoActivo() || seleccionPoder7Activa()"
-      (click)="iniciarDescarteRapido()"
-      title="Lanza una carta con el mismo valor que la cima del descarte">
-      ⚡ Descarte Rápido
-    </button>
-  }
 
   <!-- ── Banner: jugador sustituido por bot ───────────────────────────── -->
   @if (bannerSustitucion()) {

@@ -403,6 +403,30 @@ export class Tablero implements OnInit, OnDestroy {
           this.iniciarTimer();
         }
       }),
+      // Backend emite esto cuando falla el descarte rapido.
+      // La carta pasa directamente a la mano del jugador local.
+      this.ws.cartaRobadaPorDescarteRapido$.subscribe((ev) => {
+        const palo = this.normalizarPalo(ev.cartaRobada.palo);
+        if (!palo) return;
+        if (ev.reshuffle?.cantidadCartasMazo != null) {
+          this.deckCount.set(ev.reshuffle.cantidadCartasMazo);
+        }
+        const all = [...this.jugadores()];
+        // Este evento sólo llega al cliente propio (to(client.id)), nunca al jugador del turno.
+        // Usar findIndex(esYo) en lugar de idxActualEnArray() para no depender de quién tiene el turno.
+        const idx = all.findIndex(j => j.esYo);
+        if (idx < 0) return;
+        const mano = [...all[idx].mano];
+        const cartaNueva: CartaMesa = { valor: ev.cartaRobada.carta, palo, visible: false, seleccionada: false };
+        const placeholderIdx = mano.findIndex(c => c.valor === 0 && c.palo === 'joker');
+        if (placeholderIdx >= 0) {
+          mano[placeholderIdx] = cartaNueva;
+        } else if (mano.length < ev.numCartasMano) {
+          mano.push(cartaNueva);
+        }
+        all[idx] = { ...all[idx], mano };
+        this.jugadores.set(all);
+      }),
       // Una carta protegida bloqueó una habilidad: NO bloquear el turno,
       // solo notificar al usuario. El backend ya reanuda el flujo.
       this.ws.accionProtegidaCancelada$.subscribe((ev: EvAccionProtegidaCancelada) => {
@@ -456,8 +480,10 @@ export class Tablero implements OnInit, OnDestroy {
         if (jug.mano.length === ev.numCartasMano) return;
         if (jug.mano.length > ev.numCartasMano) {
           all[idx] = { ...jug, mano: jug.mano.slice(0, ev.numCartasMano) };
-        } else {
-          const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: jug.esYo, seleccionada: false };
+        } else if (!jug.esYo) {
+          // Para jugadores remotos: placeholder opaco hasta que llegue la carta real.
+          // Para "yo" en descarte rápido fallido: cartaRobadaPorDescarteRapido$ añade la carta real, no añadimos jokers aquí.
+          const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: false, seleccionada: false };
           const extra = ev.numCartasMano - jug.mano.length;
           all[idx] = { ...jug, mano: [...jug.mano, ...Array.from({ length: extra }, () => ({ ...placeholder }))] };
         }

@@ -1434,27 +1434,29 @@ $carta-gap:     5px;
 //  DESCARTE RÁPIDO — botón global flotante
 // ═══════════════════════════════════════════════════════════════════════════
 .tablero__descarte-rapido-btn {
-  position: fixed;
-  bottom: 2rem;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 60;
-  padding: 0.55rem 1.4rem;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  padding: 0;
   border: 2px solid #f59e0b;
-  border-radius: 10px;
   background: rgba(245, 158, 11, 0.12);
   color: #fbbf24;
-  font-family: var(--font-body);
-  font-size: 0.88rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
+  font-size: 1.5rem;
+  line-height: 1;
   cursor: pointer;
-  transition: background 180ms, box-shadow 180ms, opacity 180ms;
+  transition: background 180ms, box-shadow 180ms, opacity 180ms, transform 150ms;
   backdrop-filter: blur(6px);
 
   &:hover:not(:disabled) {
     background: rgba(245, 158, 11, 0.28);
     box-shadow: 0 0 16px rgba(251, 191, 36, 0.55);
+    transform: translateY(-2px) scale(1.04);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(1);
+    filter: brightness(0.88);
   }
 
   &--activo {
@@ -1466,6 +1468,7 @@ $carta-gap:     5px;
   &:disabled {
     opacity: 0.55;
     cursor: not-allowed;
+    transform: none;
   }
 }
 
