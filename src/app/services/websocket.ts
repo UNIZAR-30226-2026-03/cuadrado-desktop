@@ -60,6 +60,15 @@ export interface EvCartaRobadaPorDescartar6 {
   reshuffle?: { huboRebarajado: boolean; cantidadCartasMazo?: number; cantidadCartasDescartadas?: number };
 }
 
+// Emitido cuando falla el descarte rapido: backend devuelve la carta robada
+// que pasa directamente a la mano del jugador.
+export interface EvCartaRobadaPorDescarteRapido {
+  gameId: string;
+  cartaRobada: { carta: number; palo: string; puntos: number; protegida: boolean };
+  numCartasMano: number;
+  reshuffle?: { huboRebarajado: boolean; cantidadCartasMazo?: number; cantidadCartasDescartadas?: number };
+}
+
 // Una habilidad fue cancelada porque la carta objetivo estaba protegida.
 // No debe bloquear el flujo: solo informar y continuar.
 export interface EvAccionProtegidaCancelada {
@@ -343,6 +352,7 @@ export class WebsocketService {
   accionCartaSobreOtra$     = new Subject<EvAccionCartaSobreOtra>();
   intercambioRival$         = new Subject<EvIntercambioRival>();
   cartaRobadaPorDescartar6$ = new Subject<EvCartaRobadaPorDescartar6>();
+  cartaRobadaPorDescarteRapido$ = new Subject<EvCartaRobadaPorDescarteRapido>();
   accionProtegidaCancelada$ = new Subject<EvAccionProtegidaCancelada>();
   poder8Estado$             = new Subject<EvPoder8Estado>();
   revanchaEstado$           = new Subject<EvRevanchaEstado>();
@@ -419,6 +429,7 @@ export class WebsocketService {
     this.socket.on('game:accion-carta-sobre-otra',     (d: EvAccionCartaSobreOtra)     => this.accionCartaSobreOtra$.next(d));
     this.socket.on('game:intercambio-rival',           (d: EvIntercambioRival)         => this.intercambioRival$.next(d));
     this.socket.on('game:carta-robada-por-descartar-6',(d: EvCartaRobadaPorDescartar6) => this.cartaRobadaPorDescartar6$.next(d));
+    this.socket.on('game:carta-robada-por-descarte-rapido',(d: EvCartaRobadaPorDescarteRapido) => this.cartaRobadaPorDescarteRapido$.next(d));
     this.socket.on('game:accion-protegida-cancelada',  (d: EvAccionProtegidaCancelada) => this.accionProtegidaCancelada$.next(d));
     this.socket.on('game:poder8-estado',               (d: EvPoder8Estado)             => this.poder8Estado$.next(d));
     this.socket.on('game:revancha-estado',             (d: EvRevanchaEstado)           => this.revanchaEstado$.next(d));
