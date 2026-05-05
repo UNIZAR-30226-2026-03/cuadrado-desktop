@@ -14,7 +14,22 @@ export interface EvInicioPartida {
     dificultadBot?: 'facil' | 'media' | 'dificil';
     nombreEnPartida?: string;
   }>;
-  // ❌ NO incluye: cartas en mano, turno inicial, fase, turnDeadlineAt, deckCount
+  // Presente solo cuando se reanuda una partida guardada
+  estado?: {
+    turnoActualUserId: string;
+    cartasRestantes: number;
+    ultimaCartaDescartada: { carta: number; palo: string; puntos: number; protegida: boolean } | null;
+    cuboActivado: boolean;
+    cuboSolicitanteId: string | null;
+    cuboTurnosRestantes?: number;
+    jugadores: Array<{
+      userId: string;
+      cartasMano?: number;
+      cartasEnMano?: Array<{ carta: number; palo: string; puntos: number; protegida: boolean }>;
+      habilidadesActivadas?: number[];
+      cartasProtegidas?: number[];
+    }>;
+  };
 }
 
 export interface EvCartaRobada {
