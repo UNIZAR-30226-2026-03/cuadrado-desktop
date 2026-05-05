@@ -13,6 +13,8 @@ import {
   EvJugadorMenosPuntuacion,
   EvPoder8Estado,
   EvRevanchaEstado,
+  EvInicioPartida,
+  EvTurnoIniciado,
 } from './websocket';
 
 // Clasificación según si el poder necesita objetivo rival
@@ -48,6 +50,8 @@ export class GameService {
   private _notificacion = signal<NotificacionJuego | null>(null);
   private _poder8Estado = signal<EvPoder8Estado | null>(null);
   private _revancha = signal<EvRevanchaEstado | null>(null);
+  private _ultimoInicioPartida = signal<EvInicioPartida | null>(null);
+  private _ultimoTurnoIniciado = signal<EvTurnoIniciado | null>(null);
   // Protecciones activas: clave `${jugadorId}:${cartaIndex}` → true mientras la carta siga en mano
   private _cartasProtegidas = signal<ReadonlySet<string>>(new Set());
   // Último salto de turno recibido (poder 4): el tablero lo consume para
@@ -64,6 +68,8 @@ export class GameService {
   notificacion = this._notificacion.asReadonly();
   poder8Estado = this._poder8Estado.asReadonly();
   revancha = this._revancha.asReadonly();
+  ultimoInicioPartida  = this._ultimoInicioPartida.asReadonly();
+  ultimoTurnoIniciado  = this._ultimoTurnoIniciado.asReadonly();
   cartasProtegidas = this._cartasProtegidas.asReadonly();
   ultimoSaltoTurno = this._ultimoSaltoTurno.asReadonly();
   estaConectado = computed(() => this.ws.estaConectado());
@@ -76,6 +82,11 @@ export class GameService {
   constructor(private ws: WebsocketService) {
     this.ws.inicioPartida$.subscribe((ev) => {
       this._gameId.set(ev.partidaId);
+      this._ultimoInicioPartida.set(ev);
+    });
+
+    this.ws.turnoIniciado$.subscribe((ev) => {
+      this._ultimoTurnoIniciado.set(ev);
     });
 
     this.ws.cartaRevelada$.subscribe((ev) => {
@@ -262,6 +273,16 @@ export class GameService {
     this._revancha.set(null);
     this._cartasProtegidas.set(new Set());
     this._ultimoSaltoTurno.set(null);
+    this._ultimoInicioPartida.set(null);
+    this._ultimoTurnoIniciado.set(null);
+  }
+
+  limpiarUltimoInicioPartida(): void {
+    this._ultimoInicioPartida.set(null);
+  }
+
+  limpiarUltimoTurnoIniciado(): void {
+    this._ultimoTurnoIniciado.set(null);
   }
 
   /**

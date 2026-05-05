@@ -18,6 +18,7 @@ import {
   EvHacerRobarCarta,
   EvAccionProtegidaCancelada,
   EvPlayerControllerChanged,
+  EvInicioPartida,
 } from '../../services/websocket';
 import { environment } from '../../environment';
 
@@ -279,6 +280,21 @@ export class Tablero implements OnInit, OnDestroy {
     this.reglasActivas = sala.reglasActivas;
     this.conectarEstadosInbound();
     this.inicializarJuego(sala.jugadores);
+    const inicioEv = this.gameService.ultimoInicioPartida();
+    if (inicioEv?.estado) {
+      this.restaurarEstadoGuardado(inicioEv.estado);
+    }
+    this.gameService.limpiarUltimoInicioPartida();
+
+    // Si game:turno-iniciado llegó antes de que el tablero terminara de montarse
+    // (ocurre siempre al reanudar: el backend lo emite justo después de inicio-partida),
+    // arrancamos el turno desde el caché en lugar de esperar un evento que ya pasó.
+    const turnoEv = this.gameService.ultimoTurnoIniciado();
+    if (turnoEv && this.gameService.gameId()) {
+      this.arrancarTurnoDesdeCache(turnoEv);
+      this.gameService.limpiarUltimoTurnoIniciado();
+    }
+
     this.cargarSkinsEquipadas();
 
     this.subs.push(
@@ -1653,6 +1669,75 @@ export class Tablero implements OnInit, OnDestroy {
     };
     this.roomService.guardarSala(placeholder);
     this.roomService.setEsAnfitrion(soyHost);
+  }
+
+  private arrancarTurnoDesdeCache(ev: EvTurnoIniciado): void {
+    const idx = this.turnoOrder.indexOf(ev.userId);
+    this.turnoIdx.set(idx >= 0 ? idx : 0);
+    this.limpiarTimers();
+    this.iniciarTurno(ev.turnDeadlineAt);
+  }
+
+  private restaurarEstadoGuardado(estado: NonNullable<EvInicioPartida['estado']>): void {
+    this.deckCount.set(estado.cartasRestantes);
+
+    if (estado.ultimaCartaDescartada) {
+      const palo = this.normalizarPalo(estado.ultimaCartaDescartada.palo);
+      if (palo) {
+        this.discardTop.set({
+          valor: estado.ultimaCartaDescartada.carta,
+          palo,
+          visible: true,
+          seleccionada: false,
+        });
+      }
+    }
+
+    const miNombre = this.auth.usuario()?.nombre ?? '';
+    const all = [...this.jugadores()];
+
+    estado.jugadores.forEach(jugInfo => {
+      const idx = all.findIndex(j => j.nombre === jugInfo.userId || j.id === jugInfo.userId);
+      if (idx < 0) return;
+      const jug = all[idx];
+
+      if (jug.esYo && jugInfo.cartasEnMano?.length) {
+        const mano: CartaMesa[] = jugInfo.cartasEnMano.map(c => ({
+          valor: c.carta,
+          palo: this.normalizarPalo(c.palo) ?? 'picas' as Palo,
+          visible: true,
+          seleccionada: false,
+          protegida: c.protegida,
+        }));
+        all[idx] = { ...jug, mano };
+      } else if (jugInfo.cartasMano != null) {
+        const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: false, seleccionada: false };
+        all[idx] = { ...jug, mano: Array.from({ length: jugInfo.cartasMano }, () => ({ ...placeholder })) };
+      }
+
+      if (jugInfo.cartasProtegidas?.length) {
+        const mano = [...all[idx].mano];
+        jugInfo.cartasProtegidas.forEach(i => {
+          if (mano[i]) mano[i] = { ...mano[i], protegida: true };
+        });
+        all[idx] = { ...all[idx], mano };
+      }
+    });
+
+    this.jugadores.set(all);
+
+    const yoInfo = estado.jugadores.find(j => j.userId === miNombre);
+    if (yoInfo?.habilidadesActivadas?.length) {
+      this.poderesAlmacenados.set([...yoInfo.habilidadesActivadas]);
+    }
+
+    if (estado.cuboActivado) {
+      this.cuboActivado.set(true);
+      this.cuboInfo.set({
+        solicitanteId: estado.cuboSolicitanteId ?? '',
+        turnosRestantes: estado.cuboTurnosRestantes ?? 0,
+      });
+    }
   }
 
   private normalizarPalo(palo: string): Palo | null {

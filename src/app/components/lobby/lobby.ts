@@ -213,8 +213,9 @@ export class Lobby implements OnInit, OnDestroy {
       await this.ws.leaveRoomAck();
       // Sin rules → el backend detecta la partida guardada por nombre
       const resp = await this.ws.createRoom(partida.roomName);
-      if (!resp.success || !resp.roomCode) {
-        throw new Error('No se pudo crear la sala de reanudación');
+      if (!resp.roomCode) {
+        const motivo = (resp as { error?: string }).error ?? 'El servidor no devolvió un código de sala';
+        throw new Error(motivo);
       }
 
       this.roomService.guardarResumenPartida(partida);
