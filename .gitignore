@@ -42,3 +42,10 @@ __screenshots__/
 # System files
 .DS_Store
 Thumbs.db
+
+# Electron runtime data (generated at runtime, never commit)
+.electron-player1/
+.electron-player2/
+
+# Electron build output (binaries, installers)
+/release/
