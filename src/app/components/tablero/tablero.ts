@@ -279,8 +279,36 @@ export class Tablero implements OnInit, OnDestroy {
     }
     this.reglasActivas = sala.reglasActivas;
     this.conectarEstadosInbound();
-    this.inicializarJuego(sala.jugadores);
+
     const inicioEv = this.gameService.ultimoInicioPartida();
+    let jugadoresFinales = [...sala.jugadores];
+
+    if (inicioEv?.jugadoresDetalle) {
+      // Reconciliar IDs locales de bots con los IDs reales del servidor.
+      // Los bots en inicioEv vienen en orden de turno (posiblemente aleatorio).
+      // Los ordenamos por su nombre original de backend ('bot1', 'bot2'...)
+      // para matchearlos en el orden en que fueron añadidos localmente.
+      const botsReales = inicioEv.jugadoresDetalle
+        .filter(d => d.controlador === 'bot')
+        .sort((a, b) => {
+          const numA = parseInt((a.nombreEnPartida || '').replace('bot', ''), 10) || 0;
+          const numB = parseInt((b.nombreEnPartida || '').replace('bot', ''), 10) || 0;
+          return numA - numB;
+        });
+
+      let botIndex = 0;
+      jugadoresFinales = jugadoresFinales.map(jLocal => {
+        if (!jLocal.esBot) return jLocal;
+        const botReal = botsReales[botIndex++];
+        if (botReal) {
+          return { ...jLocal, id: botReal.userId };
+        }
+        return jLocal;
+      });
+    }
+
+    this.inicializarJuego(jugadoresFinales);
+    
     if (inicioEv?.estado) {
       this.restaurarEstadoGuardado(inicioEv.estado);
     }
