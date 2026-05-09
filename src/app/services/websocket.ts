@@ -206,7 +206,7 @@ export interface PublicRoomSummary {
     turnTimeSeconds: number;
     isPrivate: boolean;
     fillWithBots: boolean;
-    dificultadBots?: string;
+    dificultadBots?: 'facil' | 'media' | 'dificil';
     deckCount?: number;
     enabledPowers?: string[];
   };
