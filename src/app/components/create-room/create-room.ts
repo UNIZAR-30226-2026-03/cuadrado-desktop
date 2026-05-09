@@ -59,6 +59,12 @@ export class CreateRoom implements OnInit {
     { value: 'dificil', label: 'Difícil' },
   ];
 
+  readonly mapaDisplayDificultad: Record<'facil' | 'media' | 'dificil', 'Fácil' | 'Normal' | 'Difícil'> = {
+    facil: 'Fácil',
+    media: 'Normal',
+    dificil: 'Difícil',
+  };
+
   cardPowers: CardPower[] = [
     { card: 'A',  image: '🂡', description: 'Intercambia todas tus cartas por todas las cartas de otro jugador.', enabled: false },
     { card: '2',  image: '🂢', description: 'Elige a un jugador para que robe una carta extra y la añada a sus cartas.', enabled: false },
@@ -154,12 +160,6 @@ export class CreateRoom implements OnInit {
     }
     this.creando.set(false);
 
-    const mapaDisplay: Record<'facil' | 'media' | 'dificil', 'Fácil' | 'Normal' | 'Difícil'> = {
-      facil: 'Fácil',
-      media: 'Normal',
-      dificil: 'Difícil',
-    };
-
     const sala: SalaData = {
       id: codigo,
       nombre: nombreSala,
@@ -167,7 +167,7 @@ export class CreateRoom implements OnInit {
       publica: this.esPublica(),
       estado: 'esperando',
       jugadores: [anfitrion],
-      dificultadBots: mapaDisplay[this.dificultadBots()],
+      dificultadBots: this.mapaDisplayDificultad[this.dificultadBots()],
       creadaEn: Date.now(),
       numBarajas: this.numBarajas(),
       maxJugadores: this.maxJugadores(),
