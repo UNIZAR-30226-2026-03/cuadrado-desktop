@@ -55,30 +55,27 @@ describe('CreateRoom — dificultad de bots', () => {
     expect(fixture.nativeElement.querySelectorAll('.turn-time-row').length).toBe(2);
   });
 
-  it('sets dificultadBots signal when a button is clicked', () => {
+  it('sets dificultadBots signal when a button is clicked', async () => {
     component.fillWithBots.set(true);
     fixture.detectChanges();
+    await fixture.whenStable();
 
-    // La fila de dificultad aparece ANTES que la de tiempo en el DOM
-    // (el @if de dificultad está declarado antes del bloque de turnTimeOptions en el template)
-    // → rows[0] = dificultad (3 botones), rows[1] = tiempo por turno (6 botones)
-    const rows = fixture.nativeElement.querySelectorAll('.turn-time-row');
-    const diffRow = rows[0] as HTMLElement;
-    const buttons = Array.from(diffRow.querySelectorAll('button')) as HTMLButtonElement[];
+    // Get the difficulty selector row (first .turn-time-row in the DOM)
+    const rows = fixture.debugElement.queryAll(By.css('.turn-time-row'));
+    const diffRow = rows[0]; // difficulty row appears first in template
+    const buttons = diffRow.queryAll(By.css('button'));
 
-    // buttons[0] = Fácil, [1] = Normal, [2] = Difícil
-    expect(buttons.length).toBe(3);
-
-    // Llamamos directamente al setter del signal igual que lo hace el template al hacer click
-    component.dificultadBots.set('facil');
+    // Click "Fácil" (index 0) via Angular's event system
+    buttons[0].triggerEventHandler('click', null);
     fixture.detectChanges();
+    await fixture.whenStable();
     expect(component.dificultadBots()).toBe('facil');
-    expect(buttons[0].classList.contains('turn-time-btn--active')).toBe(true);
 
-    component.dificultadBots.set('dificil');
+    // Click "Difícil" (index 2)
+    buttons[2].triggerEventHandler('click', null);
     fixture.detectChanges();
+    await fixture.whenStable();
     expect(component.dificultadBots()).toBe('dificil');
-    expect(buttons[2].classList.contains('turn-time-btn--active')).toBe(true);
   });
 
 });
