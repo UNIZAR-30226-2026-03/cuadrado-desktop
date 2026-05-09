@@ -156,6 +156,7 @@ export interface RoomRules {
   turnTimeSeconds: number;
   isPrivate: boolean;
   fillWithBots: boolean;
+  dificultadBots?: 'facil' | 'media' | 'dificil';
   enabledPowers?: string[];
   deckCount?: number;
 }
