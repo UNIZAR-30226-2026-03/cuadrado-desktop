@@ -38,6 +38,7 @@ const PODERES_VALIDOS = new Set(['A', '2', '3', '4', '5', '6', '7', '8', '9', '1
 export class CreateRoom implements OnInit {
   esPublica = signal(true);
   fillWithBots = signal(false);
+  dificultadBots = signal<'facil' | 'media' | 'dificil'>('media');
   numBarajas = signal<1 | 2>(1);
   maxJugadores = signal(4);
   turnTime = signal(30);
@@ -51,6 +52,18 @@ export class CreateRoom implements OnInit {
   private pendingSalaData: SalaData | null = null;
 
   readonly turnTimeOptions = [15, 20, 30, 45, 60, 90] as const;
+
+  readonly dificultadOptions: { value: 'facil' | 'media' | 'dificil'; label: string }[] = [
+    { value: 'facil',   label: 'Fácil' },
+    { value: 'media',   label: 'Normal' },
+    { value: 'dificil', label: 'Difícil' },
+  ];
+
+  readonly mapaDisplayDificultad: Record<'facil' | 'media' | 'dificil', 'Fácil' | 'Normal' | 'Difícil'> = {
+    facil: 'Fácil',
+    media: 'Normal',
+    dificil: 'Difícil',
+  };
 
   cardPowers: CardPower[] = [
     { card: 'A',  image: '🂡', description: 'Intercambia todas tus cartas por todas las cartas de otro jugador.', enabled: false },
@@ -133,6 +146,7 @@ export class CreateRoom implements OnInit {
           turnTimeSeconds: this.turnTime(),
           isPrivate: !this.esPublica(),
           fillWithBots: this.fillWithBots(),
+          dificultadBots: this.fillWithBots() ? this.dificultadBots() : undefined,
           enabledPowers: reglasActivas,
           deckCount: this.numBarajas(),
         });
@@ -153,7 +167,7 @@ export class CreateRoom implements OnInit {
       publica: this.esPublica(),
       estado: 'esperando',
       jugadores: [anfitrion],
-      dificultadBots: 'Normal',
+      dificultadBots: this.mapaDisplayDificultad[this.dificultadBots()],
       creadaEn: Date.now(),
       numBarajas: this.numBarajas(),
       maxJugadores: this.maxJugadores(),
