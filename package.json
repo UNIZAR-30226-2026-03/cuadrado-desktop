@@ -1,6 +1,6 @@
 {
   "name": "cuadrado-app",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "main": "main.js",
   "scripts": {
     "ng": "ng",
@@ -11,17 +11,34 @@
     "test": "ng test",
     "electron:start": "ng build --base-href ./ && electron .",
     "electron:local": "ng build --configuration local --base-href ./ && electron .",
-    "electron:build": "ng build --base-href ./ && electron-builder --win"
+    "electron:build": "ng build --configuration production --base-href ./ && electron-builder --win"
   },
   "private": true,
   "build": {
     "appId": "com.cuadrado.desktop",
     "productName": "Cubo",
+    "asar": true,
     "directories": {
       "output": "release/"
     },
+    "files": [
+      "main.js",
+      "dist/cuadrado-app/browser/**/*",
+      "public/logo.png",
+      "public/favicon.ico"
+    ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "public/logo.png"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "deleteAppDataOnUninstall": false,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Cubo"
     }
   },
   "packageManager": "npm@11.6.1",

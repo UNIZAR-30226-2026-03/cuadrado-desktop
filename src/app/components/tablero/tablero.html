@@ -1,5 +1,12 @@
 <div class="tablero">
 
+  <!-- Tapete: cubre todo el tablero (posicionado relativo a .tablero que es fixed) -->
+  @if (tapeteAreaStyle(); as style) {
+    @if (style['background-image']) {
+      <div class="tablero__tapete" [ngStyle]="style"></div>
+    }
+  }
+
   <!-- ── Header: barra de tiempo ───────────────────────────────────────── -->
   <header class="tablero__header">
     <div class="tablero__timer-wrap">
@@ -93,7 +100,11 @@
         @if (skill.fase === 'propia') {
           <p class="tablero__skill-panel-instruccion">Selecciona una de tus cartas</p>
         } @else if (skill.fase === 'cartaRival') {
-          <p class="tablero__skill-panel-instruccion">Selecciona una carta del rival</p>
+          @if (skill.poder === 'ver-carta-rival') {
+            <p class="tablero__skill-panel-instruccion">Elige una carta de cualquier rival para revelarla</p>
+          } @else {
+            <p class="tablero__skill-panel-instruccion">Selecciona una carta del rival</p>
+          }
         } @else {
           <p class="tablero__skill-panel-instruccion">Elige un rival para aplicar el poder</p>
         }
@@ -413,11 +424,6 @@
 
           <!-- Zona de cartas: mano 2×2 + slot pendiente -->
           <div class="tablero__mano-area" [class.tablero__mano-area--yo]="jugador.esYo">
-
-            <!-- Tapete personalizado (skin del jugador) -->
-            @if (jugador.tapete) {
-              <div class="tablero__tapete" [ngStyle]="tapeteStyle(jugador)"></div>
-            }
 
             <!-- Mano: rejilla 2×2, crece en columnas si hay >4 cartas -->
             <div class="tablero__mano"

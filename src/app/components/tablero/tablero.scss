@@ -1128,15 +1128,15 @@ $carta-gap:     5px;
   gap: 12px;
 }
 
-// ── Tapete del jugador (skin de tapete) ───────────────────────────────────
+// ── Tapete del jugador (skin de tapete) — cubre todo el área de juego ──────
 .tablero__tapete {
   position: absolute;
   inset: 0;
-  border-radius: 8px;
+  z-index: 0;
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
-  opacity: 0.75;
+  opacity: 0.45;
   pointer-events: none;
 }
 

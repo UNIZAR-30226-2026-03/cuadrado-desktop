@@ -214,7 +214,7 @@ export class Tablero implements OnInit, OnDestroy {
     const order = this.turnoOrder;
     if (order.length > 0) {
       const userId = order[this.turnoIdx() % order.length];
-      return this.jugadores().find(j => j.nombre === userId) ?? null;
+      return this.jugadores().find(j => j.id === userId || j.nombre === userId) ?? null;
     }
     return this.jugadores()[this.turnoIdx()] ?? null;
   });
@@ -376,6 +376,16 @@ export class Tablero implements OnInit, OnDestroy {
         if (ev.controlador === 'bot') {
           const nombre = ev.nombreEnPartida ?? ev.userId;
           this.mostrarBannerSustitucion(`${nombre} ha abandonado. Un bot tomará su lugar.`);
+          const all = [...this.jugadores()];
+          const idx = all.findIndex(j => j.id === ev.userId || j.nombre === ev.userId);
+          if (idx >= 0) {
+            all[idx] = {
+              ...all[idx],
+              esBot: true,
+              nombre: ev.nombreEnPartida ?? all[idx].nombre,
+            };
+            this.jugadores.set(all);
+          }
         }
       }),
       this.ws.descartePendiente$.subscribe((ev: EvDescartarPendiente) => {
@@ -508,9 +518,8 @@ export class Tablero implements OnInit, OnDestroy {
         if (jug.mano.length === ev.numCartasMano) return;
         if (jug.mano.length > ev.numCartasMano) {
           all[idx] = { ...jug, mano: jug.mano.slice(0, ev.numCartasMano) };
-        } else if (!jug.esYo) {
-          // Para jugadores remotos: placeholder opaco hasta que llegue la carta real.
-          // Para "yo" en descarte rápido fallido: cartaRobadaPorDescarteRapido$ añade la carta real, no añadimos jokers aquí.
+        } else {
+          // Placeholder para todos (incluido yo): cartaRobadaPorDescarteRapido$ lo reemplaza con la carta real.
           const placeholder: CartaMesa = { valor: 0, palo: 'joker', visible: false, seleccionada: false };
           const extra = ev.numCartasMano - jug.mano.length;
           all[idx] = { ...jug, mano: [...jug.mano, ...Array.from({ length: extra }, () => ({ ...placeholder }))] };
@@ -1251,14 +1260,16 @@ export class Tablero implements OnInit, OnDestroy {
   private activarPoderDesdeDescarte(valorCarta: number, poder: PoderCarta): void {
     this.fase.set('idle');
 
-    if (
+    if (poder === 'ver-carta-rival') {
+      // Poder 5: mostrar cartas de todos los rivales directamente sin paso intermedio.
+      // El jugador hace clic en cualquier carta de cualquier rival para espiarla.
+      this.pendingSkill.set({ poder, valorCarta, fase: 'cartaRival', numCartaPropia: null });
+    } else if (
       poder === 'intercambiar-todas-cartas' ||
       poder === 'hacer-robar-carta' ||
-      poder === 'saltar-turno-jugador' ||
-      poder === 'ver-carta-rival'
+      poder === 'saltar-turno-jugador'
     ) {
-      // Empiezan eligiendo rival. 'ver-carta-rival' además requiere elegir
-      // luego una carta concreta del rival.
+      // Empiezan eligiendo rival.
       this.pendingSkill.set({ poder, valorCarta, fase: 'rival', numCartaPropia: null });
       this.poderPendiente.set(poder);
       this.esperandoObjetivo.set(true);
@@ -1642,6 +1653,17 @@ export class Tablero implements OnInit, OnDestroy {
 
   tapeteStyle(jugador: JugadorMesa): Record<string, string> {
     if (!jugador.tapete) return {};
+    const url = this.localTapeteUrl();
+    if (!url) return {};
+    return {
+      'background-image': `url(${url})`,
+      'background-size': 'cover',
+      'background-position': 'center',
+      'background-repeat': 'no-repeat',
+    };
+  }
+
+  tapeteAreaStyle(): Record<string, string> {
     const url = this.localTapeteUrl();
     if (!url) return {};
     return {

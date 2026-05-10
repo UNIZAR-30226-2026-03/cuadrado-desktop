@@ -1,7 +1,7 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { tap, delay, catchError, map } from 'rxjs/operators';
+import { tap, delay, catchError, map, switchMap } from 'rxjs/operators';
 import { of } from 'rxjs';
 import { environment } from '../environment';
 import { Usuario } from '../models/game';
@@ -26,8 +26,51 @@ export class AuthService {
       this._usuario.set(JSON.parse(usuarioGuardado));
       this._token.set(tokenGuardado);
       this.startProfileSync();
-      this.refreshProfile().subscribe();
+      this.validarYRenovarSesion();
     }
+  }
+
+  // Valida el token guardado al arrancar la app. Si el token expiró (401),
+  // usa el refreshToken para obtener uno nuevo. Si eso también falla → logout.
+  // Errores de red o backend dormido se ignoran (la sesión se mantiene).
+  private validarYRenovarSesion(): void {
+    const token = this._token();
+    const refreshToken = localStorage.getItem('refreshToken');
+    if (!token) return;
+
+    const headers = { Authorization: `Bearer ${token}` };
+    this.http.get<any>(`${environment.apiUrl}/users/me`, { headers }).pipe(
+      tap(profile => {
+        const current = this._usuario();
+        if (!current) return;
+        this.setUser({
+          ...current,
+          nombre: profile.username ?? current.nombre,
+          monedas: profile.cubitos ?? current.monedas,
+          exp: profile.eloRating ?? current.exp,
+          partidasJugadas: profile.gamesPlayed ?? current.partidasJugadas,
+          partidasGanadas: profile.gamesWon ?? current.partidasGanadas,
+          avatar: profile.equipado?.avatar ?? current.avatar,
+        });
+      }),
+      catchError(err => {
+        if (err.status === 401 && refreshToken) {
+          return this.http.post<any>(`${environment.apiUrl}/auth/refresh`, { refreshToken }).pipe(
+            tap(resp => {
+              this._token.set(resp.accessToken);
+              localStorage.setItem('token', resp.accessToken);
+              if (resp.refreshToken) localStorage.setItem('refreshToken', resp.refreshToken);
+            }),
+            switchMap(() => this.refreshProfile()),
+            catchError(() => {
+              this.limpiarSesion();
+              return of(null);
+            })
+          );
+        }
+        return of(null);
+      })
+    ).subscribe();
   }
 
   // 1. LOGIN
@@ -43,7 +86,7 @@ export class AuthService {
           const user: Usuario = {
             id: 0,
             nombre: u.username,
-            monedas: u.cubitos,
+            monedas: u.cubitos ?? 0,
             exp: u.eloRating,
             partidasJugadas: u.gamesPlayed ?? 0,
             partidasGanadas: u.gamesWon ?? 0,
