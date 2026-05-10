@@ -58,6 +58,22 @@
         </div>
       </div>
 
+      <!-- Dificultad de bots — visible solo si fillWithBots está activo -->
+      @if (fillWithBots()) {
+        <div class="config-field">
+          <label class="config-label">Dificultad de los bots</label>
+          <div class="turn-time-row">
+            @for (op of dificultadOptions; track op.value) {
+              <button class="turn-time-btn"
+                      [class.turn-time-btn--active]="dificultadBots() === op.value"
+                      (click)="dificultadBots.set(op.value)">
+                {{ op.label }}
+              </button>
+            }
+          </div>
+        </div>
+      }
+
       <!-- Máximo de jugadores -->
       <div class="config-field">
         <label class="config-label">Máximo de jugadores</label>
