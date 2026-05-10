@@ -281,6 +281,16 @@ export class WaitingRoom implements OnInit, OnDestroy {
   abrirPopupInicio(): void {
     if (!this.puedeIniciar() || this.iniciandoPartida()) return;
     if (this.partidaGuardada()) {
+      // Si hay una partida guardada pero la sala tiene huecos y está
+      // configurada para rellenar con bots, mostrar el popup para
+      // permitir elegir rellenar con bots o jugar con presentes.
+      const sala = this.sala();
+      const huecos = sala ? Math.max(0, sala.maxJugadores - sala.jugadores.length) : 0;
+      if (huecos > 0 && sala?.fillWithBots) {
+        this.showStartPopup.set(true);
+        return;
+      }
+
       // Reanudación: el backend ya sabe qué configuración usar, lanzar directo
       this.lanzarPartida();
     } else {
