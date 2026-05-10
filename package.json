@@ -10,6 +10,7 @@
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
     "electron:start": "ng build --base-href ./ && electron .",
+    "electron:local": "ng build --configuration local --base-href ./ && electron .",
     "electron:build": "ng build --base-href ./ && electron-builder --win"
   },
   "private": true,
