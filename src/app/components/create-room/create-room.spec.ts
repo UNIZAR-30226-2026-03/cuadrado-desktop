@@ -60,19 +60,20 @@ describe('CreateRoom — dificultad de bots', () => {
     fixture.detectChanges();
     await fixture.whenStable();
 
-    // Get the difficulty selector row (first .turn-time-row in the DOM)
     const rows = fixture.debugElement.queryAll(By.css('.turn-time-row'));
-    const diffRow = rows[0]; // difficulty row appears first in template
+    const diffRow = rows[0]; // difficulty row appears before turn-time row in template
     const buttons = diffRow.queryAll(By.css('button'));
 
-    // Click "Fácil" (index 0) via Angular's event system
-    buttons[0].triggerEventHandler('click', null);
+    // Select by text content, not by index
+    const btnFacil   = buttons.find(b => b.nativeElement.textContent.trim() === 'Fácil')!;
+    const btnDificil = buttons.find(b => b.nativeElement.textContent.trim() === 'Difícil')!;
+
+    btnFacil.triggerEventHandler('click', null);
     fixture.detectChanges();
     await fixture.whenStable();
     expect(component.dificultadBots()).toBe('facil');
 
-    // Click "Difícil" (index 2)
-    buttons[2].triggerEventHandler('click', null);
+    btnDificil.triggerEventHandler('click', null);
     fixture.detectChanges();
     await fixture.whenStable();
     expect(component.dificultadBots()).toBe('dificil');
