@@ -100,11 +100,10 @@
         @if (skill.fase === 'propia') {
           <p class="tablero__skill-panel-instruccion">Selecciona una de tus cartas</p>
         } @else if (skill.fase === 'cartaRival') {
-          @if (skill.poder === 'ver-carta-rival') {
-            <p class="tablero__skill-panel-instruccion">Elige una carta de cualquier rival para revelarla</p>
-          } @else {
-            <p class="tablero__skill-panel-instruccion">Selecciona una carta del rival</p>
-          }
+          <p class="tablero__skill-panel-instruccion">Selecciona una carta del rival</p>
+        } @else if (skill.fase === 'confirmar') {
+          <p class="tablero__skill-panel-instruccion">Se revelará una carta de cada rival.</p>
+          <button class="tablero__btn" (click)="confirmarPoderSinSeleccion()">Revelar cartas</button>
         } @else {
           <p class="tablero__skill-panel-instruccion">Elige un rival para aplicar el poder</p>
         }

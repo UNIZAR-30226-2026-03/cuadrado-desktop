@@ -19,6 +19,7 @@ import {
   EvAccionProtegidaCancelada,
   EvPlayerControllerChanged,
   EvInicioPartida,
+  EvRoomUpdate,
 } from '../../services/websocket';
 import { environment } from '../../environment';
 
@@ -28,7 +29,7 @@ const PODER_POR_VALOR: Record<number, PoderCarta | null> = {
   2: 'hacer-robar-carta',
   3: 'proteger-carta',
   4: 'saltar-turno-jugador',
-  5: 'ver-carta-rival',
+  5: 'ver-carta-todos',
   6: null,   // roba-y-sigue: backend automático al descartar
   7: null,   // habilidad almacenable (se activa manualmente desde mochila)
   8: null,   // habilidad almacenable (se activa manualmente desde mochila)
@@ -81,7 +82,7 @@ interface CartaReveladaModal {
 interface PendingSkill {
   poder: PoderCarta;
   valorCarta: number;
-  fase: 'propia' | 'rival' | 'cartaRival';
+  fase: 'propia' | 'rival' | 'cartaRival' | 'confirmar';
   numCartaPropia: number | null;
 }
 
@@ -136,9 +137,6 @@ export class Tablero implements OnInit, OnDestroy {
   esperandoObjetivo    = signal(false);
   poderPendiente       = signal<PoderCarta | null>(null);
   numCartaPendiente    = signal<number | null>(null);
-  // Poder 5 (ver-carta-rival): rival elegido en el primer paso, esperando
-  // a que el jugador elija una carta concreta del rival.
-  rivalSeleccionado    = signal<string | null>(null);
 
   // Feedback inbound (eventos servidor -> UI)
   cartaReveladaModal = signal<CartaReveladaModal | null>(null);
@@ -233,7 +231,17 @@ export class Tablero implements OnInit, OnDestroy {
     }));
   });
   timerUrgente    = computed(() => this.timerSegundos() <= 5 && this.esMiTurno() && this.fase() === 'decidiendo');
-  soyAnfitrion    = computed(() => this.roomService.esAnfitrion());
+  // hostId actual de la sala (sincronizado con room:update). Se compara con el
+  // nombre del usuario local para derivar `soyAnfitrion`. El localStorage es un
+  // fallback inicial: la fuente de verdad es el backend, no el cliente.
+  private hostId = signal<string | null>(null);
+  soyAnfitrion = computed(() => {
+    const host = this.hostId();
+    if (host !== null) {
+      return host === (this.auth.usuario()?.nombre ?? '');
+    }
+    return this.roomService.esAnfitrion();
+  });
 
   // Orden de turno sincronizado con el backend (userIds); vacío en modo local
   private turnoOrder: string[] = [];
@@ -326,6 +334,13 @@ export class Tablero implements OnInit, OnDestroy {
     this.cargarSkinsEquipadas();
 
     this.subs.push(
+      // Sincroniza hostId con el backend. Sin esta suscripción `soyAnfitrion`
+      // depende solo del localStorage, que puede ser obsoleto y provocar que
+      // un no-host vea el modal de "guardar y cerrar" (acción reservada al
+      // host) y termine cerrando la sala para todos.
+      this.ws.roomUpdate$.subscribe((ev: EvRoomUpdate) => {
+        this.hostId.set(ev.hostId);
+      }),
       this.ws.turnoIniciado$.subscribe((ev: EvTurnoIniciado) => {
         // Limpiar cartaPendiente de todos al transicionar de turno
         const sinPendientes = this.jugadores().map(j =>
@@ -1076,31 +1091,42 @@ export class Tablero implements OnInit, OnDestroy {
   //   ✅ game:decision-requerida emite { gameId, game: cartaRobada } solo al jugador que robó
   //      NOTA: en el backend el campo de la carta se llama "game", no "carta".
   private ejecutarRobo(): void {
-    if (this.deck.length === 0) {
-      // No debería ocurrir: el shuffle se gestiona en programarSiguienteTurno
+    const gameId = this.gameService.gameId();
+
+    // En modo local el deck local es la fuente de verdad. En online el deck
+    // local puede ir desincronizado (el backend gestiona el suyo) y .length
+    // === 0 no significa que la partida deba acabar.
+    if (!gameId && this.deck.length === 0) {
       this.finalizarPartida('El mazo se ha agotado sin poder rebarajar');
       return;
     }
 
     this.fase.set('robando');
-    const cartaRobada = this.deck.pop()!;
-    this.deckCount.set(this.deck.length);
 
     const all = [...this.jugadores()];
     const idx = this.idxActualEnArray();
     const jugador = all[idx];
 
-    // La carta sólo es visible para el jugador que la roba (no para bots visualmente)
-    all[idx] = {
-      ...jugador,
-      cartaPendiente: { ...cartaRobada, visible: jugador.esYo, seleccionada: false },
-    };
-    this.jugadores.set(all);
-
-    // En modo online, notificar al backend del robo para que avance su estado interno
-    // y acepte después el descarte/intercambio sin esperar el temporizador del servidor
-    const gameId = this.gameService.gameId();
-    if (gameId && jugador.esYo) this.ws.robarCarta(gameId);
+    if (gameId) {
+      // Online: NO mostramos una carta sacada del deck local (sería aleatoria
+      // y luego se reemplazaría por la real). Colocamos un placeholder oculto
+      // y esperamos `decision-requerida` (subscripción en ngOnInit) para
+      // pintar la carta real que envía el backend.
+      all[idx] = {
+        ...jugador,
+        cartaPendiente: { valor: 0, palo: 'joker', visible: false, seleccionada: false },
+      };
+      this.jugadores.set(all);
+      if (jugador.esYo) this.ws.robarCarta(gameId);
+    } else {
+      const cartaRobada = this.deck.pop()!;
+      this.deckCount.set(this.deck.length);
+      all[idx] = {
+        ...jugador,
+        cartaPendiente: { ...cartaRobada, visible: jugador.esYo, seleccionada: false },
+      };
+      this.jugadores.set(all);
+    }
 
     // Breve pausa de animación antes de pasar a fase de decisión.
     // El temporizador ya fue iniciado en iniciarTurno() (corre para todos los
@@ -1260,10 +1286,14 @@ export class Tablero implements OnInit, OnDestroy {
   private activarPoderDesdeDescarte(valorCarta: number, poder: PoderCarta): void {
     this.fase.set('idle');
 
-    if (poder === 'ver-carta-rival') {
-      // Poder 5: mostrar cartas de todos los rivales directamente sin paso intermedio.
-      // El jugador hace clic en cualquier carta de cualquier rival para espiarla.
-      this.pendingSkill.set({ poder, valorCarta, fase: 'cartaRival', numCartaPropia: null });
+    if (poder === 'ver-carta-todos') {
+      // Poder 5: revela una carta no protegida de cada rival. No requiere
+      // seleccionar objetivo, pero seguimos el patrón de cuadrado-web y
+      // mostramos un panel de confirmación; el emit va al pulsar "Revelar".
+      // Confirmar manualmente da margen al backend para procesar el descarte
+      // antes de recibir el ver-carta-todos.
+      this.pendingSkill.set({ poder, valorCarta, fase: 'confirmar', numCartaPropia: null });
+      return;
     } else if (
       poder === 'intercambiar-todas-cartas' ||
       poder === 'hacer-robar-carta' ||
@@ -1319,8 +1349,17 @@ export class Tablero implements OnInit, OnDestroy {
     this.esperandoObjetivo.set(false);
     this.poderPendiente.set(null);
     this.numCartaPendiente.set(null);
-    this.rivalSeleccionado.set(null);
     this.pendingSkill.set(null);
+  }
+
+  /** Confirma la activación de un poder que no requiere selección (poder 5).
+   *  Emite el evento al backend y limpia el panel. */
+  confirmarPoderSinSeleccion(): void {
+    const skill = this.pendingSkill();
+    if (!skill || skill.fase !== 'confirmar') return;
+    this.gameService.usarPoderCarta(skill.poder);
+    this.limpiarEstadoPoder();
+    if (!this.gameService.gameId()) this.programarSiguienteTurno();
   }
 
   seleccionarCartaRivalParaPoder(jugadorIdx: number, cartaIdx: number): void {
@@ -1328,20 +1367,6 @@ export class Tablero implements OnInit, OnDestroy {
     if (!skill || skill.fase !== 'cartaRival') return;
     const rival = this.jugadores()[jugadorIdx];
     if (!rival || rival.esYo) return;
-
-    // Poder 5 (ver-carta-rival): el rival ya fue elegido en el paso anterior,
-    // ahora el jugador elige qué carta de su mano revelar.
-    if (skill.poder === 'ver-carta-rival') {
-      const rivalIdSel = this.rivalSeleccionado();
-      if (rivalIdSel && rival.id !== rivalIdSel) return;
-      this.gameService.usarPoderCarta('ver-carta-rival', {
-        rivalId: rivalIdSel ?? rival.id,
-        numCartaRival: cartaIdx,
-      });
-      this.limpiarEstadoPoder();
-      if (!this.gameService.gameId()) this.programarSiguienteTurno();
-      return;
-    }
 
     // J (11): el flujo actual envía ver-carta con carta propia + rival, el
     // backend deja permiso 'decidir-intercambio-j' pendiente y emite la
@@ -1693,16 +1718,20 @@ export class Tablero implements OnInit, OnDestroy {
     }, 5000);
   }
 
-  iniciarSalida(): void {
+  async iniciarSalida(): Promise<void> {
     if (this.soyAnfitrion() && this.fase() !== 'fin') {
       this.modalSalidaVisible.set(true);
-    } else {
-      const gameId = this.gameService.gameId();
-      if (gameId && this.estaEnPartidaOnline() && this.fase() !== 'fin') {
-        this.ws.abandonarPartida(gameId);
-      }
-      this.salirPartida();
+      return;
     }
+    const gameId = this.gameService.gameId();
+    if (gameId && this.estaEnPartidaOnline() && this.fase() !== 'fin') {
+      // Esperamos el ack para asegurar que el backend procese el abandono
+      // ANTES de que `salirPartida` cierre el socket. Si desconectamos antes,
+      // el backend interpreta el cierre como abandono del host y emite
+      // room:closed al resto de jugadores.
+      await this.ws.abandonarPartidaAck(gameId);
+    }
+    this.salirPartida();
   }
 
   cerrarModalSalida(): void {
@@ -1726,9 +1755,13 @@ export class Tablero implements OnInit, OnDestroy {
   salirPartida(): void {
     this.limpiarTimers();
     this.limpiarFeedbackVisual();
-    this.gameService.salirDePartida();
+    // Cleanup de voz ANTES de desconectar, mismo orden que cuadrado-web. El
+    // emit voice:leave necesita un socket vivo, y al ir antes del disconnect
+    // sirve además de "buffer" para que cualquier emit pendiente termine de
+    // salir por la red.
     this.voiceChat.leaveVoiceRoom();
     this.voiceChat.stopLocalStream();
+    this.gameService.salirDePartida();
     this.router.navigate(['/lobby']);
   }
 
@@ -1900,15 +1933,6 @@ export class Tablero implements OnInit, OnDestroy {
     const poder = this.poderPendiente();
     const numCarta = this.numCartaPendiente();
     if (!poder) { this.cancelarObjetivoPoder(); return; }
-
-    // Poder 5 (ver-carta-rival): tras elegir rival, transición a fase
-    // 'cartaRival' para que el jugador elija qué carta del rival revelar.
-    if (poder === 'ver-carta-rival') {
-      this.pendingSkill.update(s => s ? { ...s, fase: 'cartaRival' } : null);
-      this.esperandoObjetivo.set(false);
-      this.rivalSeleccionado.set(rivalId);
-      return;
-    }
 
     this.gameService.usarPoderCarta(poder, {
       rivalId,

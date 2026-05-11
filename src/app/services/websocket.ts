@@ -309,6 +309,7 @@ export interface EvVoiceMuteChanged  { peerId: string; muted: boolean }
 export type PoderCarta =
   | 'ver-carta'
   | 'ver-carta-rival'
+  | 'ver-carta-todos'
   | 'intercambiar-carta'
   | 'intercambiar-todas-cartas'
   | 'hacer-robar-carta'
@@ -525,6 +526,23 @@ export class WebsocketService {
     this.emit('game:abandonar-partida', { gameId, dificultadBot });
   }
 
+  /** Variante con ack: garantiza que el backend procese el abandono antes
+   *  de que el cliente cierre el socket. Sin esto la desconexión inmediata
+   *  posterior puede atropellar al evento, y el backend interpreta el cierre
+   *  como salida del host emitiendo room:closed a todos. */
+  async abandonarPartidaAck(
+    gameId: string,
+    dificultadBot: 'facil' | 'media' | 'dificil' = 'media',
+  ): Promise<void> {
+    if (!this.socket?.connected) return;
+    try {
+      await this.socket.timeout(2000).emitWithAck('game:abandonar-partida', { gameId, dificultadBot });
+    } catch {
+      // Si el backend no implementa ack, el evento ya se envió igualmente; el
+      // try/catch solo cubre el timeout para no quedarnos colgados.
+    }
+  }
+
   async listarPartidasGuardadas(): Promise<SavedGameSummary[]> {
     if (!this.socket) return [];
     try {
@@ -637,6 +655,11 @@ export class WebsocketService {
     this.emit('game:ver-carta-rival', { gameId, rivalId, indexCartaRival });
   }
 
+  /** Poder 5 (real): revela una carta de cada jugador al solicitante. */
+  verCartaTodos(gameId: string): void {
+    this.emit('game:ver-carta-todos', { gameId });
+  }
+
   /** Poder J: resolver decisión final tras ver carta propia + rival. */
   resolverJ(gameId: string, intercambiar: boolean): void {
     this.emit('game:resolver-j', { gameId, intercambiar });
@@ -698,6 +721,9 @@ export class WebsocketService {
         return;
       case 'ver-carta-rival':
         this.verCartaRival(gameId, opts.rivalId!, opts.numCartaRival ?? 0);
+        return;
+      case 'ver-carta-todos':
+        this.verCartaTodos(gameId);
         return;
     }
   }

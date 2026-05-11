@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu } = require('electron');
+const { app, BrowserWindow, Menu, session, systemPreferences } = require('electron');
 const path = require('path');
 
 // Nombre visible en barra de tareas y alt+tab
@@ -30,7 +30,34 @@ function createWindow() {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  // En macOS hay que pedir explícitamente acceso al micrófono al SO. En Windows
+  // el sistema gestiona el permiso de forma global y `askForMediaAccess` no
+  // existe, así que nos saltamos esta llamada.
+  if (process.platform === 'darwin' && systemPreferences?.askForMediaAccess) {
+    try {
+      await systemPreferences.askForMediaAccess('microphone');
+    } catch {
+      // Si falla seguimos: el handler de permisos abajo permite que el motor
+      // de Chromium no bloquee la petición; el SO mostrará su propio prompt.
+    }
+  }
+
+  // Concede acceso al micrófono cuando getUserMedia lo solicita desde el render.
+  // Sin esto, Electron deniega 'media' silenciosamente y el chat de voz no
+  // captura audio (síntoma: nadie oye al usuario de la app de escritorio).
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    if (permission === 'media' || permission === 'audioCapture') {
+      callback(true);
+      return;
+    }
+    callback(false);
+  });
+
+  session.defaultSession.setPermissionCheckHandler((_webContents, permission) => {
+    return permission === 'media' || permission === 'audioCapture';
+  });
+
   createWindow();
 
   app.on('activate', () => {
