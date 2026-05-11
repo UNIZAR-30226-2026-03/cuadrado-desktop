@@ -389,10 +389,16 @@ export class Tablero implements OnInit, OnDestroy {
       }),
       this.ws.playerControllerChanged$.subscribe((ev: EvPlayerControllerChanged) => {
         if (ev.controlador === 'bot') {
-          const nombre = ev.nombreEnPartida ?? ev.userId;
-          this.mostrarBannerSustitucion(`${nombre} ha abandonado. Un bot tomará su lugar.`);
+          // Capturar el nombre ORIGINAL del jugador desde el estado local ANTES
+          // de mutar el slot. El backend envía `nombreEnPartida` con el nombre
+          // del bot que sustituye al jugador, así que confiar en el payload
+          // produciría "bot2 ha abandonado" en vez del nombre real del humano.
           const all = [...this.jugadores()];
           const idx = all.findIndex(j => j.id === ev.userId || j.nombre === ev.userId);
+          const nombreOriginal = idx >= 0 ? all[idx].nombre : ev.userId;
+
+          this.mostrarBannerSustitucion(`${nombreOriginal} ha abandonado. Un bot tomará su lugar.`);
+
           if (idx >= 0) {
             all[idx] = {
               ...all[idx],

@@ -4,6 +4,11 @@ const path = require('path');
 // Nombre visible en barra de tareas y alt+tab
 app.setName('Cubo');
 
+// Permitir que los <audio> remotos de WebRTC suenen sin necesidad de un gesto previo
+// del usuario. Sin esto, en la build empaquetada (file://) Chromium bloquea play()
+// y el audio entrante de los compañeros nunca se reproduce.
+app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
