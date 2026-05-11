@@ -1,22 +1,29 @@
 import { Injectable, signal } from '@angular/core';
 import { Subscription } from 'rxjs';
 import { WebsocketService } from './websocket';
+import { environment } from '../environment';
 
 export type MicPermission = 'unknown' | 'granted' | 'denied';
 
-const ICE_SERVERS: RTCIceServer[] = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'stun:stun1.l.google.com:19302' },
-  { urls: 'stun:openrelay.metered.ca:80' },
-  {
-    urls: [
-      'turn:openrelay.metered.ca:80',
-      'turn:openrelay.metered.ca:443?transport=tcp',
-    ],
-    username: 'openrelayproject',
-    credential: 'openrelayproject',
-  },
-];
+function buildIceServers(): RTCIceServer[] {
+  // STUN públicos de fallback (descubrimiento de IP pública).
+  const stunFallback: RTCIceServer[] = [
+    { urls: 'stun:stun.l.google.com:19302' },
+    { urls: 'stun:stun1.l.google.com:19302' },
+  ];
+  const custom = environment.iceServers ?? [];
+  if (custom.length === 0) {
+    console.warn(
+      '[voice] No hay TURN configurado en environment.iceServers — los peers detrás ' +
+      'de NAT estricto (Eduroam, 4G, oficinas) no podrán oírse. ' +
+      'Registra una cuenta gratis en https://dashboard.metered.ca/signup y pega su ' +
+      'snippet de iceServers en environment.ts.'
+    );
+  }
+  return [...stunFallback, ...custom];
+}
+
+const ICE_SERVERS: RTCIceServer[] = buildIceServers();
 
 const SPEAKING_THRESHOLD = 15; // amplitud media (0-255) para considerar que alguien habla
 

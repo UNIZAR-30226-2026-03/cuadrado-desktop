@@ -39,6 +39,18 @@ function createWindow() {
   // Eliminar la barra de menú por completo (Archivo, Editar, Ver...)
   Menu.setApplicationMenu(null);
 
+  // Atajos para abrir DevTools: F12 o Ctrl+Shift+I. Sin esto no hay forma de
+  // inspeccionar la consola en la build empaquetada (el menú está oculto).
+  win.webContents.on('before-input-event', (event, input) => {
+    const isToggleDevtools =
+      input.key === 'F12' ||
+      (input.control && input.shift && (input.key === 'I' || input.key === 'i'));
+    if (isToggleDevtools) {
+      win.webContents.toggleDevTools();
+      event.preventDefault();
+    }
+  });
+
   win.loadFile(path.join(__dirname, 'dist', 'cuadrado-app', 'browser', 'index.html'));
 
   // Mostrar la ventana cuando el contenido está renderizado (evita pantalla blanca)
