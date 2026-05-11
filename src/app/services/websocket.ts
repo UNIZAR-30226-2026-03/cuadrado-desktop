@@ -650,14 +650,9 @@ export class WebsocketService {
     this.emit('game:intercambiar-carta-interactivo', { gameId, numCartaJugador, rivalId });
   }
 
-  /** Poder 5: el solicitante elige un rival y una carta concreta a revelar. */
-  verCartaRival(gameId: string, rivalId: string, indexCartaRival: number): void {
-    this.emit('game:ver-carta-rival', { gameId, rivalId, indexCartaRival });
-  }
-
-  /** Poder 5 (real): revela una carta de cada jugador al solicitante. */
+  /** Poder 5: revela una carta aleatoria de cada jugador al solicitante. */
   verCartaTodos(gameId: string): void {
-    this.emit('game:ver-carta-todos', { gameId });
+    this.emit('game:ver-carta-todos', { idPartida: gameId });
   }
 
   /** Poder J: resolver decisión final tras ver carta propia + rival. */
@@ -718,9 +713,6 @@ export class WebsocketService {
         return;
       case 'saltar-turno-jugador':
         this.saltarTurnoJugador(gameId, opts.rivalId!);
-        return;
-      case 'ver-carta-rival':
-        this.verCartaRival(gameId, opts.rivalId!, opts.numCartaRival ?? 0);
         return;
       case 'ver-carta-todos':
         this.verCartaTodos(gameId);

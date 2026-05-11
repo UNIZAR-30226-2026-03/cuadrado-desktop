@@ -587,11 +587,14 @@ export class Tablero implements OnInit, OnDestroy {
       // Poder 5: modal con cartas reveladas a todos.
       this.ws.cartasReveladasTodos$.subscribe((ev) => {
         const cartas = ev.cartas
-          .map(c => ({
-            jugadorId: c.jugadorId,
-            valor: c.carta.carta,
-            palo: this.normalizarPalo(c.carta.palo) ?? ('picas' as Palo),
-          }));
+          .map(c => {
+            const nombre = this.jugadores().find(j => j.id === c.jugadorId)?.nombre ?? c.jugadorId;
+            return {
+              jugadorId: nombre,
+              valor: c.carta.carta,
+              palo: this.normalizarPalo(c.carta.palo) ?? ('picas' as Palo),
+            };
+          });
         this.cartasReveladasTodosModal.set(cartas);
         if (this.cartasTodosTimeout) clearTimeout(this.cartasTodosTimeout);
         this.cartasTodosTimeout = setTimeout(() => {
@@ -1287,11 +1290,8 @@ export class Tablero implements OnInit, OnDestroy {
     this.fase.set('idle');
 
     if (poder === 'ver-carta-todos') {
-      // Poder 5: revela una carta no protegida de cada rival. No requiere
-      // seleccionar objetivo, pero seguimos el patrón de cuadrado-web y
-      // mostramos un panel de confirmación; el emit va al pulsar "Revelar".
-      // Confirmar manualmente da margen al backend para procesar el descarte
-      // antes de recibir el ver-carta-todos.
+      // Poder 5: muestra panel de confirmación; el emit va al pulsar "Revelar".
+      // El margen da tiempo al backend para procesar el descarte primero.
       this.pendingSkill.set({ poder, valorCarta, fase: 'confirmar', numCartaPropia: null });
       return;
     } else if (
@@ -1368,9 +1368,7 @@ export class Tablero implements OnInit, OnDestroy {
     const rival = this.jugadores()[jugadorIdx];
     if (!rival || rival.esYo) return;
 
-    // J (11): el flujo actual envía ver-carta con carta propia + rival, el
-    // backend deja permiso 'decidir-intercambio-j' pendiente y emite la
-    // revelación de ambas cartas.
+    // J (11): ver carta propia + carta rival, backend deja permiso 'decidir-intercambio-j'.
     const numCartaPropia = skill.numCartaPropia;
     if (numCartaPropia === null) return;
 
