@@ -7,6 +7,15 @@ export type MicPermission = 'unknown' | 'granted' | 'denied';
 const ICE_SERVERS: RTCIceServer[] = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'stun:stun1.l.google.com:19302' },
+  { urls: 'stun:openrelay.metered.ca:80' },
+  {
+    urls: [
+      'turn:openrelay.metered.ca:80',
+      'turn:openrelay.metered.ca:443?transport=tcp',
+    ],
+    username: 'openrelayproject',
+    credential: 'openrelayproject',
+  },
 ];
 
 const SPEAKING_THRESHOLD = 15; // amplitud media (0-255) para considerar que alguien habla
@@ -33,9 +42,11 @@ export class VoiceChatService {
   readonly selfMutedPeers = signal<ReadonlySet<string>>(new Set());
 
   // ── Internos ───────────────────────────────────────────────────────────────
-  private peers       = new Map<string, RTCPeerConnection>();
-  private remoteAudio = new Map<string, HTMLAudioElement>();
+  private peers            = new Map<string, RTCPeerConnection>();
+  private remoteAudio      = new Map<string, HTMLAudioElement>();
   private signalSubs: Subscription[] = [];
+  // ICE candidates que llegan antes de que setRemoteDescription complete
+  private pendingCandidates = new Map<string, RTCIceCandidateInit[]>();
 
   private audioCtx: AudioContext | null = null;
   private localAnalyser: AnalyserNode | null = null;
@@ -191,18 +202,29 @@ export class VoiceChatService {
   private async onOffer(from: string, offer: RTCSessionDescriptionInit): Promise<void> {
     const pc = this.createPeer(from);
     await pc.setRemoteDescription(offer);
+    await this.drainPendingCandidates(from, pc);
     const answer = await pc.createAnswer();
     await pc.setLocalDescription(answer);
     this.ws.sendVoiceAnswer(from, answer);
   }
 
   private async onAnswer(from: string, answer: RTCSessionDescriptionInit): Promise<void> {
-    await this.peers.get(from)?.setRemoteDescription(answer);
+    const pc = this.peers.get(from);
+    if (!pc) return;
+    await pc.setRemoteDescription(answer);
+    await this.drainPendingCandidates(from, pc);
   }
 
   private async onIceCandidate(from: string, candidate: RTCIceCandidateInit): Promise<void> {
     const pc = this.peers.get(from);
     if (!pc) return;
+    if (!pc.remoteDescription) {
+      // remoteDescription aún no está listo: encolar para aplicar después
+      const queue = this.pendingCandidates.get(from) ?? [];
+      queue.push(candidate);
+      this.pendingCandidates.set(from, queue);
+      return;
+    }
     try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch { /* ignorar */ }
   }
 
@@ -269,6 +291,7 @@ export class VoiceChatService {
   private closePeer(peerId: string): void {
     this.peers.get(peerId)?.close();
     this.peers.delete(peerId);
+    this.pendingCandidates.delete(peerId);
     const el = this.remoteAudio.get(peerId);
     if (el) {
       el.srcObject = null;
@@ -291,6 +314,14 @@ export class VoiceChatService {
     const track = this.localStream()?.getAudioTracks()[0];
     if (!track) return;
     pc.getSenders().find(s => s.track?.kind === 'audio')?.replaceTrack(track);
+  }
+
+  private async drainPendingCandidates(peerId: string, pc: RTCPeerConnection): Promise<void> {
+    const queued = this.pendingCandidates.get(peerId) ?? [];
+    this.pendingCandidates.delete(peerId);
+    for (const c of queued) {
+      try { await pc.addIceCandidate(new RTCIceCandidate(c)); } catch { /* ignorar */ }
+    }
   }
 
   private teardownSignaling(): void {

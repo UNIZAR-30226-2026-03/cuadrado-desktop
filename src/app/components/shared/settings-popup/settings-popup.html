@@ -39,17 +39,7 @@
                (input)="voiceChat.setOutputVolume(+$any($event.target).value)" />
         <span class="config-slider-pct">{{ voiceChat.outputVolume() }}%</span>
       </div>
-      <div class="config-device-row">
-        <span class="config-slider-label">Entrada</span>
-        <select class="config-select"
-                [value]="voiceChat.selectedDeviceId()"
-                (change)="voiceChat.selectDevice($any($event.target).value)">
-          <option value="default">Por defecto (micrófono del sistema)</option>
-          @for (device of voiceChat.audioInputDevices(); track device.deviceId) {
-            <option [value]="device.deviceId">{{ device.label || 'Micrófono ' + ($index + 1) }}</option>
-          }
-        </select>
-      </div>
+
     </section>
   </div>
 </div>
