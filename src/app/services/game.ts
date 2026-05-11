@@ -87,6 +87,11 @@ export class GameService {
 
     this.ws.turnoIniciado$.subscribe((ev) => {
       this._ultimoTurnoIniciado.set(ev);
+      // Mantener gameId sincronizado con cada turno (misma estrategia que el web React).
+      // Cubre el caso en que _gameId quedó desincronizado (reconexión, timing, etc.)
+      if (ev.gameId) {
+        this._gameId.set(ev.gameId);
+      }
     });
 
     this.ws.cartaRevelada$.subscribe((ev) => {

@@ -1,8 +1,9 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Router } from '@angular/router';
 import { HttpClient } from '@angular/common/http';
-import { tap, delay, catchError, map, switchMap } from 'rxjs/operators';
+import { tap, catchError, map, switchMap } from 'rxjs/operators';
 import { of } from 'rxjs';
+import { firstValueFrom } from 'rxjs';
 import { environment } from '../environment';
 import { Usuario } from '../models/game';
 
@@ -149,17 +150,41 @@ export class AuthService {
   }
 
   // 3. CAMBIAR CONTRASEÑA
-  // NestJS está protegido por @UseGuards(JwtGuard), así que hay que enviar el Token
-  cambiarPassword(passwordActual: string, nuevaPassword: string) {
+  async cambiarPassword(passwordActual: string, nuevaPassword: string): Promise<boolean> {
     const headers = { Authorization: `Bearer ${this.getToken()}` };
-    return this.http.post(`${environment.apiUrl}/auth/change-password`, 
-      { passwordActual, nuevaPassword }, 
-      { headers }
+    try {
+      await firstValueFrom(
+        this.http.post(`${environment.apiUrl}/auth/change-password`,
+          { currentPassword: passwordActual, newPassword: nuevaPassword },
+          { headers }
+        )
+      );
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  // 4. RECUPERAR CONTRASEÑA — paso 1: enviar código al email
+  recuperarPassword(email: string) {
+    return this.http.post(
+      `${environment.apiUrl}/forgotten_passwd/notify`,
+      { email }
     );
   }
 
-  recuperarPassword(email: string){
-    return of(true).pipe(delay(1000));
+  // 4b. RECUPERAR CONTRASEÑA — paso 2: validar código y cambiar contraseña
+  async resetearPassword(email: string, authCode: string, newPassword: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.http.post(`${environment.apiUrl}/forgotten_passwd/reset-password`,
+          { email, authCode, newPassword }
+        )
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // 4. LOGOUT (Avisar al backend)

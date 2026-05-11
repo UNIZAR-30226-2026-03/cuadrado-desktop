@@ -313,6 +313,20 @@ export class Tablero implements OnInit, OnDestroy {
         }
         return jLocal;
       });
+
+      // Bots que el backend conoce pero no están en el sala local
+      // (ocurre para jugadores no-anfitrión cuando el host añadió bots
+      // desde la sala de espera sin emitirlos por WebSocket)
+      for (; botIndex < botsReales.length; botIndex++) {
+        const botReal = botsReales[botIndex];
+        jugadoresFinales.push({
+          id: botReal.userId,
+          nombre: botReal.nombreEnPartida || 'Bot',
+          esBot: true,
+          esAnfitrion: false,
+          avatar: '🤖',
+        });
+      }
     }
 
     this.inicializarJuego(jugadoresFinales);
@@ -633,13 +647,23 @@ export class Tablero implements OnInit, OnDestroy {
   }
 
   private cargarSkinsEquipadas(): void {
+    const cachedReverso = localStorage.getItem('equippedReversoUrl');
+    const cachedTapete  = localStorage.getItem('equippedTapeteUrl');
+    if (cachedReverso) this.localReversoUrl.set(cachedReverso);
+    if (cachedTapete)  this.localTapeteUrl.set(cachedTapete);
+
     const headers = { Authorization: `Bearer ${this.auth.getToken()}` };
     this.http.get<{ carta: string | null; tapete: string | null }>(
       `${environment.apiUrl}/skins/equipped`, { headers }
     ).subscribe({
       next: (data) => {
-        this.localReversoUrl.set(data.carta ?? environment.defaultReversoUrl);
-        if (data.tapete) this.localTapeteUrl.set(data.tapete);
+        const reversoUrl = data.carta ?? environment.defaultReversoUrl;
+        this.localReversoUrl.set(reversoUrl);
+        localStorage.setItem('equippedReversoUrl', reversoUrl);
+        if (data.tapete) {
+          this.localTapeteUrl.set(data.tapete);
+          localStorage.setItem('equippedTapeteUrl', data.tapete);
+        }
       },
     });
   }
@@ -1777,7 +1801,7 @@ export class Tablero implements OnInit, OnDestroy {
       id: roomCode,
       nombre: roomName,
       anfitrion: soyHost ? (this.auth.usuario()?.nombre ?? '') : '',
-      publica: false,
+      publica: this.roomService.obtenerSala()?.publica ?? false,
       estado: 'esperando' as const,
       jugadores: [],
       dificultadBots: 'Normal' as const,
@@ -1989,6 +2013,7 @@ export class Tablero implements OnInit, OnDestroy {
     if (this.bannerSustitucionTimer) {
       clearTimeout(this.bannerSustitucionTimer);
       this.bannerSustitucionTimer = null;
+      this.bannerSustitucion.set(null);
     }
   }
 }

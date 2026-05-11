@@ -177,11 +177,13 @@ export class Inventory implements OnInit {
       next: () => {
         if (skin.type === 'Carta') {
           this.equippedCardName.set(skin.name);
+          localStorage.setItem('equippedReversoUrl', skin.url);
           if (this.usuario) {
             this.auth.updateUser({ reverso: skin.name });
           }
         } else if (skin.type === 'Tapete') {
           this.equippedTapeteName.set(skin.name);
+          localStorage.setItem('equippedTapeteUrl', skin.url);
           if (this.usuario) {
             this.auth.updateUser({ tapete: skin.name });
           }
@@ -201,6 +203,7 @@ export class Inventory implements OnInit {
       next: () => {
         if (type === 'Carta') {
           this.equippedCardName.set(null);
+          localStorage.removeItem('equippedReversoUrl');
           if (this.usuario) {
             this.auth.updateUser({ reverso: '' });
           }
@@ -212,6 +215,7 @@ export class Inventory implements OnInit {
           }
         } else if (type === 'Tapete') {
           this.equippedTapeteName.set(null);
+          localStorage.removeItem('equippedTapeteUrl');
           if (this.usuario) {
             this.auth.updateUser({ tapete: '' });
           }

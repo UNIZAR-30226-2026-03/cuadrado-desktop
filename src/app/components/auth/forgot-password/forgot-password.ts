@@ -1,5 +1,5 @@
 import { Component } from '@angular/core';
-import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
+import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractControl, ValidationErrors } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { AuthService } from '../../../services/auth';
@@ -20,29 +20,56 @@ import { AuthService } from '../../../services/auth';
   ],
 })
 export class ForgotPasswordComponent {
-  form: FormGroup;
-  enviado = false;
+  emailForm: FormGroup;
+  resetForm: FormGroup;
+
+  paso: 'email' | 'codigo' | 'exito' = 'email';
   cargando = false;
+  error = '';
+  private emailEnviado = '';
 
   constructor(private fb: FormBuilder, private auth: AuthService) {
-    this.form = this.fb.group({
+    this.emailForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
+    });
+    this.resetForm = this.fb.group({
+      codigo:           ['', [Validators.required]],
+      passwordNueva:    ['', [Validators.required, Validators.minLength(8)]],
+      confirmarPassword: ['', [Validators.required]],
+    }, { validators: this.passwordsMatch });
+  }
+
+  private passwordsMatch(group: AbstractControl): ValidationErrors | null {
+    const p = group.get('passwordNueva')?.value;
+    const c = group.get('confirmarPassword')?.value;
+    return p && c && p !== c ? { passwordsMismatch: true } : null;
+  }
+
+  onSubmitEmail(): void {
+    if (this.emailForm.invalid) { this.emailForm.markAllAsTouched(); return; }
+    this.cargando = true;
+    this.error = '';
+    this.emailEnviado = this.emailForm.value.email;
+
+    this.auth.recuperarPassword(this.emailEnviado).subscribe({
+      next: () => {
+        this.cargando = false;
+        this.paso = 'codigo';
+      },
+      error: () => {
+        this.cargando = false;
+        this.error = 'No se pudo enviar el correo. Verifica que el email esté registrado.';
+      },
     });
   }
 
-  onSubmit(): void {
-    if (this.form.invalid) { this.form.markAllAsTouched(); return; }
+  async onSubmitReset(): Promise<void> {
+    if (this.resetForm.invalid) { this.resetForm.markAllAsTouched(); return; }
     this.cargando = true;
-    
-    this.auth.recuperarPassword(this.form.value.email).subscribe({
-      next: () => {
-        this.cargando = false;
-        this.enviado = true;
-      },
-      error: (err : any) => {
-        this.cargando = false;
-        console.error('Error al recuperar contraseña', err);
-      }
-    });
+    this.error = '';
+    const { codigo, passwordNueva } = this.resetForm.value;
+    const ok = await this.auth.resetearPassword(this.emailEnviado, codigo, passwordNueva);
+    this.cargando = false;
+    ok ? this.paso = 'exito' : this.error = 'Código incorrecto o expirado. Inténtalo de nuevo.';
   }
 }
