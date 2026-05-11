@@ -1,0 +1,30 @@
+.settings-fab {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 150;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  font-size: 20px;
+  background: rgba(10, 25, 60, 0.6);
+  border: 1px solid rgba(0, 229, 255, 0.22);
+  border-radius: 50%;
+  color: #cfe1ff;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35);
+  transition: color 250ms ease, border-color 250ms ease,
+              box-shadow 250ms ease, transform 250ms ease;
+
+  &:hover {
+    color: #00e5ff;
+    border-color: rgba(0, 229, 255, 0.5);
+    box-shadow: 0 0 18px rgba(0, 229, 255, 0.25);
+    transform: scale(1.06) rotate(35deg);
+  }
+}

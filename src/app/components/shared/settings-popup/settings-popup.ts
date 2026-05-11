@@ -1,5 +1,6 @@
-import { Component, OnInit, output } from '@angular/core';
+import { Component, output } from '@angular/core';
 import { VoiceChatService } from '../../../services/voice-chat';
+import { BackgroundMusicService } from '../../../services/background-music';
 
 @Component({
   selector: 'app-settings-popup',
@@ -8,14 +9,13 @@ import { VoiceChatService } from '../../../services/voice-chat';
   templateUrl: './settings-popup.html',
   styleUrl: './settings-popup.scss',
 })
-export class SettingsPopupComponent implements OnInit {
+export class SettingsPopupComponent {
   readonly closed = output<void>();
 
-  constructor(protected voiceChat: VoiceChatService) {}
-
-  ngOnInit(): void {
-    this.voiceChat.requestPermissionAndLoadDevices();
-  }
+  constructor(
+    protected voiceChat: VoiceChatService,
+    protected backgroundMusic: BackgroundMusicService,
+  ) {}
 
   close(): void { this.closed.emit(); }
 }

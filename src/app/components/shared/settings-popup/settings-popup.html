@@ -11,9 +11,19 @@
       <div class="config-slider-row">
         <span class="config-slider-label">Música</span>
         <input class="config-slider" type="range" min="0" max="100"
-               [value]="voiceChat.musicVolume()"
-               (input)="voiceChat.setMusicVolume(+$any($event.target).value)" />
-        <span class="config-slider-pct">{{ voiceChat.musicVolume() }}%</span>
+               [value]="backgroundMusic.volume()"
+               (input)="backgroundMusic.setVolume(+$any($event.target).value)" />
+        <span class="config-slider-pct">{{ backgroundMusic.volume() }}%</span>
+      </div>
+      <div class="config-slider-row">
+        <span class="config-slider-label">Canción</span>
+        <select class="config-select"
+                (change)="backgroundMusic.selectTrack($any($event.target).value)">
+          @for (t of backgroundMusic.tracks(); track t.file) {
+            <option [value]="t.file"
+                    [selected]="t.file === backgroundMusic.currentTrack()?.file">{{ t.name }}</option>
+          }
+        </select>
       </div>
       <div class="config-slider-row">
         <span class="config-slider-label">Efectos</span>

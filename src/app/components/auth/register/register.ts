@@ -4,11 +4,12 @@ import { Router,RouterLink } from '@angular/router';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { AuthService } from '../../../services/auth';
 import { finalize, timeout } from 'rxjs';
+import { SettingsFabComponent } from '../../shared/settings-fab/settings-fab';
 
 @Component({
   selector: 'app-register',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, SettingsFabComponent],
   templateUrl: './register.html',
   styleUrl: './register.scss',
   animations: [

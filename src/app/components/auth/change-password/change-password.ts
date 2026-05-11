@@ -3,11 +3,12 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators, AbstractContro
 import { RouterLink } from '@angular/router';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { AuthService } from '../../../services/auth';
+import { SettingsFabComponent } from '../../shared/settings-fab/settings-fab';
 
 @Component({
   selector: 'app-change-password',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, SettingsFabComponent],
   templateUrl: './change-password.html',
   styleUrl: './change-password.scss',
   animations: [
