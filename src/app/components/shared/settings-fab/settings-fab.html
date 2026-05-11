@@ -1,0 +1,8 @@
+<button class="settings-fab"
+        (click)="open()"
+        aria-label="Ajustes"
+        title="Ajustes">⚙</button>
+
+@if (showPopup()) {
+  <app-settings-popup (closed)="close()"></app-settings-popup>
+}

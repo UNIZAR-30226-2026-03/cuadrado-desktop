@@ -252,7 +252,6 @@ export class Lobby implements OnInit, OnDestroy {
 
   openConfigPopup(): void {
     this.showConfigPopup = true;
-    this.voiceChat.requestPermissionAndLoadDevices();
   }
 
   closeConfigPopup(): void {

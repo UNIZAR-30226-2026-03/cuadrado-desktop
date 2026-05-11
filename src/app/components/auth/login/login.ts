@@ -3,11 +3,12 @@ import { ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angula
 import { Router, RouterLink } from '@angular/router';
 import { trigger, transition, style, animate } from '@angular/animations';
 import { AuthService } from '../../../services/auth';
+import { SettingsFabComponent } from '../../shared/settings-fab/settings-fab';
 
 @Component({
   selector: 'app-login',
   standalone: true,
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, SettingsFabComponent],
   templateUrl: './login.html',
   styleUrl: './login.scss',
   animations: [

@@ -35,7 +35,6 @@ export class VoiceChatService {
   readonly localStream       = signal<MediaStream | null>(null);
   readonly selectedDeviceId  = signal<string>('default');
   readonly outputVolume      = signal<number>(80);
-  readonly musicVolume       = signal<number>(80);
   readonly sfxVolume         = signal<number>(80);
   readonly micMuted          = signal(false);
 
@@ -103,7 +102,6 @@ export class VoiceChatService {
     this.remoteAudio.forEach(el => (el.volume = vol));
   }
 
-  setMusicVolume(volume: number): void { this.musicVolume.set(clamp(volume)); }
   setSfxVolume(volume: number): void   { this.sfxVolume.set(clamp(volume)); }
 
   // ── Stream local (micrófono) ───────────────────────────────────────────────
