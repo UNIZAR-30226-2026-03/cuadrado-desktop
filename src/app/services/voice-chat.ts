@@ -108,16 +108,22 @@ export class VoiceChatService {
     };
     try {
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const tracks = stream.getAudioTracks();
+      console.log(`[voice] startLocalStream OK — audio tracks=${tracks.length}, label="${tracks[0]?.label}"`);
       this.localStream.set(stream);
       this.selectedDeviceId.set(deviceId);
       // Sincronizar el estado real de las pistas con el flag micMuted: si el usuario
       // entra con el servicio ya en "muteado", las nuevas pistas vienen enabled=true
       // por defecto y la UI mostraría silenciado mientras el audio sí se transmite.
-      stream.getAudioTracks().forEach(t => (t.enabled = !this.micMuted()));
+      tracks.forEach(t => (t.enabled = !this.micMuted()));
       this.setupLocalAnalyser(stream);
       this.ensureDetectionRunning();
+      // Si ya hay peers conectados (caso reentry/revancha), inyectar la nueva pista
+      // en todos los senders para que la transmisión continúe sin renegociar.
+      this.peers.forEach(pc => this.replaceTrackInPeer(pc));
       return stream;
-    } catch {
+    } catch (err) {
+      console.error('[voice] startLocalStream FAILED:', err);
       return null;
     }
   }
@@ -165,6 +171,7 @@ export class VoiceChatService {
   // ── Sala de voz (señalización WebRTC) ─────────────────────────────────────
 
   joinVoiceRoom(roomId: string): void {
+    console.log(`[voice] joinVoiceRoom(${roomId}) — localStream tracks=${this.localStream()?.getAudioTracks().length ?? 0}`);
     this.teardownSignaling();
     this.selfMutedPeers.set(new Set());
     this.mutedPeers.set(new Set());
@@ -181,6 +188,7 @@ export class VoiceChatService {
   }
 
   leaveVoiceRoom(): void {
+    console.log('[voice] leaveVoiceRoom');
     this.ws.leaveVoiceRoom();
     this.closeAllPeers();
     this.teardownSignaling();
@@ -189,30 +197,52 @@ export class VoiceChatService {
   // ── Callbacks de señalización ──────────────────────────────────────────────
 
   private async onPeers(peerIds: string[]): Promise<void> {
+    console.log(`[voice] voice:peers -> [${peerIds.map(p => p.slice(0, 6)).join(', ')}]`);
     for (const peerId of peerIds) {
-      const pc = this.createPeer(peerId);
-      const offer = await pc.createOffer();
-      await pc.setLocalDescription(offer);
-      this.ws.sendVoiceOffer(peerId, offer);
+      try {
+        const pc = this.createPeer(peerId);
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        console.log(`[voice] offer-> ${peerId.slice(0, 6)}`);
+        this.ws.sendVoiceOffer(peerId, offer);
+      } catch (err) {
+        console.error(`[voice] onPeers error con ${peerId.slice(0, 6)}:`, err);
+      }
     }
   }
 
-  private onPeerJoined(_peerId: string): void { /* El nuevo peer nos enviará una oferta */ }
+  private onPeerJoined(peerId: string): void {
+    console.log(`[voice] peer-joined: ${peerId.slice(0, 6)} (esperamos su oferta)`);
+  }
 
   private async onOffer(from: string, offer: RTCSessionDescriptionInit): Promise<void> {
-    const pc = this.createPeer(from);
-    await pc.setRemoteDescription(offer);
-    await this.drainPendingCandidates(from, pc);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    this.ws.sendVoiceAnswer(from, answer);
+    console.log(`[voice] offer<- ${from.slice(0, 6)}`);
+    try {
+      const pc = this.createPeer(from);
+      await pc.setRemoteDescription(offer);
+      await this.drainPendingCandidates(from, pc);
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      console.log(`[voice] answer-> ${from.slice(0, 6)}`);
+      this.ws.sendVoiceAnswer(from, answer);
+    } catch (err) {
+      console.error(`[voice] onOffer error con ${from.slice(0, 6)}:`, err);
+    }
   }
 
   private async onAnswer(from: string, answer: RTCSessionDescriptionInit): Promise<void> {
+    console.log(`[voice] answer<- ${from.slice(0, 6)}`);
     const pc = this.peers.get(from);
-    if (!pc) return;
-    await pc.setRemoteDescription(answer);
-    await this.drainPendingCandidates(from, pc);
+    if (!pc) {
+      console.warn(`[voice] answer recibido para peer desconocido ${from.slice(0, 6)}`);
+      return;
+    }
+    try {
+      await pc.setRemoteDescription(answer);
+      await this.drainPendingCandidates(from, pc);
+    } catch (err) {
+      console.error(`[voice] onAnswer error con ${from.slice(0, 6)}:`, err);
+    }
   }
 
   private async onIceCandidate(from: string, candidate: RTCIceCandidateInit): Promise<void> {
@@ -225,7 +255,11 @@ export class VoiceChatService {
       this.pendingCandidates.set(from, queue);
       return;
     }
-    try { await pc.addIceCandidate(new RTCIceCandidate(candidate)); } catch { /* ignorar */ }
+    try {
+      await pc.addIceCandidate(new RTCIceCandidate(candidate));
+    } catch (err) {
+      console.warn(`[voice] addIceCandidate falló para ${from.slice(0, 6)}:`, err);
+    }
   }
 
   private onPeerLeft(peerId: string): void { this.closePeer(peerId); }
@@ -241,19 +275,57 @@ export class VoiceChatService {
   // ── Gestión de peers ───────────────────────────────────────────────────────
 
   private createPeer(peerId: string): RTCPeerConnection {
-    const pc = new RTCPeerConnection({ iceServers: ICE_SERVERS });
+    const tag = peerId.slice(0, 6);
+    const pc = new RTCPeerConnection({
+      iceServers: ICE_SERVERS,
+      iceCandidatePoolSize: 4,
+      bundlePolicy: 'max-bundle',
+    });
 
+    // Garantizar siempre una sección m=audio sendrecv en la SDP. Si no hay
+    // localStream todavía, igualmente añadimos un transceiver para que la
+    // negociación tenga la dirección correcta y luego attacharemos la track
+    // cuando esté disponible.
     const stream = this.localStream();
-    if (stream) stream.getTracks().forEach(t => pc.addTrack(t, stream));
+    const localTrack = stream?.getAudioTracks()[0] ?? null;
+    if (stream && localTrack) {
+      pc.addTrack(localTrack, stream);
+    } else {
+      pc.addTransceiver('audio', { direction: 'sendrecv' });
+      console.warn(`[voice] createPeer(${tag}) sin localStream — se añadió transceiver vacío`);
+    }
 
-    pc.ontrack = event => this.attachRemoteAudio(peerId, event.streams[0]);
+    pc.ontrack = event => {
+      const remote = event.streams[0];
+      console.log(`[voice] ontrack <- ${tag}, tracks=${remote?.getTracks().length}, kind=${event.track.kind}`);
+      this.attachRemoteAudio(peerId, remote);
+    };
 
     pc.onicecandidate = event => {
-      if (event.candidate) this.ws.sendIceCandidate(peerId, event.candidate.toJSON());
+      if (event.candidate) {
+        const c = event.candidate;
+        console.log(`[voice] ice-out -> ${tag} type=${c.type} proto=${c.protocol} addr=${c.address ?? c.candidate.slice(0, 40)}`);
+        this.ws.sendIceCandidate(peerId, c.toJSON());
+      }
+    };
+
+    pc.oniceconnectionstatechange = () => {
+      console.log(`[voice] peer ${tag} iceConnectionState=${pc.iceConnectionState}`);
+    };
+
+    pc.onicegatheringstatechange = () => {
+      console.log(`[voice] peer ${tag} iceGatheringState=${pc.iceGatheringState}`);
+    };
+
+    pc.onsignalingstatechange = () => {
+      console.log(`[voice] peer ${tag} signalingState=${pc.signalingState}`);
     };
 
     pc.onconnectionstatechange = () => {
-      if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      console.log(`[voice] peer ${tag} connectionState=${pc.connectionState}`);
+      // 'disconnected' es transitorio (puede recuperarse); sólo cerramos en 'failed'.
+      if (pc.connectionState === 'failed') {
+        console.warn(`[voice] peer ${tag} FAILED — cerrando`);
         this.closePeer(peerId);
       }
     };
@@ -264,6 +336,7 @@ export class VoiceChatService {
   }
 
   private attachRemoteAudio(peerId: string, stream: MediaStream): void {
+    const tag = peerId.slice(0, 6);
     let el = this.remoteAudio.get(peerId);
     if (!el) {
       el = new Audio();
@@ -283,7 +356,9 @@ export class VoiceChatService {
     // Forzamos play(): aunque autoplay esté permitido por el switch de Electron,
     // si la política de autoplay rechaza el primer intento, capturamos el error
     // sin romper el resto del flujo.
-    el.play().catch(() => { /* el usuario interactuará y se reanudará */ });
+    el.play()
+      .then(() => console.log(`[voice] audio remoto reproduciendo (${tag})`))
+      .catch(err => console.warn(`[voice] play() rechazado para ${tag}:`, err?.name ?? err));
     this.setupRemoteAnalyser(peerId, stream);
     this.ensureDetectionRunning();
   }
@@ -313,7 +388,12 @@ export class VoiceChatService {
   private replaceTrackInPeer(pc: RTCPeerConnection): void {
     const track = this.localStream()?.getAudioTracks()[0];
     if (!track) return;
-    pc.getSenders().find(s => s.track?.kind === 'audio')?.replaceTrack(track);
+    // Buscar el sender de audio. Si ya tenía track, lo encontramos por kind del track.
+    // Si fue creado con addTransceiver vacío, buscamos vía transceivers para no perder
+    // la entrega cuando se inicia el stream tras la negociación.
+    const sender = pc.getSenders().find(s => s.track?.kind === 'audio')
+      ?? pc.getTransceivers().find(t => t.receiver.track?.kind === 'audio' || (t.sender.track === null))?.sender;
+    sender?.replaceTrack(track).catch(err => console.warn('[voice] replaceTrack falló:', err));
   }
 
   private async drainPendingCandidates(peerId: string, pc: RTCPeerConnection): Promise<void> {

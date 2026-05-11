@@ -9,6 +9,18 @@ app.setName('Cubo');
 // y el audio entrante de los compañeros nunca se reproduce.
 app.commandLine.appendSwitch('autoplay-policy', 'no-user-gesture-required');
 
+// Chromium ofusca las IPs locales en los ICE candidates con mDNS (`xxx.local`)
+// por privacidad. En la build empaquetada de Electron esos hostnames `.local`
+// suelen NO resolverse entre máquinas de la misma red → el handshake ICE falla
+// y nadie oye a nadie. Desactivar esta feature hace que se publiquen las IPs
+// reales de cada interfaz, restaurando el chat de voz P2P.
+app.commandLine.appendSwitch('disable-features', 'WebRtcHideLocalIpsWithMdns');
+
+// Permitir múltiples rutas de red para que el motor de ICE pruebe todas las
+// interfaces (WiFi + Ethernet + VPN), aumentando las probabilidades de cruzar
+// el NAT sin necesidad de TURN.
+app.commandLine.appendSwitch('force-webrtc-ip-handling-policy', 'default_public_and_private_interfaces');
+
 function createWindow() {
   const win = new BrowserWindow({
     width: 1280,
