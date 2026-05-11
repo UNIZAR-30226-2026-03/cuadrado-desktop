@@ -259,7 +259,7 @@ export class Profile implements OnInit {
     this.changePasswordForm.reset();
   }
 
-  submitChangePassword(): void {
+  async submitChangePassword(): Promise<void> {
     if (this.changePasswordForm.invalid) {
       this.changePasswordForm.markAllAsTouched();
       return;
@@ -269,18 +269,14 @@ export class Profile implements OnInit {
     this.changePasswordError = '';
 
     const { passwordActual, passwordNueva } = this.changePasswordForm.value;
-
-    this.auth.cambiarPassword(passwordActual, passwordNueva).subscribe({
-      next: () => {
-        this.changingPassword = false;
-        this.changePasswordMessage = 'Contraseña cambiada correctamente.';
-        setTimeout(() => this.closeChangePasswordPopup(), 1200);
-      },
-      error: () => {
-        this.changingPassword = false;
-        this.changePasswordError = 'No se pudo cambiar la contraseña.';
-      },
-    });
+    const ok = await this.auth.cambiarPassword(passwordActual, passwordNueva);
+    this.changingPassword = false;
+    if (ok) {
+      this.changePasswordMessage = 'Contraseña cambiada correctamente.';
+      setTimeout(() => this.closeChangePasswordPopup(), 1200);
+    } else {
+      this.changePasswordError = 'No se pudo cambiar la contraseña.';
+    }
   }
 
   private passwordsMatch(group: AbstractControl): ValidationErrors | null {
