@@ -246,11 +246,22 @@ export class VoiceChatService {
     if (!el) {
       el = new Audio();
       el.autoplay = true;
+      // Bug histórico de Chromium: un MediaStreamAudioSourceNode solo entrega
+      // datos si existe un HTMLMediaElement adjunto al DOM reproduciendo ese
+      // mismo stream. Además, en la build empaquetada de Electron los <audio>
+      // desligados del DOM no llegan a sonar. Por eso lo añadimos oculto.
+      el.setAttribute('playsinline', 'true');
+      el.style.display = 'none';
+      document.body.appendChild(el);
       this.remoteAudio.set(peerId, el);
     }
     el.srcObject = stream;
     el.volume = this.outputVolume() / 100;
     el.muted = this.mutedPeers().has(peerId);
+    // Forzamos play(): aunque autoplay esté permitido por el switch de Electron,
+    // si la política de autoplay rechaza el primer intento, capturamos el error
+    // sin romper el resto del flujo.
+    el.play().catch(() => { /* el usuario interactuará y se reanudará */ });
     this.setupRemoteAnalyser(peerId, stream);
     this.ensureDetectionRunning();
   }
@@ -259,7 +270,11 @@ export class VoiceChatService {
     this.peers.get(peerId)?.close();
     this.peers.delete(peerId);
     const el = this.remoteAudio.get(peerId);
-    if (el) { el.srcObject = null; this.remoteAudio.delete(peerId); }
+    if (el) {
+      el.srcObject = null;
+      el.remove();
+      this.remoteAudio.delete(peerId);
+    }
     this.remoteAnalysers.delete(peerId);
     this.speakingPeers.update(s => { const n = new Set(s); n.delete(peerId); return n; });
     this.selfMutedPeers.update(s => { const n = new Set(s); n.delete(peerId); return n; });
