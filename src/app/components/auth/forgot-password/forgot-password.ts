@@ -45,22 +45,15 @@ export class ForgotPasswordComponent {
     return p && c && p !== c ? { passwordsMismatch: true } : null;
   }
 
-  onSubmitEmail(): void {
+  async onSubmitEmail(): Promise<void> {
     if (this.emailForm.invalid) { this.emailForm.markAllAsTouched(); return; }
     this.cargando = true;
     this.error = '';
     this.emailEnviado = this.emailForm.value.email;
 
-    this.auth.recuperarPassword(this.emailEnviado).subscribe({
-      next: () => {
-        this.cargando = false;
-        this.paso = 'codigo';
-      },
-      error: () => {
-        this.cargando = false;
-        this.error = 'No se pudo enviar el correo. Verifica que el email esté registrado.';
-      },
-    });
+    const ok = await this.auth.recuperarPassword(this.emailEnviado);
+    this.cargando = false;
+    ok ? this.paso = 'codigo' : this.error = 'No se pudo enviar el correo. Verifica que el email esté registrado.';
   }
 
   async onSubmitReset(): Promise<void> {

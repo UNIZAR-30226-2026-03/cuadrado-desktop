@@ -166,11 +166,15 @@ export class AuthService {
   }
 
   // 4. RECUPERAR CONTRASEÑA — paso 1: enviar código al email
-  recuperarPassword(email: string) {
-    return this.http.post(
-      `${environment.apiUrl}/forgotten_passwd/notify`,
-      { email }
-    );
+  async recuperarPassword(email: string): Promise<boolean> {
+    try {
+      await firstValueFrom(
+        this.http.post(`${environment.apiUrl}/forgotten_passwd/notify`, { email })
+      );
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // 4b. RECUPERAR CONTRASEÑA — paso 2: validar código y cambiar contraseña
