@@ -652,7 +652,7 @@ export class WebsocketService {
 
   /** Poder 5: revela una carta aleatoria de cada jugador al solicitante. */
   verCartaTodos(gameId: string): void {
-    this.emit('game:ver-carta-todos', { idPartida: gameId });
+    this.emit('game:ver-carta-todos', { gameId });
   }
 
   /** Poder J: resolver decisión final tras ver carta propia + rival. */
