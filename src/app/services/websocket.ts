@@ -288,7 +288,7 @@ export interface EvIntercambioRival {
 // Carta revelada para todos (poder 5: espía rival con carta de cualquiera).
 export interface EvCartasReveladasTodos {
   gameId: string;
-  cartas: Array<{
+  cartasReveladas: Array<{
     jugadorId: string;
     indexCarta: number;
     carta: { carta: number; palo: string; puntos: number; protegida: boolean };

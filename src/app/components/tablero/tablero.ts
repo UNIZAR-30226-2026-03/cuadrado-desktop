@@ -586,7 +586,7 @@ export class Tablero implements OnInit, OnDestroy {
       }),
       // Poder 5: modal con cartas reveladas a todos.
       this.ws.cartasReveladasTodos$.subscribe((ev) => {
-        const cartas = ev.cartas
+        const cartas = (ev.cartasReveladas ?? [])
           .map(c => {
             const nombre = this.jugadores().find(j => j.id === c.jugadorId)?.nombre ?? c.jugadorId;
             return {
